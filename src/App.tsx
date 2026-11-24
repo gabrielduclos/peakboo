@@ -1,3 +1,4 @@
+import {ReplyReference,replySnapshot} from "./ReplyReference";
 import {SocialHub,ProfileEditor,PublicProfile,socialWords} from "./Social";
 import {InvitationTools} from "./InvitationTools";
 import {inviteLink} from "./links";
@@ -522,7 +523,7 @@ export default function App() {
     if(!selected)return;
     if(!file.size||file.size>10*1024*1024)throw Error('INVALID_INPUT');
     const id=crypto.randomUUID(),dimensions=await mediaDimensions(file);
-    const m:PendingMessage={id,roomId:selected,text:caption,replyTo:replying?.id,replyText:replying?.text,senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending',attachment:{id,name:file.name,mime:file.type||'application/octet-stream',size:file.size,...dimensions,url:URL.createObjectURL(file)}};
+    const m:PendingMessage={id,roomId:selected,text:caption,...replySnapshot(replying),senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending',attachment:{id,name:file.name,mime:file.type||'application/octet-stream',size:file.size,...dimensions,url:URL.createObjectURL(file)}};
     setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m,file);setText('');setReplying(null);void deliverPending(m);
   }
   async function sendLocation(lat:number,lon:number,caption:string){
@@ -539,7 +540,7 @@ export default function App() {
     const content=(retry?.text||text).trim(),roomId=retry?.roomId||selected;
     if(!content||!roomId)return;
     if(editing){try{await messageAction('edit-save',editing,content);setEditing(null);setText('')}catch(e){notify(errorText(e))}return;}
-    const m:PendingMessage={id:retry?.id||crypto.randomUUID(),roomId,text:content,replyTo:replying?.id,replyText:replying?.text,senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending'};
+    const m:PendingMessage={id:retry?.id||crypto.randomUUID(),roomId,text:content,...replySnapshot(replying),senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending'};
     setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m);setText('');setReplying(null);setFailed(null);setEmojiOpen(false);composerRef.current?.focus();void deliverPending(m);
   }
   function removeRoomLocally(id:string) {
@@ -741,6 +742,29 @@ export default function App() {
     } finally {
       setBusy(null);
     }
+  }
+  const [replyJump,setReplyJump]=useState<{room:string;id:string}|null>(null);
+  useEffect(()=>{
+    if(!replyJump||replyJump.room!==selected||loadingMessages||filterLoading)return;
+    const el=document.getElementById('message-'+replyJump.id);if(!el)return;
+    el.scrollIntoView({block:'center',behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+    chatScroll.onScroll();
+    el.classList.add('reply-highlight');
+    const timer=setTimeout(()=>{el.classList.remove('reply-highlight');setReplyJump(null)},1800);
+    return()=>{clearTimeout(timer);el.classList.remove('reply-highlight')};
+  },[replyJump,selected,currentMessages,loadingMessages,filterLoading]);
+  async function jumpToReply(id:string){
+    if(!selected)return;const roomId=selected;
+    try{
+      if(!rawMessages.some(m=>m.id===id)){
+        const data=await request('/api/rooms/'+roomId+'/messages?around='+encodeURIComponent(id));
+        if(selectedRef.current!==roomId)return;
+        if(!data.messages.some((m:Message)=>m.id===id)){notify(lang==='pt'?'Mensagem indisponível':'Message unavailable');return}
+        chatScroll.preserveOlder();
+        setMessages(old=>({...old,[roomId]:mergeMessages(old[roomId]||[],data.messages)}));
+      }
+      setChatFilter(emptyFilter);setChatQuery('');setReplyJump({room:roomId,id});
+    }catch(e){notify(errorText(e))}
   }
   async function loadOlder() {
     chatScroll.preserveOlder();
@@ -1651,7 +1675,7 @@ export default function App() {
                                   eventCard(p)
                                 ) : (
                                   <>{m.pinned&&<small className="pinned-label">📌 {lang==="pt"?'Fixada':'Pinned'}</small>}
-                                  {m.replyTo&&<blockquote className="reply-quote">↪ {m.replyText||rawMessages.find(x=>x.id===m.replyTo)?.text||(lang==="pt"?'Mensagem':'Message')}</blockquote>}
+                                  {m.replyTo&&!m.deleted&&<ReplyReference message={m} source={rawMessages.find(x=>x.id===m.replyTo)} ownId={boot.user.id} lang={lang} onJump={()=>{void jumpToReply(m.replyTo!)}}/>}
                                   <div className="message-bubble">{m.deleted?(lang==="pt"?'Mensagem removida':'Message removed'):<><MessageMedia attachment={m.attachment} lang={lang} onOpen={()=>setGalleryId(m.id)}/><MessageText text={m.text}/></>}</div>{m.editedAt&&<small>{lang==="pt"?"editada":"edited"}</small>}</>
                                 )}
                                 {m.pendingStatus&&<div className="pending-message" role="status">{m.pendingStatus==='sending'?<><LoaderCircle size={12} className="spin"/>{lang==='pt'?'Enviando…':'Sending…'}</>:<><span>{lang==='pt'?'Não enviada':'Not sent'}</span><button type="button" onClick={()=>void deliverPending(m as PendingMessage)}>{lang==='pt'?'Tentar novamente':'Retry'}</button></>}</div>}
@@ -1730,7 +1754,8 @@ export default function App() {
                     </div>
                   )}
                   <div className="composer-wrapper peakboo-composer">
-                    {(replying||editing)&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
+                    {replying&&!editing&&<ReplyReference message={replying} source={replying} ownId={boot.user.id} lang={lang} onCancel={()=>setReplying(null)}/>}
+                    {editing&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
                     {room.kind==='direct'&&room.canMessage===false?<div className="contact-required"><p>{lang==='pt'?'Adicione este contato e aguarde o aceite para voltar a conversar.':'Add this contact and wait for acceptance to resume messaging.'}</p><Button variant="outline" onClick={()=>boot.user.id?setContactsOpen(true):openModal("auth")}>{socialWords(lang).contacts}</Button></div>:<LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice />}
 
                   </div>
