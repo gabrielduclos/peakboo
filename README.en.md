@@ -43,11 +43,13 @@ Integration tests start disposable PostgreSQL and three fictional accounts. They
 
 ## Deployment
 
+Live application: [Peakboo](https://peakboo-api.onrender.com). The private review deployment at `peakboo-agenda.gabriel-axel.chatgpt.site` uses the same API. Invitations point to the public application; participants must sign in to access conversations.
+
 API: Render Free, build `npm ci --include=dev && npm run build`, start `npm start`. The API also serves the compiled frontend for same-origin hosting. Configure `DATABASE_URL`, `BETTER_AUTH_SECRET` (random, at least 32 characters), `BETTER_AUTH_URL` (external service URL), and `FRONTEND_ORIGINS` (comma-separated). Credentials stay on the server.
 
 Independent frontend: Cloudflare Worker with Static Assets using `wrangler.jsonc`. Build with `VITE_API_URL` set to the actual Render API origin, and add the frontend origin to `FRONTEND_ORIGINS`. Connect the repository to Workers Builds for automatic build and deployment. Separately hosted frontends use the official Better Auth Bearer plugin; tokens remain in the tab’s `sessionStorage`.
 
-`VITE_PREVIEW_ONLY=true npm run build` produces a demo review build that explains that registration and invitations have not been activated. It contains no credentials and does not connect sample records to the API. `.openai/hosting.json` identifies the private review preview.
+`VITE_PREVIEW_ONLY=true npm run build` produces a demo review build that explains that registration and invitations have not been activated. It contains no credentials and does not connect sample records to the API. The live deployment uses `VITE_PREVIEW_ONLY=false`. Private review hosting metadata is kept outside the public source copy.
 
 ## Architecture and current limits
 

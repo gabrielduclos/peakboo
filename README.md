@@ -43,11 +43,13 @@ O teste de integração inicia um PostgreSQL descartável e três contas fictíc
 
 ## Publicação
 
+Aplicativo ativo: [Peakboo](https://peakboo-api.onrender.com). A publicação privada de revisão em `peakboo-agenda.gabriel-axel.chatgpt.site` usa a mesma API; convites apontam para o aplicativo público, que exige a conta do participante para acessar conversas.
+
 API: Render, plano Free, build `npm ci --include=dev && npm run build`, início `npm start`. O servidor também fornece a interface compilada, permitindo usar uma única origem. Defina `DATABASE_URL`, `BETTER_AUTH_SECRET` (aleatório, pelo menos 32 caracteres), `BETTER_AUTH_URL` (URL externa do serviço) e `FRONTEND_ORIGINS` (origens separadas por vírgula). As credenciais ficam exclusivamente no servidor.
 
 Frontend independente: Cloudflare Worker com Static Assets usando `wrangler.jsonc`. No build, defina `VITE_API_URL` com a URL real da API no Render e adicione a origem do frontend em `FRONTEND_ORIGINS`. Conecte o repositório a Workers Builds para build e deploy automáticos. O frontend hospedado separadamente usa o plugin Bearer oficial do Better Auth; o token permanece no `sessionStorage` da aba.
 
-`VITE_PREVIEW_ONLY=true npm run build` gera uma prévia de demonstração que informa que cadastro e convites ainda não estão ativados. Não contém credenciais nem conecta dados de exemplo à API. A configuração `.openai/hosting.json` identifica a prévia privada de revisão.
+`VITE_PREVIEW_ONLY=true npm run build` gera uma prévia de demonstração que informa que cadastro e convites ainda não estão ativados. Não contém credenciais nem conecta dados de exemplo à API. A publicação ativa usa `VITE_PREVIEW_ONLY=false`. A configuração de hospedagem privada de revisão é mantida fora da cópia pública do código.
 
 ## Arquitetura e limites desta versão
 

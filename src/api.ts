@@ -1,6 +1,9 @@
 export const API =
   (import.meta as unknown as { env: { VITE_API_URL?: string } }).env
-    .VITE_API_URL || "";
+    .VITE_API_URL ||
+  (location.hostname === "peakboo-agenda.gabriel-axel.chatgpt.site"
+    ? "https://peakboo-api.onrender.com"
+    : "");
 export const PREVIEW_ONLY =
   (import.meta as unknown as { env: { VITE_PREVIEW_ONLY?: string } }).env
     .VITE_PREVIEW_ONLY === "true";
