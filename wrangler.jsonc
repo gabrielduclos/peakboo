@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "peakboo",
+  "name": "main",
+  "preview_urls": false,
   "compatibility_date": "2026-11-24",
   "assets": {
     "directory": "./dist",

@@ -1,7 +1,7 @@
 export const API =
   (import.meta as unknown as { env: { VITE_API_URL?: string } }).env
     .VITE_API_URL ||
-  (location.hostname === "peakboo-agenda.gabriel-axel.chatgpt.site"
+  (["peakboo-agenda.gabriel-axel.chatgpt.site", "main.peakboo.workers.dev"].includes(location.hostname)
     ? "https://peakboo-api.onrender.com"
     : "");
 export const PREVIEW_ONLY =

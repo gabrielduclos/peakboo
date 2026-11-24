@@ -43,7 +43,7 @@ O teste de integração inicia um PostgreSQL descartável e três contas fictíc
 
 ## Publicação
 
-Aplicativo ativo: [Peakboo](https://peakboo-api.onrender.com). A publicação privada de revisão em `peakboo-agenda.gabriel-axel.chatgpt.site` usa a mesma API; convites apontam para o aplicativo público, que exige a conta do participante para acessar conversas.
+Frontend no Cloudflare Workers (Worker `main`, build `npm run build`, deploy `npx wrangler deploy`): [Peakboo](https://main.peakboo.workers.dev). API no Render: `https://peakboo-api.onrender.com`. A origem `https://main.peakboo.workers.dev` deve constar em `FRONTEND_ORIGINS`. A URL da API é definida automaticamente para esse endereço e pode ser substituída por `VITE_API_URL` no build. A publicação privada de revisão em `peakboo-agenda.gabriel-axel.chatgpt.site` usa a mesma API; convites apontam para o aplicativo público, que exige a conta do participante para acessar conversas.
 
 API: Render, plano Free, build `npm ci --include=dev && npm run build`, início `npm start`. O servidor também fornece a interface compilada, permitindo usar uma única origem. Defina `DATABASE_URL`, `BETTER_AUTH_SECRET` (aleatório, pelo menos 32 caracteres), `BETTER_AUTH_URL` (URL externa do serviço) e `FRONTEND_ORIGINS` (origens separadas por vírgula). As credenciais ficam exclusivamente no servidor.
 
