@@ -1,3 +1,4 @@
+import UpcomingEventsBar from "../UpcomingEventsBar";
 import {
   useEffect,
   useRef,
@@ -1347,33 +1348,6 @@ export default function App() {
           </button>
         </nav>
         <div className="sidebar-spacer" />
-        <div className="sidebar-note">
-          <div className="note-art">
-            <MessageCircle size={34} />
-            <span className="sparkle one">✦</span>
-            <span className="sparkle two">✧</span>
-            <CalendarDays size={26} />
-          </div>
-          <strong>
-            {lang === "pt"
-              ? "Um oi pode virar um encontro."
-              : "A hello can become a meetup."}
-          </strong>
-          <p>
-            {lang === "pt"
-              ? "As melhores coisas começam com uma conversa."
-              : "The best things start with a conversation."}
-          </p>
-          <button
-            onClick={() => {
-              setNewTab("create");
-              openModal("new");
-            }}
-          >
-            {t("newConversation")}
-            <Plus size={15} />
-          </button>
-        </div>
         <div className="sidebar-bottom">
           <button className="nav-item" onClick={() => openModal("settings")}>
             <Settings size={19} />
@@ -1678,20 +1652,12 @@ export default function App() {
                       />
                     </div>
                   )}
-                  <div className="chat-context">
-                    <span className="context-icon">
-                      <CalendarDays size={15} />
-                    </span>
-                    <span>
-                      {lang === "pt"
-                        ? "Bons planos merecem sair da conversa."
-                        : "Good plans deserve more than a message."}
-                    </span>
-                    <button onClick={() => openEvent()}>
-                      {t("newEvent")}
-                      <Plus size={13} />
-                    </button>
-                  </div>
+                  <UpcomingEventsBar
+                    events={boot.events}
+                    roomId={room.id}
+                    lang={lang}
+                    onSelect={openDetail}
+                  />
                   <div
                     className="chat-history"
                     role="log"
