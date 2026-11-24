@@ -975,7 +975,7 @@ export default function App() {
     return (
       <section className="calendar-page">
         <div className="calendar-actions conversation-title">
-          <h1>{t("calendar")}<span className="title-dot">.</span></h1>
+          <h1>{t("calendar")}</h1>
           <Button onClick={() => openEvent()}>
             <Plus size={17} />
             {t("newEvent")}
@@ -1362,7 +1362,6 @@ export default function App() {
               <div className="conversation-title">
                 <h1>
                   {t("conversations")}
-                  <span className="title-dot">.</span>
                 </h1>
                 <button
                   className="icon-button new-chat"
