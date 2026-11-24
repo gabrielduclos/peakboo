@@ -87,3 +87,15 @@ O build incorpora o CSS inicial no HTML nas duas versões. Isso evita que uma fa
 
 
 No mobile, o cabeçalho mostra a marca PeakBoo e as configurações ficam na navegação inferior. Arraste uma mensagem para a direita para responder; rolagem vertical, pinça e controles de mídia continuam independentes. O criador pode abrir a foto do grupo e escolher **Excluir grupo**. A confirmação explica que a exclusão é definitiva para todos e remove mensagens, anexos e compromissos. `DELETE /api/rooms/:room` verifica a autoria no servidor, exclui em uma transação e avisa os participantes pelo SSE. Não há migração adicional; as relações existentes removem os dados dependentes.
+
+### Perfis públicos e contatos
+
+Em **Contatos**, use as abas **Contatos**, **Encontrar pessoas** e **Meu perfil**. O perfil tem nome, `@usuário` único (3–32 caracteres, iniciando por letra), biografia de até 500 caracteres, foto e capa com recorte. O nome de usuário pode mudar a cada 15 dias. Contas existentes ficam privadas até o proprietário configurar e publicar o perfil. A página `/@usuario` funciona sem login e não expõe e-mail, sessão ou dados de autenticação. Fotos e capas públicas só são servidas enquanto forem as imagens atuais de um perfil público.
+
+Um pedido pode ser enviado, cancelado, aceito ou recusado. Apenas o destinatário aceita; pedidos cruzados não aceitam automaticamente. Depois do aceite, **Conversar** abre uma conversa 1:1 persistente. Remover o contato suspende novos envios, preservando o histórico. Grupos continuam independentes dos contatos; suas conversas e participantes não são expostos na página pública.
+
+O convite de um grupo pode ser copiado, enviado por uma conversa 1:1 com um contato aceito ou mostrado em QR Code num modal. O QR é gerado localmente. `VITE_APP_URL` define a origem do aplicativo; o padrão é `https://main.peakboo.workers.dev`, sem usar a origem da API. O destinatário precisa entrar ou criar conta para usar o convite. A demo continua local e isolada: perfis, contatos, convites ilustrativos e mensagens da demo nunca criam registros na API real.
+
+A adaptação independente usa como referência os módulos `UserProfiles`, `ContactToggleButton` e `ProfilePhotoCropper` do Uorqui (`58e5c199cbf0731bdafaa95ed4bff959ddb559e3`). Não importa contas nem compartilha banco ou serviços com o Uorqui. A migração aditiva `004_profiles_contacts` é executada no início da API e testada em PostgreSQL descartável.
+
+Endpoints principais: `GET /api/public/profiles/:handle`, `GET /api/me/profile`, `PUT /api/me/profile`, `GET /api/profiles/search?q=`, `GET /api/contacts`, `POST /api/contacts/requests`, `POST /api/contacts/:user/accept`, `DELETE /api/contacts/:user` e `POST /api/contacts/:user/conversation`. Mídias privadas continuam exigindo autorização; somente os endpoints de perfil e mídia explicitamente públicos dispensam login.

@@ -31,7 +31,7 @@ export async function cachedMedia(src:string){
  const current=pending.get(key);if(current)return current;
  const g=generation;
  const task=(async()=>{
- const b=src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/media\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');return r.blob()})();
+ const b=src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/(?:media|public-media)\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');return r.blob()})();
  if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
  const old=cache.get(key);if(old){old.checked=Date.now();old.used=Date.now();return old.url;}const url=URL.createObjectURL(b);cache.set(key,{url,size:b.size,checked:Date.now(),used:Date.now()});trimCache();return url;
  })().finally(()=>{if(pending.get(key)===task)pending.delete(key)});pending.set(key,task);return task;
@@ -64,4 +64,4 @@ export function MessageMedia({attachment,lang='pt',onOpen}:{attachment?:{id:stri
  </div>;
 }
 
-export function MessageText({text}:{text:string}){return <>{text.split(/(https:\/\/www\.openstreetmap\.org\/[^\s]+)/g).map((part,i)=>part.startsWith('https://www.openstreetmap.org/')?<a key={i} href={part} target="_blank" rel="noreferrer">📍 OpenStreetMap</a>:part)}</>;}
+export function MessageText({text}:{text:string}){return <>{text.split(/(https?:\/\/[^\s]+)/g).map((part,i)=>/^https?:\/\//.test(part)?<a key={i} href={part} target="_blank" rel="noopener noreferrer" className="message-link">{part}</a>:part)}</>;}

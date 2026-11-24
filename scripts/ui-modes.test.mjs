@@ -133,4 +133,50 @@ try{
  }finally{await act(async()=>root.unmount())}
  });
 
+
+ await test('contacts demo accepts requests, discovers people and starts 1:1 without touching the API',async()=>{
+ localStorage.removeItem('peakboo-demo-v1');localStorage.removeItem('peakboo-social-demo-v1:me');let calls=0;globalThis.fetch=async()=>{calls++;throw Error('Unexpected network')};
+ const root=await mount('src/portfolio/PortfolioApp.tsx');try{
+ assert.ok(!document.querySelector('.chat-header-title').textContent.includes('Agenda compartilhada'));
+ const contactsButton=[...document.querySelectorAll('.mobile-nav button')].find(b=>b.textContent==='Contatos');assert.ok(contactsButton);await act(async()=>contactsButton.click());
+ const hub=()=>document.querySelector('.social-hub');assert.ok(hub().textContent.includes('Ana Costa'));assert.ok(hub().textContent.includes('Bruno Lima'));
+ const accept=[...hub().querySelectorAll('button')].find(b=>b.textContent==='Aceitar');await act(async()=>accept.click());assert.ok(!hub().textContent.includes('Solicitações recebidas'));assert.equal(hub().querySelectorAll('.contact-actions .button.primary').length,2);
+ await act(async()=>[...hub().querySelectorAll('[role=tab]')].find(b=>b.textContent==='Encontrar pessoas').click());
+ const input=hub().querySelector('input');await act(async()=>{const setter=Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set;setter.call(input,'Clara');input.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,0))});await act(async()=>new Promise(r=>setTimeout(r,350)));
+ assert.ok(hub().textContent.includes('Clara Alves'));await act(async()=>[...hub().querySelectorAll('button')].find(b=>b.textContent==='Adicionar contato').click());assert.ok(hub().textContent.includes('Cancelar pedido'));await act(async()=>[...hub().querySelectorAll('button')].find(b=>b.textContent==='Cancelar pedido').click());
+ await act(async()=>[...hub().querySelectorAll('[role=tab]')].find(b=>b.textContent==='Contatos').click());
+ await act(async()=>[...hub().querySelectorAll('button')].find(b=>b.textContent==='Conversar').click());assert.equal(document.querySelector('.social-hub'),null);assert.ok(['Ana Costa','Bruno Lima'].includes(document.querySelector('.chat-header h2').textContent));assert.ok(document.querySelector('[data-live-message-composer]'));assert.equal(calls,0);
+ }finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1');localStorage.removeItem('peakboo-social-demo-v1:me')}
+ });
+
+ await test('invitations generate a local QR for the canonical app and retry direct sends with the same ID',async()=>{
+ const fixture=dir+'/invite-tools.tsx';await writeFile(fixture,`import {useState} from 'react';import {InvitationTools} from '../src/InvitationTools';export default function Fixture(){const [calls,setCalls]=useState<string[]>([]);return <><InvitationTools url="https://main.peakboo.workers.dev/#invite=sample" name="Friends" lang="pt" api={{contacts:async()=>[{id:'friend',name:'Friend',handle:'friend',relationship:'accepted'}]} as any} onSend={async(p,text,id)=>{setCalls(old=>[...old,id]);if(!calls.length)throw Error('offline')}}/><output>{calls.join(',')}</output></>}`);
+ const root=await mount(fixture);try{
+ await act(async()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='Mostrar QR Code').click());await act(async()=>new Promise(r=>setTimeout(r,0)));
+ const img=document.querySelector('.invite-qr img');assert.ok(img);const {default:QRCode}=await import('qrcode');const expected=await QRCode.toString('https://main.peakboo.workers.dev/#invite=sample',{type:'svg',margin:4,errorCorrectionLevel:'M'});assert.equal(decodeURIComponent(img.getAttribute('src').split(',').slice(1).join(',')),expected);
+ await act(async()=>document.querySelector('[role=dialog] [aria-label=Fechar]').click());await act(async()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='Enviar por mensagem').click());
+ await act(async()=>[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Enviar convite').click());assert.ok(document.querySelector('[role=alert]'));
+ await act(async()=>[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Enviar convite').click());const ids=document.querySelector('output').textContent.split(',');assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);assert.ok(document.querySelector('[role=dialog]').textContent.includes('Enviado'));
+ }finally{await act(async()=>root.unmount())}
+ });
+
+ await test('public profiles can open anonymously and never require a demo login',async()=>{
+ sessionStorage.removeItem('peakboo-session');history.replaceState(null,'','/@alice');let paths=[];globalThis.fetch=async url=>{paths.push(String(url));return new Response(JSON.stringify({profile:{id:'alice-id',name:'Alice Public',handle:'alice',bio:'Public biography'}}),{headers:{'Content-Type':'application/json'}})};
+ const root=await mount('src/App.tsx');try{assert.ok(document.querySelector('.public-profile-page'));assert.ok(document.body.textContent.includes('Public biography'));assert.equal(document.querySelector('input[type=password]'),null);assert.equal(paths.length,1);assert.ok(paths[0].endsWith('/api/public/profiles/alice'));assert.ok([...document.querySelectorAll('button')].some(b=>b.textContent==='Entrar no PeakBoo'))}finally{await act(async()=>root.unmount());history.replaceState(null,'','/')}
+ });
+
+ await test('native touch reply survives Safari pointer cancellation and keeps scrolling and pinch available',async()=>{
+ const fixture=dir+'/touch-reply.tsx';await writeFile(fixture,`import {useState} from 'react';import {SwipeReply} from '../src/SwipeReply';export default function Fixture(){const [n,setN]=useState(0);return <><SwipeReply id="native-swipe" onReply={()=>setN(x=>x+1)}><span>Message</span></SwipeReply><output>{n}</output></>}`);
+ const root=await mount(fixture);try{
+ const row=document.getElementById('native-swipe');const touch=(x,y,id=1)=>({identifier:id,clientX:x,clientY:y});
+ const fire=async(type,touches,changedTouches=touches)=>{const event=new dom.window.TouchEvent(type,{bubbles:true,cancelable:true,touches,changedTouches});await act(async()=>row.dispatchEvent(event));return event};
+ await fire('touchstart',[touch(100,100)]);const move=await fire('touchmove',[touch(125,105)]);assert.equal(move.defaultPrevented,true);
+ await act(async()=>row.dispatchEvent(new dom.window.PointerEvent('pointercancel',{pointerId:1,pointerType:'touch',isPrimary:true,bubbles:true})));assert.ok(row.className.includes('swiping'));
+ await fire('touchmove',[touch(158,108)]);assert.ok(row.querySelector('.ready'));await fire('touchend',[],[touch(158,108)]);assert.equal(document.querySelector('output').textContent,'1');
+ await fire('touchstart',[touch(100,100)]);const scroll=await fire('touchmove',[touch(105,140)]);assert.equal(scroll.defaultPrevented,false);await fire('touchend',[],[touch(160,170)]);assert.equal(document.querySelector('output').textContent,'1');
+ await fire('touchstart',[touch(100,100)]);await fire('touchmove',[touch(160,100)]);const pinch=await fire('touchstart',[touch(160,100),touch(200,100,2)]);assert.equal(pinch.defaultPrevented,false);await fire('touchend',[],[touch(180,100)]);assert.equal(document.querySelector('output').textContent,'1');
+ await fire('touchstart',[touch(100,100)]);await fire('touchmove',[touch(160,100)]);await fire('touchcancel',[],[touch(160,100)]);assert.equal(document.querySelector('output').textContent,'1');
+ }finally{await act(async()=>root.unmount())}
+ });
+
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}

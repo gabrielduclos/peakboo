@@ -87,3 +87,15 @@ Both builds embed initial CSS inside HTML so a stylesheet loading failure or sta
 
 
 On mobile, the header shows the PeakBoo brand and settings remain in the bottom navigation. Swipe a message right to reply; vertical scrolling, pinch zoom and media controls remain independent. The creator can open the group photo and choose **Delete group**. Confirmation explains that deletion is permanent for everyone and removes messages, attachments and events. `DELETE /api/rooms/:room` enforces ownership on the server, deletes atomically and notifies participants through SSE. No additional migration is required; existing relationships remove dependent data.
+
+### Public profiles and accepted contacts
+
+**Contacts** contains **Contacts**, **Find people** and **My profile** tabs. Profiles include a name, unique `@username` (3–32 characters, starting with a letter), a bio of up to 500 characters, and cropped avatar/cover uploads. Usernames can change every 15 days. Existing accounts stay private until their owner configures and publishes the profile. The `/@username` page works without signing in and never exposes email, sessions or authentication data. Public photos and covers are served only while they remain the current images of a public profile.
+
+Contact requests can be sent, cancelled, accepted or declined. Only the recipient can accept; crossed requests never silently accept each other. After acceptance, **Message** opens a persistent 1:1 conversation. Removing a contact pauses new sends while preserving existing history. Group membership remains independent of contacts; public profiles never expose private conversations or participants.
+
+Group invitations can be copied, sent through a direct conversation with an accepted contact, or displayed as a locally generated QR code in a modal. `VITE_APP_URL` controls the canonical application origin, defaulting to `https://main.peakboo.workers.dev`, independently of the API origin. Recipients must sign in or create an account to join. The portfolio demo remains local and isolated: demo profiles, contacts, illustrative invitations and messages never create real API records.
+
+This independent adaptation references Uorqui's `UserProfiles`, `ContactToggleButton` and `ProfilePhotoCropper` modules at `58e5c199cbf0731bdafaa95ed4bff959ddb559e3`. It does not import accounts or share databases/services with Uorqui. Additive migration `004_profiles_contacts` runs at API startup and is verified against disposable PostgreSQL.
+
+Main endpoints: `GET /api/public/profiles/:handle`, `GET /api/me/profile`, `PUT /api/me/profile`, `GET /api/profiles/search?q=`, `GET /api/contacts`, `POST /api/contacts/requests`, `POST /api/contacts/:user/accept`, `DELETE /api/contacts/:user` and `POST /api/contacts/:user/conversation`. Private media still requires authorization; only explicitly public profile/media endpoints allow anonymous access.
