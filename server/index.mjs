@@ -50,7 +50,7 @@ app.use(
 );
 publicSocial(app,pool);
 const live = new Map();
-function notifyUsers(ids){for(const id of ids)for(const response of live.get(id)||[])response.write('data: {"contactsChanged":true}\n\n');}
+function notifyUsers(ids){for(const id of ids)for(const response of live.get(id)||[])response.write('data: {"profileChanged":true}\n\n');}
 const jsonError = (res, status, error) => res.status(status).json({ error });
 app.use("/api", async (req, res, next) => {
   try {
@@ -78,15 +78,11 @@ async function member(req, res, next) {
     )
       return jsonError(res, 404, "NOT_FOUND");
     const r = await pool.query(
-      "SELECT r.*, m.user_id FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=$1 AND m.user_id=$2",
+      "SELECT r.*, m.user_id FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=$1 AND m.user_id=$2 AND r.kind='group'",
       [req.params.room, req.user.id],
     );
     if (!r.rowCount) return jsonError(res, 404, "NOT_FOUND");
     req.room = r.rows[0];
-    if(req.room.kind==='direct' && req.method!=='GET' && !req.path.endsWith('/read')) {
-      const contact=await pool.query("SELECT 1 FROM contacts WHERE user_a=$1 AND user_b=$2 AND status='accepted'",[req.room.direct_a,req.room.direct_b]);
-      if(!contact.rowCount)return jsonError(res,403,'CONTACT_REQUIRED');
-    }
     next();
   } catch (e) {
     next(e);
@@ -131,13 +127,13 @@ app.get("/api/live", (req, res) => {
 app.get("/api/bootstrap", async (req, res) => {
   const rooms = (
     await pool.query(
-      `SELECT r.id,r.kind,CASE WHEN r.kind='direct' THEN (SELECT name FROM "user" WHERE id=CASE WHEN r.direct_a=$1 THEN r.direct_b ELSE r.direct_a END) ELSE r.name END AS name,r.description,r.color,CASE WHEN r.kind='direct' THEN (SELECT image FROM "user" WHERE id=CASE WHEN r.direct_a=$1 THEN r.direct_b ELSE r.direct_a END) ELSE r.image END AS image,CASE WHEN r.kind='direct' THEN CASE WHEN r.direct_a=$1 THEN r.direct_b ELSE r.direct_a END ELSE NULL END AS "peerId",CASE WHEN r.kind='direct' THEN (SELECT handle FROM profiles WHERE user_id=CASE WHEN r.direct_a=$1 THEN r.direct_b ELSE r.direct_a END) ELSE NULL END AS "peerHandle",(r.kind='group' OR EXISTS(SELECT 1 FROM contacts WHERE user_a=r.direct_a AND user_b=r.direct_b AND status='accepted')) AS "canMessage",r.owner_id AS "ownerId",CASE WHEN r.kind='group' THEN r.invite_code ELSE NULL END AS "inviteCode",(SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",(SELECT text FROM messages WHERE room_id=r.id ORDER BY created_at DESC LIMIT 1) AS "lastText",(SELECT max(created_at) FROM messages WHERE room_id=r.id) AS "lastAt",(SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND sender_id<>$1) AS unread FROM rooms r JOIN members m ON m.room_id=r.id WHERE m.user_id=$1 ORDER BY coalesce((SELECT max(created_at) FROM messages WHERE room_id=r.id),r.created_at) DESC LIMIT 100`,
+      `SELECT r.id,r.kind,r.name,r.description,r.color,r.image,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",(SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",(SELECT text FROM messages WHERE room_id=r.id ORDER BY created_at DESC LIMIT 1) AS "lastText",(SELECT max(created_at) FROM messages WHERE room_id=r.id) AS "lastAt",(SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND sender_id<>$1) AS unread FROM rooms r JOIN members m ON m.room_id=r.id WHERE m.user_id=$1 AND r.kind='group' ORDER BY coalesce((SELECT max(created_at) FROM messages WHERE room_id=r.id),r.created_at) DESC LIMIT 100`,
       [req.user.id],
     )
   ).rows;
   const events = (
     await pool.query(
-      `SELECT e.id,e.room_id AS "roomId",e.creator_id AS "creatorId",e.title,e.description,e.location,e.starts_at AS "startsAt",e.ends_at AS "endsAt",e.color,e.cancelled,r.name AS "roomName",COALESCE((SELECT json_agg(json_build_object('userId',v.user_id,'name',u.name,'status',v.status)) FROM rsvps v JOIN "user" u ON u.id=v.user_id WHERE v.event_id=e.id),'[]') AS rsvps FROM events e JOIN rooms r ON r.id=e.room_id JOIN members m ON m.room_id=e.room_id WHERE m.user_id=$1 AND e.starts_at>now()-interval '1 year' AND e.starts_at<now()+interval '2 years' ORDER BY e.starts_at LIMIT 1000`,
+      `SELECT e.id,e.room_id AS "roomId",e.creator_id AS "creatorId",e.title,e.description,e.location,e.starts_at AS "startsAt",e.ends_at AS "endsAt",e.color,e.cancelled,r.name AS "roomName",COALESCE((SELECT json_agg(json_build_object('userId',v.user_id,'name',u.name,'status',v.status)) FROM rsvps v JOIN "user" u ON u.id=v.user_id WHERE v.event_id=e.id),'[]') AS rsvps FROM events e JOIN rooms r ON r.id=e.room_id JOIN members m ON m.room_id=e.room_id WHERE m.user_id=$1 AND r.kind='group' AND e.starts_at>now()-interval '1 year' AND e.starts_at<now()+interval '2 years' ORDER BY e.starts_at LIMIT 1000`,
       [req.user.id],
     )
   ).rows;
@@ -177,7 +173,7 @@ app.post("/api/rooms", async (req, res) => {
 });
 // Delete atomically and notify the former participants after the commit.
 app.delete("/api/rooms/:room", member, async (req, res) => {
-  if (req.room.kind==='direct'||req.room.owner_id !== req.user.id) return jsonError(res, 403, "FORBIDDEN");
+  if (req.room.owner_id !== req.user.id) return jsonError(res, 403, "FORBIDDEN");
   const c = await pool.connect();
   let participants = [];
   try {
@@ -444,7 +440,7 @@ app.post("/api/rooms/:room/photo",member,(req,res,next)=>req.room.kind==='group'
 app.post("/api/rooms/:room/files",member,mediaBody,(req,res)=>saveMedia(req,res,req.params.room,false));
 app.get("/api/media/:id",async(req,res)=>{
  if(!/^[a-f0-9-]{36}$/i.test(req.params.id))return jsonError(res,404,"NOT_FOUND");
- const r=await pool.query(`SELECT a.* FROM media a WHERE a.id=$1 AND (a.owner_id=$2 OR EXISTS(SELECT 1 FROM members m WHERE m.room_id=a.room_id AND m.user_id=$2) OR (a.room_id IS NULL AND (EXISTS(SELECT 1 FROM profiles p JOIN "user" u ON u.id=p.user_id WHERE p.user_id=a.owner_id AND (u.image='/api/media/'||a.id::text OR p.cover='/api/media/'||a.id::text) AND (p.is_public OR EXISTS(SELECT 1 FROM contacts c WHERE c.user_a=LEAST(a.owner_id COLLATE "C",$2 COLLATE "C") AND c.user_b=GREATEST(a.owner_id COLLATE "C",$2 COLLATE "C") AND c.status='accepted'))) OR EXISTS(SELECT 1 FROM members me JOIN members peer ON peer.room_id=me.room_id WHERE me.user_id=$2 AND peer.user_id=a.owner_id))))`,[req.params.id,req.user.id]);
+ const r=await pool.query(`SELECT a.* FROM media a WHERE a.id=$1 AND ((a.room_id IS NOT NULL AND EXISTS(SELECT 1 FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=a.room_id AND r.kind='group' AND m.user_id=$2)) OR (a.room_id IS NULL AND (a.owner_id=$2 OR EXISTS(SELECT 1 FROM profiles p JOIN "user" u ON u.id=p.user_id WHERE p.user_id=a.owner_id AND (u.image='/api/media/'||a.id::text OR p.cover='/api/media/'||a.id::text) AND p.is_public) OR EXISTS(SELECT 1 FROM members me JOIN members peer ON peer.room_id=me.room_id JOIN rooms r ON r.id=me.room_id WHERE r.kind='group' AND me.user_id=$2 AND peer.user_id=a.owner_id))))`,[req.params.id,req.user.id]);
  if(!r.rowCount)return jsonError(res,404,"NOT_FOUND");
  const a=r.rows[0];res.set({"Content-Type":a.mime,"Content-Disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(a.name),"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}).send(a.bytes);
 });
