@@ -441,9 +441,7 @@ try {
   const privateProfile=await call('/api/public/profiles/charlie');
   check('private profiles cannot be read anonymously',()=>assert.equal(privateProfile.status,404));
   const searchPeople=await call('/api/profiles/search?q=Public',bob.token);
-  check('search excludes self and private users without leaking email',()=>{assert.deepEqual(searchPeople.data.profiles.map(p=>p.handle),['alice']);assert.ok(!JSON.stringify(searchPeople.data).includes('peakboo-test.invalid'))});
-  const wildcard=await call('/api/profiles/search?q=%25%25',bob.token);
-  check('discovery escapes wildcard searches',()=>assert.equal(wildcard.data.profiles.length,0));
+  check('people discovery is unavailable',()=>assert.equal(searchPeople.status,404));
   const reserved=await call('/api/me/profile',charlie.token,'PUT',makeProfile('admin','Charlie'));
   check('reserved handles are rejected',()=>assert.equal(reserved.status,400));
   const taken=await call('/api/me/profile',charlie.token,'PUT',makeProfile('alice','Charlie'));

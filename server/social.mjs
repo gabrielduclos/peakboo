@@ -1,4 +1,4 @@
-// Adapted from Uorqui profiles and friendship flows. PeakBoo owns its data and API.
+// Profile support; PeakBoo owns its data and API.
 import { z } from "zod";
 const reserved = new Set([
   "admin",
@@ -126,22 +126,5 @@ export function privateSocial(app, pool, notify) {
     }
     notify([req.user.id]);
     res.json({ ok: true });
-  });
-  app.get("/api/profiles/search", async (req, res) => {
-    const q = String(req.query.q || "")
-      .trim()
-      .replace(/^@/, "");
-    if (q.length < 2 || q.length > 40) return fail(res, 400, "INVALID_INPUT");
-    const pattern = "%" + q.replace(/[\\%_]/g, "\\$&") + "%";
-    res
-      .set("Cache-Control", "no-store")
-      .json({
-        profiles: (
-          await pool.query(
-            `SELECT ${fields} FROM profiles p JOIN "user" u ON u.id=p.user_id WHERE p.is_public AND u.id<>$1 AND (p.handle ILIKE $2 OR u.name ILIKE $2) ORDER BY p.handle LIMIT 15`,
-            [req.user.id, pattern],
-          )
-        ).rows,
-      });
   });
 }

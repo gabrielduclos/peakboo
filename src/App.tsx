@@ -257,6 +257,9 @@ export default function App() {
   }, []);
   const refresh = useCallback(async () => {
     const data: Boot = await request("/api/bootstrap");
+    data.rooms=data.rooms.filter(r=>r.kind!=='direct');
+    const groupIds=new Set(data.rooms.map(r=>r.id));
+    data.events=data.events.filter(e=>groupIds.has(e.roomId));
     if (signedOutRef.current) return;
     pruneRoomPins(data.user.id,data.rooms.map(r=>r.id));
     setMessages(old=>Object.fromEntries(Object.entries(old).filter(([id])=>data.rooms.some(r=>r.id===id))));
@@ -319,8 +322,7 @@ export default function App() {
       controller: AbortController | null = null,
       reconnect: ReturnType<typeof setTimeout> | null = null;
     let delay = 1000;
-    const sync = (event?:{deletedRoomId?:string;contactsChanged?:boolean}) => {
-      if(event?.contactsChanged)window.dispatchEvent(new Event("peakboo:social"));
+    const sync = (event?:{deletedRoomId?:string;profileChanged?:boolean}) => {
       if(event?.deletedRoomId) removeRoomLocally(event.deletedRoomId);
       setPinnedRevision(value=>value+1);
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -1520,7 +1522,7 @@ export default function App() {
                     >
                       <ArrowLeft size={21} />
                     </button>
-                    <button type="button" className="chat-photo-button" aria-label={lang==="pt"?"Foto da conversa":"Conversation photo"} onClick={()=>openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
+                    <button type="button" className="chat-photo-button" aria-label={lang==="pt"?"Foto do grupo":"Group photo"} onClick={()=>openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
                     <div className="chat-header-title">
                       <h2>{room.name}</h2>
                       <button onClick={showMembers}>
@@ -2188,7 +2190,7 @@ export default function App() {
         closeLabel={t("close")}
       >
         <div className="invite-preview">
-          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room&&room.ownerId===boot.user.id&&<label className="button outline photo-picker room-photo-picker">{lang==="pt"?"Foto da conversa":"Conversation photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
+          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room&&room.ownerId===boot.user.id&&<label className="button outline photo-picker room-photo-picker">{lang==="pt"?"Foto do grupo":"Group photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
           <h3>{room?.name}</h3>
           <p>
             {room?.memberCount} {t("members")}

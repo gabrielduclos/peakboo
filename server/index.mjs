@@ -50,7 +50,7 @@ app.use(
 );
 publicSocial(app,pool);
 const live = new Map();
-function notifyUsers(ids){for(const id of ids)for(const response of live.get(id)||[])response.write('data: {"contactsChanged":true}\n\n');}
+function notifyUsers(ids){for(const id of ids)for(const response of live.get(id)||[])response.write('data: {"profileChanged":true}\n\n');}
 const jsonError = (res, status, error) => res.status(status).json({ error });
 app.use("/api", async (req, res, next) => {
   try {

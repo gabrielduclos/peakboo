@@ -44,7 +44,7 @@ async function performRequest(path: string, method: string, data?: unknown) {
 }
 export async function watchChanges(
   signal: AbortSignal,
-  onChange: (event?: { roomId?: string; contactsChanged?: boolean; deletedRoomId?: string }) => void,
+  onChange: (event?: { roomId?: string; profileChanged?: boolean; deletedRoomId?: string }) => void,
   onStatus: (connected: boolean) => void,
 ) {
   const res = await fetch(API + "/api/live", {

@@ -1,12 +1,9 @@
-// Profile presentation and request states adapted from Uorqui UserProfiles/ContactToggleButton.
+// Profile presentation adapted from Uorqui.
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Camera,
   Copy,
-  MessageCircle,
-  Search,
-  UserPlus,
 } from "lucide-react";
 import { Avatar, Button, Logo, Modal } from "./components";
 import { useMedia } from "./Media";
@@ -15,21 +12,8 @@ import { ProfilePhotoCropper } from "./ProfilePhotoCropper";
 import type { Profile, SocialAPI } from "./socialApi";
 const words = {
   pt: {
-    contacts: "Contatos",
-    find: "Encontrar pessoas",
     me: "Meu perfil",
-    search: "Nome ou @usuário",
-    empty: "Nenhum contato por aqui ainda.",
-    noResults: "Nenhum perfil público encontrado.",
-    received: "Solicitações recebidas",
-    sent: "Solicitações enviadas",
-    accepted: "Seus contatos",
-    add: "Adicionar contato",
-    accept: "Aceitar",
-    decline: "Recusar",
     cancel: "Cancelar pedido",
-    remove: "Remover contato",
-    message: "Conversar",
     save: "Salvar perfil",
     saved: "Perfil salvo.",
     name: "Nome",
@@ -37,7 +21,7 @@ const words = {
     bio: "Biografia",
     public: "Perfil público",
     publicHint:
-      "Seu nome, foto, capa e biografia poderão ser vistos por qualquer pessoa com o link e encontrados na busca.",
+      "Seu nome, foto, capa e biografia poderão ser vistos por qualquer pessoa com o link.",
     photo: "Alterar foto",
     cover: "Alterar capa",
     copy: "Copiar link do perfil",
@@ -50,28 +34,11 @@ const words = {
     back: "Voltar",
     login: "Entrar no PeakBoo",
     unavailable: "Perfil não encontrado ou privado.",
-    signIn: "Entre para adicionar este contato.",
-    view: "Ver perfil",
     close: "Fechar",
-    confirmRemove:
-      "Remover este contato? O envio de mensagens ficará suspenso até um novo aceite.",
   },
   en: {
-    contacts: "Contacts",
-    find: "Find people",
     me: "My profile",
-    search: "Name or @username",
-    empty: "No contacts here yet.",
-    noResults: "No public profiles found.",
-    received: "Received requests",
-    sent: "Sent requests",
-    accepted: "Your contacts",
-    add: "Add contact",
-    accept: "Accept",
-    decline: "Decline",
     cancel: "Cancel request",
-    remove: "Remove contact",
-    message: "Message",
     save: "Save profile",
     saved: "Profile saved.",
     name: "Name",
@@ -79,7 +46,7 @@ const words = {
     bio: "Bio",
     public: "Public profile",
     publicHint:
-      "Anyone with the link can see your name, photo, cover and bio, and find you in search.",
+      "Anyone with the link can see your name, photo, cover and bio.",
     photo: "Change photo",
     cover: "Change cover",
     copy: "Copy profile link",
@@ -92,11 +59,7 @@ const words = {
     back: "Back",
     login: "Sign in to PeakBoo",
     unavailable: "Profile not found or private.",
-    signIn: "Sign in to add this contact.",
-    view: "View profile",
     close: "Close",
-    confirmRemove:
-      "Remove this contact? Sending messages will pause until a new request is accepted.",
   },
 };
 export const socialWords = (lang: string) => words[lang === "pt" ? "pt" : "en"];
