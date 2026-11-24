@@ -1,8 +1,7 @@
 import {ReplyReference,replySnapshot} from "./ReplyReference";
-import {SocialHub,ProfileEditor,PublicProfile,socialWords} from "./Social";
+import {ProfileEditor,PublicProfile} from "./Social";
 import {InvitationTools} from "./InvitationTools";
 import {inviteLink} from "./links";
-import type {Profile} from "./socialApi";
 import {socialAPI} from "./socialApi";
 import {SwipeReply} from "./SwipeReply";
 import {usePinnedMessages,clearRoomPins,pruneRoomPins} from "./usePinnedMessages";
@@ -94,7 +93,6 @@ export default function App() {
 
   const [boot, setBoot] = useState<Boot>(() => emptyBoot);
   const social=socialAPI;
-  const [contactsOpen,setContactsOpen]=useState(false);
   const [publicHandle,setPublicHandle]=useState(()=>/^\/@([a-z][a-z0-9_]{2,31})$/.exec(location.pathname)?.[1]||'');
   const authReturnHandle=useRef('');
   useEffect(()=>{const update=()=>setPublicHandle(/^\/@([a-z][a-z0-9_]{2,31})$/.exec(location.pathname)?.[1]||'');window.addEventListener('popstate',update);return()=>window.removeEventListener('popstate',update)},[]);
@@ -1266,15 +1264,7 @@ export default function App() {
   async function syncSocialProfile(){
     await refresh();
   }
-  async function openDirect(id:string,directRoom?:Room){
-    await refresh();
-    setSelected(id);setView('chats');setMobileChat(true);setContactsOpen(false);setModal(null);setPublicHandle('');history.replaceState(null,'','/');
-  }
-  async function sendInvitation(contact:Profile,text:string,id:string){
-    const data=await social.conversation(contact);
-    await request('/api/rooms/'+data.id+'/messages','POST',{id,text});await refresh();await fetchMessages(data.id);
-  }
-  if(publicHandle)return <PublicProfile handle={publicHandle} api={social} lang={lang} signedIn={!!boot.user.id} userId={boot.user.id} onBack={()=>{setPublicHandle('');history.replaceState(null,'','/')}} onSignIn={()=>{authReturnHandle.current=publicHandle;setPublicHandle('');openModal('auth')}} onConversation={openDirect}/>;
+  if(publicHandle)return <PublicProfile handle={publicHandle} api={social} lang={lang} signedIn={!!boot.user.id} userId={boot.user.id} onBack={()=>{setPublicHandle('');history.replaceState(null,'','/')}} onSignIn={()=>{authReturnHandle.current=publicHandle;setPublicHandle('');openModal('auth')}}/>;
   return (
     <div className={cn("app-shell", view === "chats" && mobileChat && !!room && "chat-open")}>
       <aside className="sidebar">
@@ -1301,9 +1291,6 @@ export default function App() {
           >
             <MessageCircle size={20} />
             <span>{t("conversations")}</span>
-            {boot.rooms.reduce((sum, r) => sum + r.unread, 0) > 0 && (
-              <b>{boot.rooms.reduce((sum, r) => sum + r.unread, 0)}</b>
-            )}
           </button>
           <button
             className={cn("nav-item", view === "calendar" && "active")}
@@ -1315,9 +1302,7 @@ export default function App() {
           >
             <CalendarDays size={20} />
             <span>{t("calendar")}</span>
-            <span className="nav-new">{upcoming.length}</span>
           </button>
-          <button className="nav-item" onClick={()=>boot.user.id?setContactsOpen(true):openModal("auth")}><Users size={20}/><span>{socialWords(lang).contacts}</span></button>
         </nav>
         <div className="sidebar-spacer" />
         <div className="sidebar-bottom">
@@ -1535,7 +1520,7 @@ export default function App() {
                     >
                       <ArrowLeft size={21} />
                     </button>
-                    <button type="button" className="chat-photo-button" aria-label={lang==="pt"?"Foto da conversa":"Conversation photo"} onClick={()=>room.kind==='direct'?setContactsOpen(true):openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
+                    <button type="button" className="chat-photo-button" aria-label={lang==="pt"?"Foto da conversa":"Conversation photo"} onClick={()=>openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
                     <div className="chat-header-title">
                       <h2>{room.name}</h2>
                       <button onClick={showMembers}>
@@ -1562,7 +1547,6 @@ export default function App() {
                         className="icon-button"
                         aria-label={t("invite")}
                         onClick={invite}
-                        disabled={room.kind==='direct'}
                       >
                         <Users size={19} />
                       </button>
@@ -1756,7 +1740,7 @@ export default function App() {
                   <div className="composer-wrapper peakboo-composer">
                     {replying&&!editing&&<ReplyReference message={replying} source={replying} ownId={boot.user.id} lang={lang} onCancel={()=>setReplying(null)}/>}
                     {editing&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
-                    {room.kind==='direct'&&room.canMessage===false?<div className="contact-required"><p>{lang==='pt'?'Adicione este contato e aguarde o aceite para voltar a conversar.':'Add this contact and wait for acceptance to resume messaging.'}</p><Button variant="outline" onClick={()=>boot.user.id?setContactsOpen(true):openModal("auth")}>{socialWords(lang).contacts}</Button></div>:<LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice />}
+                    <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice />
 
                   </div>
                 </>
@@ -1857,9 +1841,6 @@ export default function App() {
           </div>
         )}
       </main>
-      <Modal open={contactsOpen} onOpenChange={setContactsOpen} title={socialWords(lang).contacts} closeLabel={t('close')} className="social-modal">
-        {contactsOpen&&boot.user.id&&<SocialHub key={boot.user.id} api={social} lang={lang} onConversation={openDirect} onSaved={()=>{void syncSocialProfile().catch(()=>notify(t("error")))}}/>}
-      </Modal>
       <nav className="mobile-nav" aria-label={t("yourSpace")}>
         <button
           className={view === "chats" ? "active" : ""}
@@ -1882,7 +1863,6 @@ export default function App() {
           <CalendarDays size={21} />
           {t("calendar")}
         </button>
-        <button onClick={()=>boot.user.id?setContactsOpen(true):openModal("auth")}><Users size={21}/>{socialWords(lang).contacts}</button>
         <button onClick={() => openModal("settings")}>
           <Settings size={21} />
           {t("settings")}
@@ -2208,7 +2188,7 @@ export default function App() {
         closeLabel={t("close")}
       >
         <div className="invite-preview">
-          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room?.kind!=='direct'&&room?.ownerId===boot.user.id&&<label className="button outline photo-picker room-photo-picker">{lang==="pt"?"Foto da conversa":"Conversation photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
+          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room&&room.ownerId===boot.user.id&&<label className="button outline photo-picker room-photo-picker">{lang==="pt"?"Foto da conversa":"Conversation photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
           <h3>{room?.name}</h3>
           <p>
             {room?.memberCount} {t("members")}
@@ -2226,8 +2206,8 @@ export default function App() {
           <Copy size={16} />
           {t("copyInvite")}
         </Button>
-        {modal==='invite'&&room?.kind!=='direct'&&room?.inviteCode&&<InvitationTools url={inviteLink(room.inviteCode)} name={room.name} api={social} lang={lang} onSend={sendInvitation}/>}
-        {room?.kind!=='direct'&&room?.ownerId===boot.user.id&&<Button variant="ghost" className="full-width text-danger delete-group-entry" onClick={()=>{setDeleteError('');setDeleteTarget({id:room.id,name:room.name});setModal(null)}}><Trash2 size={16}/>{t('deleteGroup')}</Button>}
+        {modal==='invite'&&room?.inviteCode&&<InvitationTools url={inviteLink(room.inviteCode)} name={room.name} lang={lang}/>}
+        {room&&room.ownerId===boot.user.id&&<Button variant="ghost" className="full-width text-danger delete-group-entry" onClick={()=>{setDeleteError('');setDeleteTarget({id:room.id,name:room.name});setModal(null)}}><Trash2 size={16}/>{t('deleteGroup')}</Button>}
 
         {formError && (
           <p role="alert" className="form-error">
@@ -2267,7 +2247,7 @@ export default function App() {
             ))
           )}
         </div>
-        <Button className="full-width" variant="outline" disabled={room?.kind==='direct'} onClick={invite}>
+        <Button className="full-width" variant="outline" onClick={invite}>
           <Plus size={16} />
           {t("invite")}
         </Button>

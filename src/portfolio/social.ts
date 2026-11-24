@@ -10,7 +10,6 @@ export function demoSocial(user: User): SocialAPI {
       handle: "ana_costa",
       bio: "Café, trilhas e bons encontros.",
       isPublic: true,
-      relationship: "received",
     },
     {
       id: "demo-bruno",
@@ -18,7 +17,6 @@ export function demoSocial(user: User): SocialAPI {
       handle: "bruno_lima",
       bio: "Sempre pronto para o próximo passeio.",
       isPublic: true,
-      relationship: "accepted",
     },
     {
       id: "demo-clara",
@@ -49,52 +47,11 @@ export function demoSocial(user: User): SocialAPI {
       s.me = p;
       save(s);
     },
-    contacts: async () => read().people.filter((p) => p.relationship),
-    search: async (q) =>
-      read().people.filter((p) =>
-        (p.name + " " + p.handle)
-          .toLowerCase()
-          .includes(q.replace(/^@/, "").toLowerCase()),
-      ),
     publicProfile: async (h) => {
       const s = read(),
         p = [s.me, ...s.people].find((p) => p.handle === h && p.isPublic);
       if (!p) throw Error("NOT_FOUND");
       return p;
-    },
-    action: async (p, a) => {
-      const s = read(),
-        target = s.people.find((x) => x.id === p.id);
-      if (!target) throw Error("NOT_FOUND");
-      if (a === "accept" && target.relationship !== "received")
-        throw Error("FORBIDDEN");
-      target.relationship =
-        a === "accept" ? "accepted" : a === "request" ? "sent" : undefined;
-      save(s);
-      window.dispatchEvent(new Event("peakboo:demo-social"));
-    },
-    conversation: async (p) => {
-      const s = read();
-      if (s.people.find((x) => x.id === p.id)?.relationship !== "accepted")
-        throw Error("CONTACT_REQUIRED");
-      const id = "direct-" + p.id;
-      return {
-        id,
-        room: {
-          id,
-          name: p.name,
-          image: p.image,
-          description: "",
-          kind: "direct",
-          peerId: p.id,
-          peerHandle: p.handle || undefined,
-          canMessage: true,
-          color: "blue",
-          ownerId: user.id,
-          memberCount: 2,
-          unread: 0,
-        },
-      };
     },
     photo: async (kind, file) => {
       const url = await localFile(file),
