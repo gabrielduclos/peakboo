@@ -114,7 +114,6 @@ export default function App() {
   const [replying,setReplying]=useState<Message|null>(null);
   const [editing,setEditing]=useState<Message|null>(null);
   const [showChatSearch, setShowChatSearch] = useState(false);
-  const [showRoomSearch,setShowRoomSearch]=useState(false);
   const [galleryId,setGalleryId]=useState<string|null>(null);
   const [pinnedMessages,setPinnedMessages]=useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -1462,7 +1461,6 @@ export default function App() {
                   {t("conversations")}
                   <span className="title-dot">.</span>
                 </h1>
-                <button type="button" className="icon-button" aria-label={t("search")} aria-expanded={showRoomSearch} onClick={()=>{setShowRoomSearch(!showRoomSearch);setQuery('')}}><Search size={20}/></button>
                 <button
                   className="icon-button new-chat"
                   aria-label={t("newConversation")}
@@ -1474,10 +1472,9 @@ export default function App() {
                   <Plus size={20} />
                 </button>
               </div>
-              {showRoomSearch&&<label className="search-field">
+              <label className="search-field">
                 <Search size={17} />
                 <input
-                  autoFocus
                   aria-label={t("search")}
                   placeholder={t("search")}
                   value={query}
@@ -1492,7 +1489,7 @@ export default function App() {
                     <X size={14} />
                   </button>
                 )}
-              </label>}
+              </label>
               <div className="conversation-tabs">
                 <button
                   className={filter === "all" ? "active" : ""}
@@ -1633,24 +1630,12 @@ export default function App() {
                         {t("sharedCalendar")}
                       </button>
                     </div>
-                  {showChatSearch && (
-                    <div className="chat-search">
-
-                      <input
-                        autoFocus
-                        value={chatQuery}
-                        onChange={(e) => setChatQuery(e.target.value)}
-                        placeholder={t("searchMessages")}
-                        aria-label={t("searchMessages")}
-                      />
-                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
-                    </div>
-                  )}
                     <div className="chat-header-actions">
                       <button
                         className="icon-button"
                         aria-label={t("searchMessages")}
                         aria-expanded={showChatSearch}
+                        aria-controls="chat-message-search"
                         onClick={() => {
                           setShowChatSearch(!showChatSearch);
                           setChatQuery("");
@@ -1674,6 +1659,19 @@ export default function App() {
                       </button>
                     </div>
                   </div>
+                  {showChatSearch && (
+                    <div className="chat-search" id="chat-message-search" role="search">
+
+                      <input
+                        autoFocus
+                        value={chatQuery}
+                        onChange={(e) => setChatQuery(e.target.value)}
+                        placeholder={t("searchMessages")}
+                        aria-label={t("searchMessages")}
+                      />
+                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
+                    </div>
+                  )}
                   {showChatSearch&&<ChatFilters value={chatFilter} onChange={setChatFilter} pt={lang==="pt"}/>}
                   {!!pinnedMessages.length&&<div className="pinned-chat-bar" aria-label={lang==='pt'?'Mensagens fixadas':'Pinned messages'}><span>📌</span><button type="button" onClick={()=>{const first=pinnedMessages[0];const node=document.getElementById('message-'+first.id);if(node){node.scrollIntoView({block:'center',behavior:'smooth'});}else setChatFilter({...emptyFilter,kind:'pinned'})}}><strong>{lang==='pt'?'Mensagem fixada':'Pinned message'}{pinnedMessages.length>1?' · '+pinnedMessages.length:''}</strong><span>{pinnedMessages[0].text||mediaLabel(pinnedMessages[0].attachment?.mime||'',lang==='pt')}</span></button><button type="button" className="icon-button" aria-label={lang==='pt'?'Ver todas as fixadas':'View pinned messages'} onClick={()=>setChatFilter({...emptyFilter,kind:'pinned'})}><ChevronDown size={18}/></button></div>}
                   <UpcomingEventsBar

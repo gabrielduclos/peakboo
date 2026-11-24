@@ -1,3 +1,4 @@
+import {usePinnedMessages} from "./usePinnedMessages";
 import {ReactionPicker} from "./ReactionPicker";
 import {useChatScroll} from "./useChatScroll";
 import {useOptimisticMessages,mergeMessages,type PendingMessage} from "./useOptimisticMessages";
@@ -98,9 +99,9 @@ export default function App() {
   const [replying,setReplying]=useState<Message|null>(null);
   const [editing,setEditing]=useState<Message|null>(null);
   const [showChatSearch, setShowChatSearch] = useState(false);
-  const [showRoomSearch,setShowRoomSearch]=useState(false);
   const [galleryId,setGalleryId]=useState<string|null>(null);
-  const [pinnedMessages,setPinnedMessages]=useState<Message[]>([]);
+  const [pinnedRevision,setPinnedRevision]=useState(0);
+  const pinnedMessages=usePinnedMessages(boot.user.id,selected,pinnedRevision);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [reactionOpen, setReactionOpen] = useState<string | null>(null);
@@ -165,7 +166,7 @@ export default function App() {
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
   const currentMessages = filtering ? filtered : rawMessages;
-  useEffect(()=>{if(!selected){setPinnedMessages([]);return;}let active=true;setPinnedMessages([]);request('/api/rooms/'+selected+'/messages?kind=pinned').then(data=>{if(active)setPinnedMessages(data.messages)}).catch(()=>{});return()=>{active=false}},[selected,messages]);
+
   const chatScroll=useChatScroll(selected,currentMessages,loadingMessages||filterLoading,filtering,boot.user.id,view==='chats'&&(mobileChat||window.innerWidth>700));
   const locale = lang === "pt" ? "pt-BR" : "en-US";
   const fmt = (d: string | Date, options: Intl.DateTimeFormatOptions) =>
@@ -302,6 +303,7 @@ export default function App() {
       reconnect: ReturnType<typeof setTimeout> | null = null;
     let delay = 1000;
     const sync = () => {
+      setPinnedRevision(value=>value+1);
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       refreshTimer.current = setTimeout(() => {
         refresh()
@@ -532,6 +534,7 @@ export default function App() {
       await request('/api/rooms/'+target+'/messages','POST',{id:crypto.randomUUID(),text:m.text,attachmentId});await fetchMessages(target);await refresh();return;
     }
     await request('/api/rooms/'+selected+'/messages/'+m.id+(action==='pin'?'/pin':action==='report'?'/report':''),action==='edit-save'?'PUT':action==='delete'?'DELETE':'POST',action==='edit-save'?{text:target}:{});
+    setPinnedRevision(value=>value+1);
     await fetchMessages(selected);await refresh();
     if(action==='report')notify(lang==='pt'?'Denúncia registrada.':'Report recorded.');
   }
@@ -1303,7 +1306,6 @@ export default function App() {
                   {t("conversations")}
                   <span className="title-dot">.</span>
                 </h1>
-                <button type="button" className="icon-button" aria-label={t("search")} aria-expanded={showRoomSearch} onClick={()=>{setShowRoomSearch(!showRoomSearch);setQuery('')}}><Search size={20}/></button>
                 <button
                   className="icon-button new-chat"
                   aria-label={t("newConversation")}
@@ -1315,10 +1317,9 @@ export default function App() {
                   <Plus size={20} />
                 </button>
               </div>
-              {showRoomSearch&&<label className="search-field">
+              <label className="search-field">
                 <Search size={17} />
                 <input
-                  autoFocus
                   aria-label={t("search")}
                   placeholder={t("search")}
                   value={query}
@@ -1333,7 +1334,7 @@ export default function App() {
                     <X size={14} />
                   </button>
                 )}
-              </label>}
+              </label>
               <div className="conversation-tabs">
                 <button
                   className={filter === "all" ? "active" : ""}
@@ -1474,24 +1475,12 @@ export default function App() {
                         {t("sharedCalendar")}
                       </button>
                     </div>
-                  {showChatSearch && (
-                    <div className="chat-search">
-
-                      <input
-                        autoFocus
-                        value={chatQuery}
-                        onChange={(e) => setChatQuery(e.target.value)}
-                        placeholder={t("searchMessages")}
-                        aria-label={t("searchMessages")}
-                      />
-                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
-                    </div>
-                  )}
                     <div className="chat-header-actions">
                       <button
                         className="icon-button"
                         aria-label={t("searchMessages")}
                         aria-expanded={showChatSearch}
+                        aria-controls="chat-message-search"
                         onClick={() => {
                           setShowChatSearch(!showChatSearch);
                           setChatQuery("");
@@ -1515,6 +1504,19 @@ export default function App() {
                       </button>
                     </div>
                   </div>
+                  {showChatSearch && (
+                    <div className="chat-search" id="chat-message-search" role="search">
+
+                      <input
+                        autoFocus
+                        value={chatQuery}
+                        onChange={(e) => setChatQuery(e.target.value)}
+                        placeholder={t("searchMessages")}
+                        aria-label={t("searchMessages")}
+                      />
+                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
+                    </div>
+                  )}
                   {showChatSearch&&<ChatFilters value={chatFilter} onChange={setChatFilter} pt={lang==="pt"}/>}
                   {!!pinnedMessages.length&&<div className="pinned-chat-bar" aria-label={lang==='pt'?'Mensagens fixadas':'Pinned messages'}><span>📌</span><button type="button" onClick={()=>{const first=pinnedMessages[0];const node=document.getElementById('message-'+first.id);if(node){node.scrollIntoView({block:'center',behavior:'smooth'});}else setChatFilter({...emptyFilter,kind:'pinned'})}}><strong>{lang==='pt'?'Mensagem fixada':'Pinned message'}{pinnedMessages.length>1?' · '+pinnedMessages.length:''}</strong><span>{pinnedMessages[0].text||mediaLabel(pinnedMessages[0].attachment?.mime||'',lang==='pt')}</span></button><button type="button" className="icon-button" aria-label={lang==='pt'?'Ver todas as fixadas':'View pinned messages'} onClick={()=>setChatFilter({...emptyFilter,kind:'pinned'})}><ChevronDown size={18}/></button></div>}
                   <UpcomingEventsBar
