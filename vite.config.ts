@@ -2,8 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
+// @ts-ignore Build-only JavaScript plugin.
+import { inlineStyles } from "./scripts/inline-styles.mjs";
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), inlineStyles()],
   resolve: {
     alias:
       mode === "portfolio"
