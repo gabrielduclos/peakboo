@@ -21,9 +21,9 @@
   --muted: #66747c;
   --subtle: #536571;
   --line: #e1eaee;
-  --primary: #b84a0a;
-  --primary-dark: #963c08;
-  --primary-soft: #fff0e3;
+  --primary: #087f75;
+  --primary-dark: #06695f;
+  --primary-soft: #e5f6f2;
   --coral: #f06b57;
   --coral-soft: #fff0e9;
   --green: #3d966e;
@@ -34,7 +34,7 @@
   --yellow-soft: #fff7dd;
   --shadow: 0 10px 40px #20333d0a;
   --radius: 14px;
-  --ring: #d96418;
+  --ring: #18b89d;
 }
 [data-theme="dark"] {
   color-scheme: dark;
@@ -45,9 +45,9 @@
   --muted: #a4b8c1;
   --subtle: #bfd0d7;
   --line: #2b414c;
-  --primary: #ffac66;
-  --primary-dark: #ffc18e;
-  --primary-soft: #482b18;
+  --primary: #59d8bc;
+  --primary-dark: #85e7d0;
+  --primary-soft: #183d38;
   --coral: #ff9b83;
   --coral-soft: #3b2829;
   --green: #85d5ab;
@@ -57,7 +57,7 @@
   --yellow: #e5c56f;
   --yellow-soft: #3b3423;
   --shadow: 0 10px 40px #0002;
-  --ring: #ffac66;
+  --ring: #59d8bc;
 }
 * {
   box-sizing: border-box;
@@ -181,7 +181,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 3px 0 #b84a0a14;
+  box-shadow: 0 3px 0 #087f7514;
 }
 .brand-mark svg {
   height: 34px;
@@ -303,7 +303,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #b84a0a1c;
+  border-top: 1px solid #087f751c;
   color: var(--primary);
   font-size: 12px;
   font-weight: 600;
@@ -312,7 +312,7 @@ textarea::placeholder {
   padding: 13px 15px;
 }
 .sidebar-note > button:hover {
-  background: #b84a0a0c;
+  background: #087f750c;
 }
 .sidebar-bottom > .nav-item {
   margin-bottom: 12px;
@@ -535,7 +535,7 @@ textarea::placeholder {
   background: var(--primary-dark);
 }
 [data-theme="dark"] .button.primary {
-  color: #2c1609;
+  color: #102a2a;
 }
 .button.outline {
   background: var(--surface);
@@ -1873,7 +1873,7 @@ textarea::placeholder {
   height: 66px;
   border-radius: 22px;
   margin-bottom: 20px;
-  box-shadow: 0 10px 30px #b84a0a24;
+  box-shadow: 0 10px 30px #087f7524;
 }
 .chat-empty .brand-mark > svg {
   width: 55px;
@@ -2126,7 +2126,7 @@ textarea::placeholder {
   top: 0;
   bottom: 0;
   width: 22%;
-  background: #fff0e3;
+  background: #e5f6f2;
 }
 .theme-preview i {
   height: 8px;
@@ -2136,7 +2136,7 @@ textarea::placeholder {
 }
 .theme-preview i:nth-child(2) {
   width: 70%;
-  background: #ffd3af;
+  background: #a7e7d9;
 }
 .theme-preview i:last-child {
   width: 45%;
@@ -2154,7 +2154,7 @@ textarea::placeholder {
   background: #2b414c;
 }
 .dark-preview i:nth-child(2) {
-  background: #b86024;
+  background: #258a7a;
 }
 .language-label select {
   font-size: 14px;
@@ -3388,7 +3388,7 @@ textarea::placeholder {
   color: #fff;
 }
 .sidebar-note p {
-  color: #fff0e3;
+  color: #e5f6f2;
 }
 .sidebar-note > button {
   color: #fff;
@@ -3402,7 +3402,7 @@ textarea::placeholder {
   stroke: var(--primary);
 }
 .sparkle.two {
-  color: #ffcfaa;
+  color: #a4efe1;
 }
 .sidebar-note .sparkle.one {
   color: #90b8e7;
@@ -3426,10 +3426,10 @@ textarea::placeholder {
   min-width: 5px;
 }
 [data-theme="dark"] .sidebar-note {
-  background: #b84a0a;
+  background: #087f75;
 }
 [data-theme="dark"] .note-art > svg:first-child {
-  stroke: #b84a0a;
+  stroke: #087f75;
 }
 @media (max-width: 700px) {
   .conversation-summary strong {
@@ -3654,11 +3654,11 @@ textarea::placeholder {
 
 /* PeakBoo wordmark: the reference colors are reserved for branding. */
 :root {
-  --brand-orange: #ed751e;
+  --brand-teal: #00c49a;
   --brand-blue: #477bb5;
 }
 [data-theme="dark"] {
-  --brand-orange: #ffac66;
+  --brand-teal: #23d6ae;
   --brand-blue: #84afe1;
 }
 .brand {
@@ -3673,7 +3673,7 @@ textarea::placeholder {
   align-items: baseline;
 }
 .brand-peak {
-  color: var(--brand-orange);
+  color: var(--brand-teal);
 }
 .brand-boo {
   color: var(--brand-blue);
