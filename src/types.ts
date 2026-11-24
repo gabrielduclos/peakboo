@@ -42,6 +42,10 @@ export type Message = {
   eventId?: string;
   replyTo?: string;
   replyText?: string;
+  replySenderId?: string;
+  replySenderName?: string;
+  replyDeleted?: boolean;
+  replyMime?: string;
   editedAt?: string;
   pendingStatus?: "sending" | "failed";
   deleted?: boolean;
