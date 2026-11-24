@@ -3877,3 +3877,9 @@ textarea::placeholder {
  .profile-photo-actions>.button { flex:1; font-size:13px; }
  .invite-options { flex-direction:column; }
 }
+
+@media (max-width:700px) {
+  .app-shell.chat-open .mobile-nav { display:none; }
+  .app-shell.chat-open .main-area { padding-bottom:0; }
+  .app-shell.chat-open .peakboo-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+}

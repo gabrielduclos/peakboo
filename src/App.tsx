@@ -1252,7 +1252,7 @@ export default function App() {
   }
   if(publicHandle)return <PublicProfile handle={publicHandle} api={social} lang={lang} signedIn={!!boot.user.id} userId={boot.user.id} onBack={()=>{setPublicHandle('');history.replaceState(null,'','/')}} onSignIn={()=>{authReturnHandle.current=publicHandle;setPublicHandle('');openModal('auth')}} onConversation={openDirect}/>;
   return (
-    <div className="app-shell">
+    <div className={cn("app-shell", view === "chats" && mobileChat && !!room && "chat-open")}>
       <aside className="sidebar">
         <a
           href="#"
