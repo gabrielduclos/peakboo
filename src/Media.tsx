@@ -1,3 +1,5 @@
+import {ChatAudioPlayer} from './ChatAudioPlayer';
+export {ChatAudioPlayer} from './ChatAudioPlayer';
 import {useEffect,useState} from 'react';
 import {API,getToken} from './api';
 export async function uploadMedia(path:string,file:File){
@@ -44,9 +46,9 @@ export async function mediaDimensions(file:File):Promise<{width:number;height:nu
  if(file.type.startsWith('image/')){try{const b=await createImageBitmap(file);const d={width:b.width,height:b.height};b.close();return d}catch{return}}
  if(file.type.startsWith('video/'))return new Promise(resolve=>{const v=document.createElement('video'),url=URL.createObjectURL(file);let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);const d=v.videoWidth&&v.videoHeight?{width:v.videoWidth,height:v.videoHeight}:undefined;v.removeAttribute('src');v.load();URL.revokeObjectURL(url);resolve(d)};const timer=setTimeout(finish,5000);v.onloadedmetadata=finish;v.onerror=finish;v.preload='metadata';v.src=url;});
 }
-export function ChatAudioPlayer({src}:{src:string;name?:string}){return <audio controls preload="metadata" src={src} className="max-w-full"/>;}
+
 export function mediaLabel(mime:string,pt=true){return mime.startsWith('image/')?(pt?'Foto':'Photo'):mime.startsWith('video/')?(pt?'Vídeo':'Video'):mime.startsWith('audio/')?(pt?'Áudio':'Audio'):mime==='application/pdf'?'PDF':(pt?'Documento':'Document');}
-export function MessageMedia({attachment,lang='pt'}:{attachment?:{id:string;name:string;mime:string;size:number;url?:string;width?:number;height?:number};lang?:string}){
+export function MessageMedia({attachment,lang='pt',onOpen}:{attachment?:{id:string;name:string;mime:string;size:number;url?:string;width?:number;height?:number};lang?:string;onOpen?:()=>void}){
  const media=useMedia(attachment?.url|| (attachment?'/api/media/'+attachment.id:null));
  const [ready,setReady]=useState(false);useEffect(()=>setReady(false),[media.url]);
  if(!attachment)return null;
@@ -56,7 +58,7 @@ export function MessageMedia({attachment,lang='pt'}:{attachment?:{id:string;name
  return <div className="message-media">
  {(visual||audio)&&<div className="media-frame" style={visual?{aspectRatio:String(ratio),width:Math.min(360,attachment.width||360),maxWidth:'100%'}:{height:54}}>
  {!ready&&!media.error&&<div className="media-skeleton" role="status" aria-label={lang==='pt'?'Carregando mídia':'Loading media'}/>}
- {media.url&&(attachment.mime.startsWith('image/')?<a href={media.url} target="_blank" rel="noreferrer"><img src={media.url} alt={label} onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/></a>:attachment.mime.startsWith('video/')?<video controls preload="metadata" src={media.url} onLoadedData={()=>setReady(true)}/>:<audio controls preload="metadata" src={media.url} onLoadedMetadata={()=>setReady(true)}/>)}
+ {media.url&&(attachment.mime.startsWith('image/')?<button type="button" className="open-chat-photo" onClick={onOpen} aria-label={lang==='pt'?'Abrir foto na galeria':'Open photo gallery'}><img src={media.url} alt={label} onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/></button>:attachment.mime.startsWith('video/')?<video controls preload="metadata" src={media.url} onLoadedData={()=>setReady(true)}/>:<ChatAudioPlayer src={media.url} lang={lang} onReady={()=>setReady(true)}/>)}
  </div>}
  {media.error?<button type="button" onClick={media.retry}>{lang==='pt'?'Tentar carregar novamente':'Retry loading'}</button>:media.url?<a href={media.url} download={attachment.name}>{label} · {(attachment.size/1024).toFixed(0)} KB ↓</a>:!visual&&!audio?<span className="media-skeleton file-skeleton" role="status" aria-label={lang==='pt'?'Carregando documento':'Loading document'}/>:null}
  </div>;

@@ -1,0 +1,8 @@
+import {useLayoutEffect,useRef,useState,type ReactNode,type RefObject} from 'react';
+import {createPortal} from 'react-dom';
+export function AnchoredMenu({open,onClose,anchor,label,children}:{open:boolean;onClose:()=>void;anchor:RefObject<HTMLButtonElement|null>;label:string;children:ReactNode}){
+ const ref=useRef<HTMLDivElement>(null);const [position,setPosition]=useState({left:0,top:0});
+ useLayoutEffect(()=>{if(!open)return;const a=anchor.current?.getBoundingClientRect(),m=ref.current;if(!a||!m)return;const w=m.offsetWidth,h=m.offsetHeight;setPosition({left:Math.max(8,Math.min(a.right-w,window.innerWidth-w-8)),top:a.bottom+h+8<window.innerHeight?a.bottom+6:Math.max(8,a.top-h-6)});m.querySelector<HTMLElement>('[role=menuitem]')?.focus();const close=(e:Event)=>{if(!m.contains(e.target as Node))onClose()};window.addEventListener('resize',onClose);window.addEventListener('scroll',close,true);return()=>{window.removeEventListener('resize',onClose);window.removeEventListener('scroll',close,true);anchor.current?.focus()}},[open]);
+ if(!open)return null;
+ return createPortal(<><div className="bubble-menu-backdrop" onPointerDown={onClose}/><div ref={ref} role="menu" aria-label={label} className="bubble-menu" style={position} onKeyDown={e=>{if(e.key==='Escape'||e.key==='Tab'){e.preventDefault();onClose();return}if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const items=[...e.currentTarget.querySelectorAll<HTMLElement>('[role=menuitem]:not(:disabled)')];const i=items.indexOf(document.activeElement as HTMLElement);items[e.key==='Home'?0:e.key==='End'?items.length-1:(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length]?.focus()}}}>{children}</div></>,document.body);
+}

@@ -74,3 +74,9 @@ Limits: **10 MB per file**, **1 MB per avatar**, **100 MB per account**. Additiv
 Profile and chat media use a session/account-scoped RAM cache with request deduplication, five-minute revalidation and logout invalidation. Target budget: 64 MB/160 entries; visible media are retained. Skeletons reserve the uploaded aspect ratio; older media without dimensions use a fixed 4:3 frame. The interface uses Photo, Video, Audio or Document labels; downloads keep original filenames.
 
 Date filtering adapts Uorqui's local-calendar rules and combines text, media type and pinned filters. Server-side search paginates across history beyond the visible page. Message actions adapt reply, copy, forward, pin/unpin, edit text, cancel and report; edits and cancellation require authorship. Additive migration `003_message_actions.sql` stores dimensions and message states. The demo keeps changes in the browser.
+
+### Chat experience
+
+The magnifier expands/collapses search; period filters open on each day divider. Bubble actions use an anchored menu (also available on right-click), with copy, edit and cancellation according to authorship. The circular send target measures 50 px.
+
+Text, voice and attachments appear optimistically, retaining a retryable state and the same message ID on failure. Opening a conversation scrolls to the latest message; reading older history preserves position and shows a jump-to-latest control with an incoming-message count. The voice player includes a waveform, seeking and 1×/1.5×/2× speeds; waveform decoding depends on browser support. Photo thumbnails open a gallery of images loaded in the conversation, with wheel, pinch and button zoom, panning and keyboard navigation.

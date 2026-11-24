@@ -1,8 +1,13 @@
-import {MessageActions,ChatFilters,emptyFilter,matchesMessage,filterParams,type ChatFilter,type MessageAction} from "../ChatTools";
+import {useChatScroll} from "../useChatScroll";
+import {useOptimisticMessages,mergeMessages,type PendingMessage} from "../useOptimisticMessages";
+import {ChatGallery} from "../ChatGallery";
+import {localDayKey} from "../messageTimestamp";
+import {MessageActions,DaySeparator,ChatFilters,emptyFilter,matchesMessage,filterParams,type ChatFilter,type MessageAction} from "../ChatTools";
 import {LiveMessageComposer} from "../LiveMessageComposer";
 import {MessageMedia,MessageText,uploadMedia,photoFile,localFile,mediaDimensions,cachedMedia,setMediaAccount,mediaLabel} from "../Media";
 import UpcomingEventsBar from "../UpcomingEventsBar";
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -21,6 +26,7 @@ import {
   ChevronRight,
   ChevronDown,
   ArrowUp,
+  ArrowDown,
   Sun,
   Moon,
   Users,
@@ -107,6 +113,8 @@ export default function App() {
   const [replying,setReplying]=useState<Message|null>(null);
   const [editing,setEditing]=useState<Message|null>(null);
   const [showChatSearch, setShowChatSearch] = useState(false);
+  const [showRoomSearch,setShowRoomSearch]=useState(false);
+  const [galleryId,setGalleryId]=useState<string|null>(null);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [reactionOpen, setReactionOpen] = useState<string | null>(null);
@@ -159,9 +167,11 @@ export default function App() {
     .filter((e) => !e.cancelled)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const upcoming = events.filter((e) => new Date(e.endsAt) >= new Date());
-  const rawMessages = selected ? messages[selected] || [] : [];
+  const optimistic=useOptimisticMessages(boot.user.id);
+  const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
   const currentMessages = filtering ? rawMessages.filter(m=>matchesMessage(m,chatFilter,chatQuery)) : rawMessages;
+  const chatScroll=useChatScroll(selected,currentMessages,loadingMessages,filtering,boot.user.id,view==='chats'&&(mobileChat||window.innerWidth>700));
   const locale = lang === "pt" ? "pt-BR" : "en-US";
   const fmt = (d: string | Date, options: Intl.DateTimeFormatOptions) =>
     new Date(d).toLocaleDateString(locale, options);
@@ -192,7 +202,7 @@ export default function App() {
     return t(codes[k] || "error");
   };
   useLayoutEffect(()=>{setMediaAccount('demo');return()=>setMediaAccount('')},[boot.user.id]);
-  useEffect(()=>{setChatFilter(emptyFilter);setChatQuery('');setReplying(null);setEditing(null)},[selected]);
+  useEffect(()=>{setChatFilter(emptyFilter);setChatQuery('');setShowChatSearch(false);setGalleryId(null);setReplying(null);setEditing(null)},[selected]);
   const openModal = (m: typeof modal) => {
     if (m === "auth") {
       setToast(
@@ -367,11 +377,6 @@ export default function App() {
     };
   }, [demo, refresh, fetchMessages]);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "instant" as ScrollBehavior,
-    });
-  }, [selected, currentMessages.length, view, mobileChat]);
-  useEffect(() => {
     if (pendingInvite && demo) {
       setAuthMode("signup");
       setModal("auth");
@@ -395,6 +400,7 @@ export default function App() {
   }, [pendingInvite, demo, loading]);
 
   function selectRoom(r: Room) {
+    if(selected===r.id)chatScroll.jump();
     setSelected(r.id);
     setView("chats");
     setMobileChat(true);
@@ -519,17 +525,22 @@ export default function App() {
       setBusy(null);
     }
   }
+  async function deliverPending(m:PendingMessage){
+    optimistic.status(m.id,'sending');
+    try{
+      const file=optimistic.files.current.get(m.id);const attachment=file?{...m.attachment!,url:await localFile(file)}:undefined;
+      const confirmed:Message={...m,pendingStatus:undefined,attachment};
+      setMessages(old=>({...old,[m.roomId]:[...(old[m.roomId]||[]).filter(x=>x.id!==m.id),confirmed]}));
+      setBoot(old=>({...old,rooms:old.rooms.map(r=>r.id===m.roomId?{...r,lastText:m.text||mediaLabel(attachment?.mime||'',lang==='pt'),lastAt:m.createdAt}:r)}));
+      optimistic.remove(m.id);
+    }catch(e){optimistic.status(m.id,'failed');notify(errorText(e))}
+  }
   async function sendAttachment(file:File,caption:string){
     if(!selected)return;
-    const roomId=selected;
-    setBusy("media");
-    try{
-      if(file.size>10*1024*1024)throw Error("INVALID_INPUT");
-      const attachment={id:crypto.randomUUID(),name:file.name,mime:file.type||"application/octet-stream",size:file.size,...await mediaDimensions(file),url:await localFile(file)};
-      const m:Message={id:crypto.randomUUID(),text:caption,replyTo:replying?.id,replyText:replying?.text,senderImage:boot.user.image,senderId:boot.user.id,senderName:boot.user.name,createdAt:new Date().toISOString(),reactions:[],attachment};
-      setMessages(old=>({...old,[roomId]:[...(old[roomId]||[]),m]}));
-      setText("");setReplying(null);setEditing(null);
-    }catch(e){notify(errorText(e));throw e;}finally{setBusy(null)}
+    if(!file.size||file.size>10*1024*1024)throw Error('INVALID_INPUT');
+    const id=crypto.randomUUID(),dimensions=await mediaDimensions(file);
+    const m:PendingMessage={id,roomId:selected,text:caption,replyTo:replying?.id,replyText:replying?.text,senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending',attachment:{id,name:file.name,mime:file.type||'application/octet-stream',size:file.size,...dimensions,url:URL.createObjectURL(file)}};
+    setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m,file);setText('');setReplying(null);void deliverPending(m);
   }
   async function sendLocation(lat:number,lon:number,caption:string){
     const content=[caption,`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`].filter(Boolean).join("\n");
@@ -541,52 +552,12 @@ export default function App() {
       const image=await localFile(photo);setBoot(old=>roomPhoto?{...old,rooms:old.rooms.map(r=>r.id===selected?{...r,image}:r)}:{...old,user:{...old.user,image}});
     }catch(e){notify(errorText(e))}finally{setBusy(null)}
   }
-  async function sendMessage(retry?: typeof failed) {
-    const content = (retry?.text || text).trim(),
-      id = retry?.id || crypto.randomUUID(),
-      roomId = retry?.roomId || selected;
-    if (!content || !roomId || busy === "send") return;
+  async function sendMessage(retry?:typeof failed){
+    const content=(retry?.text||text).trim(),roomId=retry?.roomId||selected;
+    if(!content||!roomId)return;
     if(editing){try{await messageAction('edit-save',editing,content);setEditing(null);setText('')}catch(e){notify(errorText(e))}return;}
-    setBusy("send");
-    setFailed(null);
-    try {
-      if (demo) {
-        const msg: Message = {
-          id,
-          text: content,
-          replyTo:replying?.id,replyText:replying?.text,
-          senderId: "me",
-          senderName: boot.user.name,
-          createdAt: new Date().toISOString(),
-          reactions: [],
-        };
-        setMessages((m) => ({ ...m, [roomId]: [...(m[roomId] || []), msg] }));
-        setBoot((b) => ({
-          ...b,
-          rooms: b.rooms.map((r) =>
-            r.id === roomId
-              ? { ...r, lastText: content, lastAt: msg.createdAt }
-              : r,
-          ),
-        }));
-      } else {
-        await request("/api/rooms/" + roomId + "/messages", "POST", {
-          id,
-          text: content,
-          replyTo:replying?.id,
-        });
-        await fetchMessages(roomId);
-        await refresh();
-      }
-      setText("");setReplying(null);setEditing(null);
-      setEmojiOpen(false);
-      composerRef.current?.focus();
-    } catch (e) {
-      setFailed({ id, text: content, roomId });
-      notify(errorText(e));
-    } finally {
-      setBusy(null);
-    }
+    const m:PendingMessage={id:retry?.id||crypto.randomUUID(),roomId,text:content,replyTo:replying?.id,replyText:replying?.text,senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending'};
+    setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m);setText('');setReplying(null);setFailed(null);setEmojiOpen(false);composerRef.current?.focus();void deliverPending(m);
   }
   async function messageAction(action:MessageAction|'edit-save',m:Message,target?:string){
     if(!selected)return;
@@ -851,6 +822,7 @@ export default function App() {
     }
   }
   async function loadOlder() {
+    chatScroll.preserveOlder();
     if (!selected || !currentMessages.length) return;
     setBusy("older");
     try {
@@ -1487,6 +1459,7 @@ export default function App() {
                   {t("conversations")}
                   <span className="title-dot">.</span>
                 </h1>
+                <button type="button" className="icon-button" aria-label={t("search")} aria-expanded={showRoomSearch} onClick={()=>{setShowRoomSearch(!showRoomSearch);setQuery('')}}><Search size={20}/></button>
                 <button
                   className="icon-button new-chat"
                   aria-label={t("newConversation")}
@@ -1498,9 +1471,10 @@ export default function App() {
                   <Plus size={20} />
                 </button>
               </div>
-              <label className="search-field">
+              {showRoomSearch&&<label className="search-field">
                 <Search size={17} />
                 <input
+                  autoFocus
                   aria-label={t("search")}
                   placeholder={t("search")}
                   value={query}
@@ -1515,7 +1489,7 @@ export default function App() {
                     <X size={14} />
                   </button>
                 )}
-              </label>
+              </label>}
               <div className="conversation-tabs">
                 <button
                   className={filter === "all" ? "active" : ""}
@@ -1660,6 +1634,7 @@ export default function App() {
                       <button
                         className="icon-button"
                         aria-label={t("searchMessages")}
+                        aria-expanded={showChatSearch}
                         onClick={() => {
                           setShowChatSearch(!showChatSearch);
                           setChatQuery("");
@@ -1693,6 +1668,7 @@ export default function App() {
                         placeholder={t("searchMessages")}
                         aria-label={t("searchMessages")}
                       />
+                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
                     </div>
                   )}
                   {showChatSearch&&<ChatFilters value={chatFilter} onChange={setChatFilter} pt={lang==="pt"}/>}
@@ -1703,6 +1679,8 @@ export default function App() {
                     onSelect={openDetail}
                   />
                   <div
+                    ref={chatScroll.historyRef}
+                    onScroll={chatScroll.onScroll}
                     className="chat-history"
                     role="log"
                     aria-label={t("conversations")}
@@ -1718,7 +1696,8 @@ export default function App() {
                         {t("loadOlder")}
                       </Button>
                     )}
-                    <div className="day-separator"><button type="button" className="date-filter-trigger" aria-label={lang==="pt"?"Filtrar mensagens por período":"Filter messages by period"} onClick={()=>setShowChatSearch(true)}>{currentMessages[0]&&!sameDay(new Date(currentMessages[0].createdAt),new Date())?fmt(currentMessages[0].createdAt,{dateStyle:"medium"}):t("today")} ▾</button></div>
+
+                    {!currentMessages.length&&<DaySeparator day={localDayKey(new Date())} value={chatFilter} onChange={setChatFilter} lang={lang}/>}
                     {loadingMessages ? (
                       <div className="message-skeletons">
                         <span className="skeleton" />
@@ -1734,11 +1713,15 @@ export default function App() {
                               : null,
                             grouped =
                               i > 0 &&
+                              localDayKey(new Date(arr[i-1].createdAt))===localDayKey(new Date(m.createdAt)) &&
                               arr[i - 1].senderId === m.senderId &&
                               !arr[i - 1].eventId &&
                               !p;
                           return (
+                            <Fragment key={m.id}>
+                            {(i===0||localDayKey(new Date(arr[i-1].createdAt))!==localDayKey(new Date(m.createdAt)))&&<DaySeparator day={localDayKey(new Date(m.createdAt))} value={chatFilter} onChange={setChatFilter} lang={lang}/>}
                             <div
+                              onContextMenu={e=>{if(!m.deleted&&!m.pendingStatus){e.preventDefault();e.currentTarget.querySelector<HTMLButtonElement>('[data-message-actions]')?.click()}}}
                               className={cn(
                                 "message",
                                 own && "own",
@@ -1772,8 +1755,9 @@ export default function App() {
                                 ) : (
                                   <>{m.pinned&&<small className="pinned-label">📌 {lang==="pt"?'Fixada':'Pinned'}</small>}
                                   {m.replyTo&&<blockquote className="reply-quote">↪ {m.replyText||rawMessages.find(x=>x.id===m.replyTo)?.text||(lang==="pt"?'Mensagem':'Message')}</blockquote>}
-                                  <div className="message-bubble">{m.deleted?(lang==="pt"?'Mensagem removida':'Message removed'):<><MessageMedia attachment={m.attachment} lang={lang}/><MessageText text={m.text}/></>}</div>{m.editedAt&&<small>{lang==="pt"?"editada":"edited"}</small>}</>
+                                  <div className="message-bubble">{m.deleted?(lang==="pt"?'Mensagem removida':'Message removed'):<><MessageMedia attachment={m.attachment} lang={lang} onOpen={()=>setGalleryId(m.id)}/><MessageText text={m.text}/></>}</div>{m.editedAt&&<small>{lang==="pt"?"editada":"edited"}</small>}</>
                                 )}
+                                {m.pendingStatus&&<div className="pending-message" role="status">{m.pendingStatus==='sending'?<><LoaderCircle size={12} className="spin"/>{lang==='pt'?'Enviando…':'Sending…'}</>:<><span>{lang==='pt'?'Não enviada':'Not sent'}</span><button type="button" onClick={()=>void deliverPending(m as PendingMessage)}>{lang==='pt'?'Tentar novamente':'Retry'}</button></>}</div>}
                                 <div className="message-footer">
                                   {m.reactions.length > 0 && (
                                     <span className="reactions">
@@ -1812,12 +1796,12 @@ export default function App() {
                                   <time dateTime={m.createdAt}>
                                     {time(m.createdAt)}
                                   </time>
-                                  {own && (
+                                  {own && !m.pendingStatus && (
                                     <Check size={12} aria-label={t("send")} />
                                   )}
                                 </div>
                               </div>
-                              {!m.deleted&&<div className="message-actions">
+                              {!m.deleted&&!m.pendingStatus&&<div className="message-actions">
                                 <button
                                   className="icon-button tiny"
                                   aria-label={t("react")}
@@ -1844,7 +1828,7 @@ export default function App() {
                                   </div>
                                 )}
                               </div>}
-                            </div>
+                            </div></Fragment>
                           );
                         })
                     )}
@@ -1861,6 +1845,8 @@ export default function App() {
                       ) && <p className="no-search-result">{t("noResults")}</p>}
                     <div ref={bottomRef} />
                   </div>
+                  {chatScroll.away&&<button className="jump-to-latest" type="button" onClick={chatScroll.jump} aria-label={lang==='pt'?'Voltar para a última mensagem':'Go to latest message'}><ArrowDown size={18}/>{chatScroll.newCount>0?<span>{chatScroll.newCount} {lang==='pt'?(chatScroll.newCount===1?'nova mensagem':'novas mensagens'):(chatScroll.newCount===1?'new message':'new messages')}</span>:null}</button>}
+                  <ChatGallery messages={rawMessages} selectedId={galleryId} onSelect={setGalleryId} onClose={()=>setGalleryId(null)} lang={lang}/>
                   {failed && (
                     <div className="send-error" role="alert">
                       {t("failedSend")}
@@ -1871,7 +1857,7 @@ export default function App() {
                   )}
                   <div className="composer-wrapper peakboo-composer">
                     {(replying||editing)&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
-                    <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={busy === "send" || busy === "media"} locale={locale} textareaRef={composerRef} allowOffice />
+                    <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice />
                     <button type="button" className="button ghost compact-event" onClick={()=>openEvent()}><CalendarPlus size={17}/>{t("createEvent")}</button>
                   </div>
                 </>

@@ -74,3 +74,9 @@ A API aceita até **10 MB por arquivo**, foto de perfil de até **1 MB** e **100
 Fotos de perfil e mídias usam cache em memória por sessão/conta, com deduplicação, revalidação após cinco minutos e descarte no logout. O limite alvo é 64 MB/160 itens; mídias em exibição são preservadas. O skeleton reserva a proporção enviada com a mídia; anexos antigos sem dimensões usam uma moldura fixa 4:3. A interface mostra Foto, Vídeo, Áudio ou Documento, mantendo o nome original apenas no download.
 
 O filtro por período reaproveita as regras de datas locais do Uorqui e combina texto, tipos de mídia e fixadas. A API pesquisa o histórico com paginação, sem limitar a busca à página visível. O menu dos balões adapta responder, copiar, encaminhar, fixar/desafixar, editar texto, cancelar e denunciar. Edição e cancelamento são restritos ao autor. A migração aditiva `003_message_actions.sql` guarda dimensões e estados das mensagens. A demo mantém tudo no navegador.
+
+### Experiência do chat
+
+A lupa abre/recolhe a busca; o filtro de período abre diretamente em cada separador de dia. As ações dos balões usam um menu ancorado (também pelo botão direito), com copiar, editar e cancelar conforme a autoria. O botão de envio tem área circular de 50 px.
+
+Texto, áudio e anexos aparecem de forma otimista, com estado de envio e reenvio usando o mesmo identificador em caso de falha. Ao abrir uma conversa, a rolagem vai ao fim; durante a leitura de mensagens antigas, preserva a posição, exibe um atalho para descer e conta novas mensagens. O player tem forma de onda, busca e velocidades 1×, 1,5× e 2×; a forma de onda depende do suporte de decodificação do navegador. Ao tocar em uma foto, a galeria navega pelas imagens carregadas da conversa e permite zoom pela roda do mouse, pinça ou botões, além de arrastar e usar as setas do teclado.
