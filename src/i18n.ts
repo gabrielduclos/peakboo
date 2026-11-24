@@ -1,5 +1,10 @@
 export const strings: Record<string, Record<string, string>> = {
     pt: {
+        deleteGroup: "Excluir grupo",
+        deleteGroupTitle: "Excluir este grupo?",
+        deleteGroupWarning: "O grupo, suas mensagens, anexos e compromissos serão excluídos para todos os participantes. Esta ação não pode ser desfeita.",
+        deleteGroupSuccess: "Grupo excluído.",
+        deleteGroupOwnerOnly: "Somente o criador pode excluir este grupo.",
         tagline: "Conversas que viram planos.",
         conversations: "Conversas",
         calendar: "Agenda",
@@ -163,6 +168,11 @@ export const strings: Record<string, Record<string, string>> = {
         status: "Status",
     },
     en: {
+        deleteGroup: "Delete group",
+        deleteGroupTitle: "Delete this group?",
+        deleteGroupWarning: "The group, its messages, attachments and events will be deleted for all participants. This action cannot be undone.",
+        deleteGroupSuccess: "Group deleted.",
+        deleteGroupOwnerOnly: "Only the creator can delete this group.",
         tagline: "Conversations become plans.",
         conversations: "Chats",
         calendar: "Calendar",

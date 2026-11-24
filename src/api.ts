@@ -44,7 +44,7 @@ async function performRequest(path: string, method: string, data?: unknown) {
 }
 export async function watchChanges(
   signal: AbortSignal,
-  onChange: () => void,
+  onChange: (event?: { roomId?: string; deletedRoomId?: string }) => void,
   onStatus: (connected: boolean) => void,
 ) {
   const res = await fetch(API + "/api/live", {
@@ -64,8 +64,12 @@ export async function watchChanges(
     while ((split = buffer.indexOf("\n\n")) >= 0) {
       const block = buffer.slice(0, split);
       buffer = buffer.slice(split + 2);
-      if (block.startsWith("data: ") && !block.includes('"connected"'))
-        onChange();
+      if (block.startsWith("data: ")) {
+        try {
+          const event = JSON.parse(block.slice(6));
+          if (!event.connected) onChange(event);
+        } catch {}
+      }
     }
   }
 }

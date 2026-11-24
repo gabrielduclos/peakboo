@@ -15,6 +15,14 @@ function read(user: string, room: string): Entry | null {
   } catch {}
   return null;
 }
+export function clearRoomPins(user: string, room: string) {
+  try { localStorage.removeItem(key(user, room)); } catch {}
+}
+export function pruneRoomPins(user: string, rooms: string[]) {
+  const prefix = PREFIX + encodeURIComponent(user) + ':';
+  const allowed = new Set(rooms.map(room => key(user, room)));
+  try { Object.keys(localStorage).filter(k => k.startsWith(prefix) && !allowed.has(k)).forEach(k => localStorage.removeItem(k)); } catch {}
+}
 function clear(user: string) {
   const prefix = PREFIX + encodeURIComponent(user) + ':';
   try { Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => localStorage.removeItem(k)); } catch {}

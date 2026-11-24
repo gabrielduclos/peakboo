@@ -72,4 +72,43 @@ try{
  const remounted=await mount(fixture);try{assert.equal(document.querySelector('output').textContent,'Durable pin');assert.equal(calls,3)}finally{await act(async()=>remounted.unmount());localStorage.removeItem('peakboo-pins-v1:pin-user:a')}
  });
 
+ await test('swipe reply requires a deliberate right drag and ignores scrolling, controls and cancellation',async()=>{
+ const fixture=dir+'/swipe-reply.tsx';await writeFile(fixture,`import {useState} from 'react';import {SwipeReply} from '../src/SwipeReply';export default function Fixture(){const [count,setCount]=useState(0);return <><SwipeReply id="swipe-test" onReply={()=>setCount(x=>x+1)}><span id="swipe-text">Message</span><button id="swipe-control">Play</button></SwipeReply><output>{count}</output></>}`);
+ const root=await mount(fixture);try{
+ const row=document.getElementById('swipe-test'),text=document.getElementById('swipe-text');row.setPointerCapture=()=>{};row.hasPointerCapture=()=>false;
+ const pointer=async(target,type,x,y)=>act(async()=>target.dispatchEvent(new dom.window.PointerEvent(type,{pointerId:1,pointerType:'touch',isPrimary:true,clientX:x,clientY:y,bubbles:true})));
+ await pointer(text,'pointerdown',100,100);await pointer(row,'pointermove',175,103);assert.ok(row.querySelector('.ready'));await pointer(row,'pointerup',175,103);assert.equal(document.querySelector('output').textContent,'1');
+ for(const [dx,dy] of [[15,80],[-80,0],[30,0]]){await pointer(text,'pointerdown',100,100);await pointer(row,'pointermove',100+dx,100+dy);await pointer(row,'pointerup',100+dx,100+dy)}assert.equal(document.querySelector('output').textContent,'1');
+ await pointer(text,'pointerdown',100,100);await pointer(row,'pointermove',180,100);await pointer(row,'pointercancel',180,100);await pointer(row,'pointerup',180,100);assert.equal(document.querySelector('output').textContent,'1');
+ await pointer(document.getElementById('swipe-control'),'pointerdown',100,100);await pointer(row,'pointermove',180,100);await pointer(row,'pointerup',180,100);assert.equal(document.querySelector('output').textContent,'1');
+ }finally{await act(async()=>root.unmount())}
+ });
+
+ await test('group deletion asks for confirmation, cancels safely and removes demo data without API calls',async()=>{
+ sessionStorage.removeItem('peakboo-session');localStorage.removeItem('peakboo-demo-v1');let calls=0;globalThis.fetch=async()=>{calls++;throw Error('Unexpected network')};
+ const root=await mount('src/portfolio/PortfolioApp.tsx');try{
+ assert.ok(document.querySelector('.mobile-brand .brand-wordmark'));assert.equal(document.querySelector('.topbar .mobile-settings'),null);assert.ok(document.querySelector('.chat-photo-button'));
+ const groupName=document.querySelector('.chat-header h2').textContent;
+ await act(async()=>document.querySelector('.chat-photo-button').click());assert.ok(document.querySelector('.room-photo-picker'));
+ await act(async()=>document.querySelector('.delete-group-entry').click());assert.ok(document.querySelector('[role=dialog]').textContent.includes('Esta ação não pode ser desfeita'));
+ await act(async()=>[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Cancelar').click());assert.equal(document.querySelector('[role=dialog]'),null);assert.equal(document.querySelector('.chat-header h2').textContent,groupName);
+ await act(async()=>document.querySelector('.chat-photo-button').click());await act(async()=>document.querySelector('.delete-group-entry').click());await act(async()=>[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Excluir grupo').click());
+ assert.equal(document.querySelector('[role=dialog]'),null);assert.ok(!document.querySelector('.conversation-panel').textContent.includes(groupName));assert.equal(calls,0);
+ const saved=JSON.parse(localStorage.getItem('peakboo-demo-v1'));assert.ok(!saved.boot.rooms.some(r=>r.id==='weekend'));assert.equal(saved.messages.weekend,undefined);assert.ok(!saved.boot.events.some(e=>e.roomId==='weekend'));
+ }finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1')}
+ });
+
+ await test('real group deletion preserves data on error, prevents duplicate requests and allows retry',async()=>{
+ const roomId='12345678-1234-1234-1234-123456789abc';sessionStorage.setItem('peakboo-session','delete-test');let resolveDelete,deleted=false,deleteCalls=0;
+ const response=(data,ok=true)=>({ok,headers:{get:()=>null},json:async()=>data});
+ globalThis.fetch=async(url,options={})=>{const path=String(url);if(options.method==='DELETE'){deleteCalls++;return new Promise(resolve=>{resolveDelete=resolve})}if(path.endsWith('/api/bootstrap'))return response({user:{id:'me',name:'Owner',email:'owner@example.invalid'},rooms:deleted?[]:[{id:roomId,name:'Delete test group',ownerId:'me',color:'purple',memberCount:1,unread:0}],events:[]});if(path.includes('/messages'))return response({messages:[],hasMore:false});if(path.endsWith('/api/live'))throw Error('No live stream in test');return response({ok:true})};
+ const root=await mount('src/App.tsx');try{
+ await act(async()=>document.querySelector('.chat-photo-button').click());await act(async()=>document.querySelector('.delete-group-entry').click());
+ const confirm=()=>[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Excluir grupo');
+ await act(async()=>{confirm().click();confirm().click()});assert.equal(deleteCalls,1);assert.equal(confirm().disabled,true);assert.equal(confirm().getAttribute('aria-busy'),'true');
+ await act(async()=>resolveDelete(response({error:'SERVER_ERROR'},false)));assert.ok(document.querySelector('[role=alert]'));assert.ok(document.querySelector('.conversation-panel').textContent.includes('Delete test group'));assert.equal(confirm().disabled,false);
+ await act(async()=>confirm().click());assert.equal(deleteCalls,2);deleted=true;await act(async()=>resolveDelete(response({ok:true})));assert.equal(document.querySelector('[role=dialog]'),null);assert.ok(!document.querySelector('.conversation-panel').textContent.includes('Delete test group'));
+ }finally{await act(async()=>root.unmount());sessionStorage.removeItem('peakboo-session')}
+ });
+
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}

@@ -84,3 +84,6 @@ Text, voice and attachments appear optimistically, retaining a retryable state a
 The voice button shares the send circle. Search opens inside the header; reactions offer 24 options in a viewport-constrained menu. Pinned messages appear in a top strip, fetched independently of the current history page. Images, video and audio no longer display size or download links below the bubble; photo downloads remain available in the gallery.
 
 Both builds embed initial CSS inside HTML so a stylesheet loading failure or stale asset reference cannot leave the page unstyled. CSS files remain available for compatibility; Cloudflare HTML requires revalidation. The build verifies embedded styles automatically.
+
+
+On mobile, the header shows the PeakBoo brand and settings remain in the bottom navigation. Swipe a message right to reply; vertical scrolling, pinch zoom and media controls remain independent. The creator can open the group photo and choose **Delete group**. Confirmation explains that deletion is permanent for everyone and removes messages, attachments and events. `DELETE /api/rooms/:room` enforces ownership on the server, deletes atomically and notifies participants through SSE. No additional migration is required; existing relationships remove dependent data.

@@ -84,3 +84,6 @@ Texto, áudio e anexos aparecem de forma otimista, com estado de envio e reenvio
 O botão de áudio compartilha o círculo do envio. A busca abre no cabeçalho; as reações oferecem 24 opções em menu ajustado à janela. As mensagens fixadas aparecem em uma faixa no topo, consultada independentemente da página atual do histórico. Mídias visuais e áudio não exibem tamanho nem link de download sob o balão; o download de fotos permanece na galeria.
 
 O build incorpora o CSS inicial no HTML nas duas versões. Isso evita que uma falha de carregamento ou uma divergência de cache do arquivo CSS deixe a página sem formatação. Os arquivos CSS também são mantidos para compatibilidade, e o HTML do Cloudflare exige revalidação. O build verifica automaticamente a presença dos estilos incorporados.
+
+
+No mobile, o cabeçalho mostra a marca PeakBoo e as configurações ficam na navegação inferior. Arraste uma mensagem para a direita para responder; rolagem vertical, pinça e controles de mídia continuam independentes. O criador pode abrir a foto do grupo e escolher **Excluir grupo**. A confirmação explica que a exclusão é definitiva para todos e remove mensagens, anexos e compromissos. `DELETE /api/rooms/:room` verifica a autoria no servidor, exclui em uma transação e avisa os participantes pelo SSE. Não há migração adicional; as relações existentes removem os dados dependentes.

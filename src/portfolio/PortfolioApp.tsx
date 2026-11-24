@@ -1,3 +1,4 @@
+import {SwipeReply} from "../SwipeReply";
 import {ReactionPicker} from "../ReactionPicker";
 import {useChatScroll} from "../useChatScroll";
 import {useOptimisticMessages,mergeMessages,type PendingMessage} from "../useOptimisticMessages";
@@ -137,6 +138,9 @@ export default function App() {
   const [authMode, setAuthMode] = useState("signup");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState("");
+  const [deleteTarget,setDeleteTarget]=useState<{id:string;name:string}|null>(null);
+  const [deleteError,setDeleteError]=useState("");
+  const deletingGroupRef=useRef(false);
   const [toast, setToast] = useState("");
   const [newTab, setNewTab] = useState("create");
   const [newColor, setNewColor] = useState<Color>("purple");
@@ -560,6 +564,23 @@ export default function App() {
     if(editing){try{await messageAction('edit-save',editing,content);setEditing(null);setText('')}catch(e){notify(errorText(e))}return;}
     const m:PendingMessage={id:retry?.id||crypto.randomUUID(),roomId,text:content,replyTo:replying?.id,replyText:replying?.text,senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending'};
     setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m);setText('');setReplying(null);setFailed(null);setEmojiOpen(false);composerRef.current?.focus();void deliverPending(m);
+  }
+  function removeRoomLocally(id:string) {
+    setMessages(old=>{const next={...old};delete next[id];return next});
+    setBoot(old=>({...old,rooms:old.rooms.filter(r=>r.id!==id),events:old.events.filter(e=>e.roomId!==id)}));
+    setHasMore(old=>{const next={...old};delete next[id];return next});
+    if(selectedRef.current===id){selectedRef.current=null;setSelected(null);setMobileChat(false);setReplying(null);setEditing(null);setText('');setGalleryId(null);}
+    setDeleteTarget(old=>old?.id===id?null:old);
+  }
+  async function deleteGroup() {
+    if(!deleteTarget||deletingGroupRef.current)return;
+    deletingGroupRef.current=true;
+    const target=deleteTarget;
+    setBusy('delete-group');setDeleteError('');
+    try {
+      removeRoomLocally(target.id);setDeleteTarget(null);setModal(null);notify(t('deleteGroupSuccess'));
+    } catch(error) {setDeleteError(errorText(error));}
+    finally {deletingGroupRef.current=false;setBusy(null);}
   }
   async function messageAction(action:MessageAction|'edit-save',m:Message,target?:string){
     if(!selected)return;
@@ -1396,6 +1417,7 @@ export default function App() {
       </aside>
       <main className="main-area">
         <header className="topbar">
+          <a href="#" className="mobile-brand" aria-label="PeakBoo" onClick={e=>{e.preventDefault();setView("chats");setMobileChat(false)}}><Logo /></a>
           <span className="breadcrumb">
             PeakBoo <span>/</span>{" "}
             <strong>
@@ -1427,13 +1449,7 @@ export default function App() {
                 </span>
               </span>
             )}
-            <button
-              className="mobile-settings icon-button"
-              aria-label={t("settings")}
-              onClick={() => openModal("settings")}
-            >
-              <Settings size={20} />
-            </button>
+
           </div>
         </header>
         {demo && (
@@ -1619,7 +1635,7 @@ export default function App() {
                     >
                       <ArrowLeft size={21} />
                     </button>
-                    <button type="button" aria-label={lang==="pt"?"Foto da conversa":"Conversation photo"} onClick={()=>openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
+                    <button type="button" className="chat-photo-button" aria-label={lang==="pt"?"Foto da conversa":"Conversation photo"} onClick={()=>openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
                     <div className="chat-header-title">
                       <h2>{room.name}</h2>
                       <button onClick={showMembers}>
@@ -1722,7 +1738,9 @@ export default function App() {
                           return (
                             <Fragment key={m.id}>
                             {(i===0||localDayKey(new Date(arr[i-1].createdAt))!==localDayKey(new Date(m.createdAt)))&&<DaySeparator day={localDayKey(new Date(m.createdAt))} value={chatFilter} onChange={setChatFilter} lang={lang}/>}
-                            <div
+                            <SwipeReply
+                              disabled={!!m.deleted||!!m.pendingStatus||!!p}
+                              onReply={()=>{void messageAction('reply',m)}}
                               id={"message-"+m.id}
                               onContextMenu={e=>{if(!m.deleted&&!m.pendingStatus){e.preventDefault();e.currentTarget.querySelector<HTMLButtonElement>('[data-message-actions]')?.click()}}}
                               className={cn(
@@ -1808,7 +1826,7 @@ export default function App() {
                                 <ReactionPicker label={t("react")} onReact={emoji=>{void react(m,emoji)}}/>
                                 <MessageActions message={m} own={own} pt={lang==="pt"} rooms={boot.rooms} onAction={messageAction}/>
                               </div>}
-                            </div></Fragment>
+                            </SwipeReply></Fragment>
                           );
                         })
                     )}
@@ -2285,7 +2303,7 @@ export default function App() {
         closeLabel={t("close")}
       >
         <div className="invite-preview">
-          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room?.ownerId===boot.user.id&&<label className="button outline photo-picker">{lang==="pt"?"Foto da conversa":"Conversation photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
+          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room?.ownerId===boot.user.id&&<label className="button outline photo-picker room-photo-picker">{lang==="pt"?"Foto da conversa":"Conversation photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
           <h3>{room?.name}</h3>
           <p>
             {room?.memberCount} {t("members")}
@@ -2303,11 +2321,22 @@ export default function App() {
           <Copy size={16} />
           {t("copyInvite")}
         </Button>
+        {room?.ownerId===boot.user.id&&<Button variant="ghost" className="full-width text-danger delete-group-entry" onClick={()=>{setDeleteError('');setDeleteTarget({id:room.id,name:room.name});setModal(null)}}><Trash2 size={16}/>{t('deleteGroup')}</Button>}
+
         {formError && (
           <p role="alert" className="form-error">
             {formError}
           </p>
         )}
+      </Modal>
+
+      <Modal open={!!deleteTarget} onOpenChange={open=>{if(!open&&busy!=='delete-group')setDeleteTarget(null)}} title={t('deleteGroupTitle')} description={deleteTarget?.name} closeLabel={t('close')}>
+        <p className="delete-group-warning">{t('deleteGroupWarning')}</p>
+        {deleteError&&<p className="form-error" role="alert">{deleteError}</p>}
+        <div className="form-footer">
+          <Button variant="outline" disabled={busy==='delete-group'} onClick={()=>setDeleteTarget(null)}>{t('cancel')}</Button>
+          <Button variant="danger" busy={busy==='delete-group'} onClick={()=>void deleteGroup()}><Trash2 size={16}/>{t('deleteGroup')}</Button>
+        </div>
       </Modal>
 
       <Modal

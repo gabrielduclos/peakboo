@@ -167,6 +167,30 @@ app.post("/api/rooms", async (req, res) => {
     c.release();
   }
 });
+// Delete atomically and notify the former participants after the commit.
+app.delete("/api/rooms/:room", member, async (req, res) => {
+  if (req.room.owner_id !== req.user.id) return jsonError(res, 403, "FORBIDDEN");
+  const c = await pool.connect();
+  let participants = [];
+  try {
+    await c.query("BEGIN");
+    const locked = await c.query("SELECT owner_id FROM rooms WHERE id=$1 FOR UPDATE", [req.params.room]);
+    if (!locked.rowCount) { await c.query("ROLLBACK"); return jsonError(res, 404, "NOT_FOUND"); }
+    if (locked.rows[0].owner_id !== req.user.id) { await c.query("ROLLBACK"); return jsonError(res, 403, "FORBIDDEN"); }
+    participants = (await c.query("SELECT user_id FROM members WHERE room_id=$1", [req.params.room])).rows;
+    // Foreign keys cascade to membership, messages, events, media and reactions.
+    await c.query("DELETE FROM rooms WHERE id=$1 AND owner_id=$2", [req.params.room, req.user.id]);
+    await c.query("COMMIT");
+  } catch (error) {
+    await c.query("ROLLBACK");
+    throw error;
+  } finally { c.release(); }
+  for (const participant of participants)
+    for (const stream of live.get(participant.user_id) || []) {
+      try { stream.write(`data: ${JSON.stringify({ roomId: req.params.room, deletedRoomId: req.params.room })}\n\n`); } catch {}
+    }
+  res.json({ ok: true });
+});
 app.post("/api/join", async (req, res) => {
   if (typeof req.body.code !== "string" || req.body.code.length > 100)
     return jsonError(res, 400, "INVALID_INPUT");
