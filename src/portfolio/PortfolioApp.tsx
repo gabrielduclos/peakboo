@@ -1,8 +1,10 @@
+import {MessageActions,ChatFilters,emptyFilter,matchesMessage,filterParams,type ChatFilter,type MessageAction} from "../ChatTools";
 import {LiveMessageComposer} from "../LiveMessageComposer";
-import {MessageMedia,MessageText,uploadMedia,photoFile,localFile} from "../Media";
+import {MessageMedia,MessageText,uploadMedia,photoFile,localFile,mediaDimensions,cachedMedia,setMediaAccount,mediaLabel} from "../Media";
 import UpcomingEventsBar from "../UpcomingEventsBar";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useCallback,
@@ -98,6 +100,12 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [chatQuery, setChatQuery] = useState("");
+  const [chatFilter,setChatFilter]=useState<ChatFilter>(emptyFilter);
+  const [filtered,setFiltered]=useState<Message[]>([]);
+  const [filterMore,setFilterMore]=useState(false);
+  const [filterLoading,setFilterLoading]=useState(false);
+  const [replying,setReplying]=useState<Message|null>(null);
+  const [editing,setEditing]=useState<Message|null>(null);
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -151,7 +159,9 @@ export default function App() {
     .filter((e) => !e.cancelled)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const upcoming = events.filter((e) => new Date(e.endsAt) >= new Date());
-  const currentMessages = selected ? messages[selected] || [] : [];
+  const rawMessages = selected ? messages[selected] || [] : [];
+  const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
+  const currentMessages = filtering ? rawMessages.filter(m=>matchesMessage(m,chatFilter,chatQuery)) : rawMessages;
   const locale = lang === "pt" ? "pt-BR" : "en-US";
   const fmt = (d: string | Date, options: Intl.DateTimeFormatOptions) =>
     new Date(d).toLocaleDateString(locale, options);
@@ -181,6 +191,8 @@ export default function App() {
     };
     return t(codes[k] || "error");
   };
+  useLayoutEffect(()=>{setMediaAccount('demo');return()=>setMediaAccount('')},[boot.user.id]);
+  useEffect(()=>{setChatFilter(emptyFilter);setChatQuery('');setReplying(null);setEditing(null)},[selected]);
   const openModal = (m: typeof modal) => {
     if (m === "auth") {
       setToast(
@@ -513,10 +525,10 @@ export default function App() {
     setBusy("media");
     try{
       if(file.size>10*1024*1024)throw Error("INVALID_INPUT");
-      const attachment={id:crypto.randomUUID(),name:file.name,mime:file.type||"application/octet-stream",size:file.size,url:await localFile(file)};
-      const m:Message={id:crypto.randomUUID(),text:caption,senderId:boot.user.id,senderName:boot.user.name,createdAt:new Date().toISOString(),reactions:[],attachment};
+      const attachment={id:crypto.randomUUID(),name:file.name,mime:file.type||"application/octet-stream",size:file.size,...await mediaDimensions(file),url:await localFile(file)};
+      const m:Message={id:crypto.randomUUID(),text:caption,replyTo:replying?.id,replyText:replying?.text,senderImage:boot.user.image,senderId:boot.user.id,senderName:boot.user.name,createdAt:new Date().toISOString(),reactions:[],attachment};
       setMessages(old=>({...old,[roomId]:[...(old[roomId]||[]),m]}));
-      setText("");
+      setText("");setReplying(null);setEditing(null);
     }catch(e){notify(errorText(e));throw e;}finally{setBusy(null)}
   }
   async function sendLocation(lat:number,lon:number,caption:string){
@@ -534,6 +546,7 @@ export default function App() {
       id = retry?.id || crypto.randomUUID(),
       roomId = retry?.roomId || selected;
     if (!content || !roomId || busy === "send") return;
+    if(editing){try{await messageAction('edit-save',editing,content);setEditing(null);setText('')}catch(e){notify(errorText(e))}return;}
     setBusy("send");
     setFailed(null);
     try {
@@ -541,6 +554,7 @@ export default function App() {
         const msg: Message = {
           id,
           text: content,
+          replyTo:replying?.id,replyText:replying?.text,
           senderId: "me",
           senderName: boot.user.name,
           createdAt: new Date().toISOString(),
@@ -559,11 +573,12 @@ export default function App() {
         await request("/api/rooms/" + roomId + "/messages", "POST", {
           id,
           text: content,
+          replyTo:replying?.id,
         });
         await fetchMessages(roomId);
         await refresh();
       }
-      setText("");
+      setText("");setReplying(null);setEditing(null);
       setEmojiOpen(false);
       composerRef.current?.focus();
     } catch (e) {
@@ -572,6 +587,15 @@ export default function App() {
     } finally {
       setBusy(null);
     }
+  }
+  async function messageAction(action:MessageAction|'edit-save',m:Message,target?:string){
+    if(!selected)return;
+    if(action==='reply'){setReplying(m);setEditing(null);composerRef.current?.focus();return}
+    if(action==='edit'){setEditing(m);setReplying(null);setText(m.text);composerRef.current?.focus();return}
+    if(action==='event'){openEvent(m.text.slice(0,120));return}
+    if(action==='forward'&&target){const copy={...m,id:crypto.randomUUID(),senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pinned:false,replyTo:undefined,replyText:undefined};setMessages(old=>({...old,[target]:[...(old[target]||[]),copy]}));return;}
+    if(action==='report'){notify(lang==='pt'?'Denúncia registrada nesta demonstração.':'Report recorded in this demo.');return;}
+    setMessages(old=>({...old,[selected]:(old[selected]||[]).map(x=>x.id!==m.id?x:action==='pin'?{...x,pinned:!x.pinned}:action==='delete'?{...x,deleted:true,text:'',attachment:undefined,pinned:false}:{...x,text:target||'',editedAt:new Date().toISOString()})}));
   }
   async function react(m: Message, emoji: string) {
     setReactionOpen(null);
@@ -1671,6 +1695,7 @@ export default function App() {
                       />
                     </div>
                   )}
+                  {showChatSearch&&<ChatFilters value={chatFilter} onChange={setChatFilter} pt={lang==="pt"}/>}
                   <UpcomingEventsBar
                     events={boot.events}
                     roomId={room.id}
@@ -1693,16 +1718,7 @@ export default function App() {
                         {t("loadOlder")}
                       </Button>
                     )}
-                    <div className="day-separator">
-                      <span>
-                        {currentMessages.length &&
-                        !sameDay(new Date(currentMessages[0].createdAt), today)
-                          ? fmt(currentMessages[0].createdAt, {
-                              dateStyle: "medium",
-                            })
-                          : t("today")}
-                      </span>
-                    </div>
+                    <div className="day-separator"><button type="button" className="date-filter-trigger" aria-label={lang==="pt"?"Filtrar mensagens por período":"Filter messages by period"} onClick={()=>setShowChatSearch(true)}>{currentMessages[0]&&!sameDay(new Date(currentMessages[0].createdAt),new Date())?fmt(currentMessages[0].createdAt,{dateStyle:"medium"}):t("today")} ▾</button></div>
                     {loadingMessages ? (
                       <div className="message-skeletons">
                         <span className="skeleton" />
@@ -1711,17 +1727,6 @@ export default function App() {
                       </div>
                     ) : (
                       currentMessages
-                        .filter(
-                          (m) =>
-                            !chatQuery ||
-                            m.text
-                              .toLowerCase()
-                              .includes(chatQuery.toLowerCase()) ||
-                            boot.events
-                              .find((e) => e.id === m.eventId)
-                              ?.title.toLowerCase()
-                              .includes(chatQuery.toLowerCase()),
-                        )
                         .map((m, i, arr) => {
                           const own = m.senderId === boot.user.id,
                             p = m.eventId
@@ -1765,7 +1770,9 @@ export default function App() {
                                 {p ? (
                                   eventCard(p)
                                 ) : (
-                                  <div className="message-bubble"><MessageMedia attachment={m.attachment}/><MessageText text={m.text}/></div>
+                                  <>{m.pinned&&<small className="pinned-label">📌 {lang==="pt"?'Fixada':'Pinned'}</small>}
+                                  {m.replyTo&&<blockquote className="reply-quote">↪ {m.replyText||rawMessages.find(x=>x.id===m.replyTo)?.text||(lang==="pt"?'Mensagem':'Message')}</blockquote>}
+                                  <div className="message-bubble">{m.deleted?(lang==="pt"?'Mensagem removida':'Message removed'):<><MessageMedia attachment={m.attachment} lang={lang}/><MessageText text={m.text}/></>}</div>{m.editedAt&&<small>{lang==="pt"?"editada":"edited"}</small>}</>
                                 )}
                                 <div className="message-footer">
                                   {m.reactions.length > 0 && (
@@ -1810,7 +1817,7 @@ export default function App() {
                                   )}
                                 </div>
                               </div>
-                              <div className="message-actions">
+                              {!m.deleted&&<div className="message-actions">
                                 <button
                                   className="icon-button tiny"
                                   aria-label={t("react")}
@@ -1822,17 +1829,7 @@ export default function App() {
                                 >
                                   <Smile size={15} />
                                 </button>
-                                {!p && (
-                                  <button
-                                    className="icon-button tiny"
-                                    aria-label={t("eventFromMessage")}
-                                    onClick={() =>
-                                      openEvent(m.text.slice(0, 120))
-                                    }
-                                  >
-                                    <CalendarPlus size={15} />
-                                  </button>
-                                )}
+                                <MessageActions message={m} own={own} pt={lang==="pt"} rooms={boot.rooms} onAction={messageAction}/>
                                 {reactionOpen === m.id && (
                                   <div className="emoji-menu">
                                     {EMOJIS.map((emoji) => (
@@ -1846,20 +1843,19 @@ export default function App() {
                                     ))}
                                   </div>
                                 )}
-                              </div>
+                              </div>}
                             </div>
                           );
                         })
                     )}
-                    {!loadingMessages && !currentMessages.length && (
+                    {!filtering && !loadingMessages && !currentMessages.length && (
                       <div className="empty-state">
                         <MessageCircle size={32} />
                         <h3>{t("conversationStarted")}</h3>
                         <p>{t("conversationStartedDesc")}</p>
                       </div>
                     )}
-                    {chatQuery &&
-                      currentMessages.length > 0 &&
+                    {filtering && !filterLoading && !currentMessages.length &&
                       !currentMessages.some((m) =>
                         m.text.toLowerCase().includes(chatQuery.toLowerCase()),
                       ) && <p className="no-search-result">{t("noResults")}</p>}
@@ -1874,7 +1870,8 @@ export default function App() {
                     </div>
                   )}
                   <div className="composer-wrapper peakboo-composer">
-                    <LiveMessageComposer key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={busy === "send" || busy === "media"} locale={locale} textareaRef={composerRef} allowOffice />
+                    {(replying||editing)&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
+                    <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={busy === "send" || busy === "media"} locale={locale} textareaRef={composerRef} allowOffice />
                     <button type="button" className="button ghost compact-event" onClick={()=>openEvent()}><CalendarPlus size={17}/>{t("createEvent")}</button>
                   </div>
                 </>

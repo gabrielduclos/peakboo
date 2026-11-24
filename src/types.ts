@@ -36,10 +36,15 @@ export type Message = {
   id: string;
   text: string;
   eventId?: string;
+  replyTo?: string;
+  replyText?: string;
+  editedAt?: string;
+  deleted?: boolean;
+  pinned?: boolean;
   senderId: string;
   senderName: string;
   senderImage?: string | null;
-  attachment?: { id: string; name: string; mime: string; size: number; url?: string };
+  attachment?: { id: string; name: string; mime: string; size: number; width?: number; height?: number; url?: string };
   createdAt: string;
   reactions: { userId: string; emoji: string }[];
 };

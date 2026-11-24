@@ -68,3 +68,9 @@ Turquoise and blue define the visual identity. The text-only PeakBoo wordmark us
 Profile photos: Settings → Profile → Change photo. Conversation owners click the header image to update their conversation photo. The **+** menu adapts the MIT-licensed [Uorqui main composer](https://github.com/gabrielduclos/uorqui/tree/58e5c199cbf0731bdafaa95ed4bff959ddb559e3): gallery, camera (photo/video), files, location, voice recording, previews and photo editor. Compatible photos/videos are optimized locally; sending as a file preserves original bytes.
 
 Limits: **10 MB per file**, **1 MB per avatar**, **100 MB per account**. Additive migration `002_media.sql` stores binary media in PostgreSQL, independent of Render's temporary disk. Downloads require authentication and conversation membership. Only owners can change conversation photos. Portfolio files stay in browser IndexedDB without API uploads. Camera, microphone and location require browser support and permission.
+
+### Cache, loading and message actions
+
+Profile and chat media use a session/account-scoped RAM cache with request deduplication, five-minute revalidation and logout invalidation. Target budget: 64 MB/160 entries; visible media are retained. Skeletons reserve the uploaded aspect ratio; older media without dimensions use a fixed 4:3 frame. The interface uses Photo, Video, Audio or Document labels; downloads keep original filenames.
+
+Date filtering adapts Uorqui's local-calendar rules and combines text, media type and pinned filters. Server-side search paginates across history beyond the visible page. Message actions adapt reply, copy, forward, pin/unpin, edit text, cancel and report; edits and cancellation require authorship. Additive migration `003_message_actions.sql` stores dimensions and message states. The demo keeps changes in the browser.

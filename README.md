@@ -68,3 +68,9 @@ Verde-turquesa e azul definem a identidade visual. O logo é somente o texto Pea
 Fotos de perfil: Configurações → Perfil → Alterar foto. Para alterar a foto da conversa, o criador clica na imagem no cabeçalho. O botão **+** reutiliza o compositor da `main` do [Uorqui](https://github.com/gabrielduclos/uorqui/tree/58e5c199cbf0731bdafaa95ed4bff959ddb559e3) (MIT): galeria, câmera (foto/vídeo), arquivos, localização, gravação de áudio, prévia e editor de fotos. Fotos e vídeos são compactados no dispositivo quando compatível; envio como arquivo mantém o original.
 
 A API aceita até **10 MB por arquivo**, foto de perfil de até **1 MB** e **100 MB por usuário**. Os binários ficam no PostgreSQL, com migração aditiva `002_media.sql`; nenhum arquivo depende do disco temporário do Render. Downloads exigem sessão e participação na conversa. Somente o criador altera a foto da conversa. A demo mantém os arquivos no IndexedDB do navegador e não faz uploads à API. Câmera, microfone e localização dependem de permissão e suporte do navegador.
+
+### Cache, carregamento e mensagens
+
+Fotos de perfil e mídias usam cache em memória por sessão/conta, com deduplicação, revalidação após cinco minutos e descarte no logout. O limite alvo é 64 MB/160 itens; mídias em exibição são preservadas. O skeleton reserva a proporção enviada com a mídia; anexos antigos sem dimensões usam uma moldura fixa 4:3. A interface mostra Foto, Vídeo, Áudio ou Documento, mantendo o nome original apenas no download.
+
+O filtro por período reaproveita as regras de datas locais do Uorqui e combina texto, tipos de mídia e fixadas. A API pesquisa o histórico com paginação, sem limitar a busca à página visível. O menu dos balões adapta responder, copiar, encaminhar, fixar/desafixar, editar texto, cancelar e denunciar. Edição e cancelamento são restritos ao autor. A migração aditiva `003_message_actions.sql` guarda dimensões e estados das mensagens. A demo mantém tudo no navegador.

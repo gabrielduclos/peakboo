@@ -10,6 +10,7 @@ export const messageInput = z.object({
   id: z.uuid(),
   text: z.string().trim().max(4000),
   attachmentId: z.uuid().optional(),
+  replyTo: z.uuid().optional(),
 }).refine(x => !!x.text || !!x.attachmentId);
 export const eventInput = z
   .object({

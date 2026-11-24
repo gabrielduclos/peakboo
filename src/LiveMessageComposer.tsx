@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type Keyb
 import { Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Square, Video, X } from 'lucide-react';
 import { attachmentLabel } from './chatAttachmentLabels';
 import { createPortal } from 'react-dom';
-import { ChatAudioPlayer } from './Media';
+import { ChatAudioPlayer,mediaLabel } from './Media';
 import { ChatImageEditor } from './ChatImageEditor';
 import { cn } from './components';
 import { optimizeVideoAttachment } from './videoCompression';
@@ -364,7 +364,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     className="relative flex w-full min-w-0 flex-wrap items-end gap-1 sm:gap-2" data-live-message-composer>
     {optimizing&&<div className="w-full min-w-0 space-y-2 rounded-lg border border-border bg-card p-3" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-xs">
-        <span className="min-w-0 flex-1 truncate font-semibold" title={optimizingFile?.name}>
+        <span className="min-w-0 flex-1 truncate font-semibold" title={pt?'Preparando mídia':'Preparing media'}>
           {optimizationKind==='image'?(pt?'Compactando foto':'Compressing photo'):(pt?'Compactando vídeo':'Compressing video')} · {optimizingFile?(optimizingFile.size/1048576).toFixed(1)+' MB':''}
         </span>
         <span className="shrink-0 text-muted-foreground">{optimizationProgress}%</span>
@@ -394,8 +394,8 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     </div>}
     {(pending && pendingUrl) && <div className="flex w-full min-w-0 items-start gap-2 border border-border bg-muted/60 p-2 text-xs" role="status">
       <div className="min-w-0 flex-1">
-        <p className="mb-1 truncate font-semibold" title={!/^(image|audio|video)\//.test(pending.type) ? pending.name : undefined}>
-          {/^(image|audio|video)\//.test(pending.type) ? attachmentLabel(pending.type,locale) : pending.name}
+        <p className="mb-1 truncate font-semibold" title={mediaLabel(pending.type,pt)}>
+          {mediaLabel(pending.type,pt)}
           {' · '}{(pending.size/1048576).toFixed(1)} MB
         </p>
         {pending.type.startsWith('image/') ? <div className="flex items-center gap-2">
