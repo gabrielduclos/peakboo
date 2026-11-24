@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,writeFile,rm} from 'node:fs/promises';import {build} from 'esbuild';import {JSDOM} from 'jsdom';import {pathToFileURL} from 'node:url';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';import {build} from 'esbuild';import {JSDOM} from 'jsdom';import {pathToFileURL} from 'node:url';
 // Import React DOM after browser globals so Radix uses its browser portal implementation.
 const dom=new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>',{url:'https://main.peakboo.workers.dev'});
 for(const key of ['window','document','navigator','HTMLElement','Element','Node','NodeFilter','MutationObserver','CustomEvent','Event','localStorage','sessionStorage','location','history','HTMLInputElement'])Object.defineProperty(globalThis,key,{value:dom.window[key],configurable:true});globalThis.getComputedStyle=dom.window.getComputedStyle.bind(dom.window);globalThis.IS_REACT_ACT_ENVIRONMENT=true;dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
@@ -109,6 +109,28 @@ try{
  await act(async()=>resolveDelete(response({error:'SERVER_ERROR'},false)));assert.ok(document.querySelector('[role=alert]'));assert.ok(document.querySelector('.conversation-panel').textContent.includes('Delete test group'));assert.equal(confirm().disabled,false);
  await act(async()=>confirm().click());assert.equal(deleteCalls,2);deleted=true;await act(async()=>resolveDelete(response({ok:true})));assert.equal(document.querySelector('[role=dialog]'),null);assert.ok(!document.querySelector('.conversation-panel').textContent.includes('Delete test group'));
  }finally{await act(async()=>root.unmount());sessionStorage.removeItem('peakboo-session')}
+ });
+
+
+ await test('chat header search is never hidden by the mobile first-button rule',async()=>{
+ const css=await readFile('src/styles.css','utf8');
+ assert.ok(!css.includes('.chat-header-actions > .icon-button:first-child'));
+ });
+
+ await test('photo swipe replies once without opening gallery; taps, reversal, pinch and mouse work independently',async()=>{
+ const fixture=dir+'/photo-swipe.tsx';await writeFile(fixture,`import {useState} from 'react';import {SwipeReply} from '../src/SwipeReply';export default function Fixture(){const [replies,setReplies]=useState(0),[photos,setPhotos]=useState(0);return <><SwipeReply id="photo-row" onReply={()=>setReplies(x=>x+1)}><button className="open-chat-photo" onClick={()=>setPhotos(x=>x+1)}><img id="swipe-photo" alt="Photo"/></button></SwipeReply><output>{replies}:{photos}</output></>}`);
+ const root=await mount(fixture);try{
+ const row=document.getElementById('photo-row'),photo=document.getElementById('swipe-photo'),button=photo.parentElement;
+ row.setPointerCapture=()=>{};row.hasPointerCapture=()=>false;
+ const pointer=async(target,type,x,y,extra={})=>act(async()=>target.dispatchEvent(new dom.window.PointerEvent(type,{pointerId:1,pointerType:'touch',isPrimary:true,clientX:x,clientY:y,bubbles:true,cancelable:true,...extra})));
+ await pointer(photo,'pointerdown',100,100);await pointer(row,'pointermove',152,103);assert.ok(row.querySelector('.ready'));await pointer(row,'pointerup',152,103);
+ await act(async()=>button.click());assert.equal(document.querySelector('output').textContent,'1:0');
+ await pointer(photo,'pointerdown',100,100);await pointer(photo,'pointerup',100,100);await act(async()=>button.click());assert.equal(document.querySelector('output').textContent,'1:1');
+ await pointer(photo,'pointerdown',100,100);await pointer(row,'pointermove',170,100);await pointer(row,'pointerup',120,100);assert.equal(document.querySelector('output').textContent,'1:1');
+ await pointer(photo,'pointerdown',100,100);await pointer(row,'pointermove',170,100);await pointer(document.body,'pointerdown',200,100,{pointerId:2,isPrimary:false});await pointer(row,'pointerup',170,100);assert.equal(document.querySelector('output').textContent,'1:1');assert.equal(row.querySelector('.ready'),null);
+ await pointer(photo,'pointerdown',100,100,{pointerType:'mouse',button:0});await pointer(row,'pointermove',155,100,{pointerType:'mouse'});await pointer(row,'pointerup',155,100,{pointerType:'mouse'});assert.equal(document.querySelector('output').textContent,'2:1');
+ await pointer(photo,'pointerdown',100,100,{pointerType:'mouse',button:2});await pointer(row,'pointermove',180,100,{pointerType:'mouse',button:2});await pointer(row,'pointerup',180,100,{pointerType:'mouse',button:2});assert.equal(document.querySelector('output').textContent,'2:1');
+ }finally{await act(async()=>root.unmount())}
  });
 
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}

@@ -2910,9 +2910,6 @@ textarea::placeholder {
     min-width: 31px;
     height: 31px;
   }
-  .chat-header-actions > .icon-button:first-child {
-    display: none;
-  }
   .chat-header-actions .highlight {
     margin-left: 4px;
   }
@@ -3806,8 +3803,11 @@ textarea::placeholder {
 [data-theme="dark"] .pinned-chat-bar { background:#315e94; }
 
 .mobile-brand { display:none; }
-.swipe-reply { position:relative; touch-action:pan-y pinch-zoom; transform:translateX(var(--reply-offset,0px)); transition:transform 160ms ease-out; }
-.swipe-reply.swiping { transition:none; }
+.swipe-reply { position:relative; touch-action:pan-y pinch-zoom; transition:transform 160ms ease-out; }
+.swipe-reply.swiping { transform:translateX(var(--reply-offset,0px)); transition:none; user-select:none; -webkit-user-select:none; }
+.swipe-reply .open-chat-photo { touch-action:pan-y pinch-zoom; }
+.swipe-reply .open-chat-photo img { -webkit-user-drag:none; }
+.chat-history { overflow-x:hidden; }
 .swipe-reply-indicator { position:absolute; left:-32px; top:50%; display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--surface-2); color:var(--muted); transform:translateY(-50%); }
 .swipe-reply-indicator.ready { background:var(--primary); color:#fff; }
 @media(max-width:700px) { .topbar .breadcrumb { display:none; } .mobile-brand { display:inline-flex; align-items:center; min-height:44px; } .mobile-brand .brand { margin:0; } }
