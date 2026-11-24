@@ -123,7 +123,7 @@ app.get("/api/live", (req, res) => {
 app.get("/api/bootstrap", async (req, res) => {
   const rooms = (
     await pool.query(
-      `SELECT r.id,r.name,r.description,r.color,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",(SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",(SELECT text FROM messages WHERE room_id=r.id ORDER BY created_at DESC LIMIT 1) AS "lastText",(SELECT max(created_at) FROM messages WHERE room_id=r.id) AS "lastAt",(SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND sender_id<>$1) AS unread FROM rooms r JOIN members m ON m.room_id=r.id WHERE m.user_id=$1 ORDER BY coalesce((SELECT max(created_at) FROM messages WHERE room_id=r.id),r.created_at) DESC LIMIT 100`,
+      `SELECT r.id,r.name,r.description,r.color,r.image,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",(SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",(SELECT text FROM messages WHERE room_id=r.id ORDER BY created_at DESC LIMIT 1) AS "lastText",(SELECT max(created_at) FROM messages WHERE room_id=r.id) AS "lastAt",(SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND sender_id<>$1) AS unread FROM rooms r JOIN members m ON m.room_id=r.id WHERE m.user_id=$1 ORDER BY coalesce((SELECT max(created_at) FROM messages WHERE room_id=r.id),r.created_at) DESC LIMIT 100`,
       [req.user.id],
     )
   ).rows;
@@ -190,7 +190,7 @@ app.get("/api/rooms/:room/messages", member, async (req, res) => {
       : null;
   const messages = (
     await pool.query(
-      `SELECT m.id,m.text,m.event_id AS "eventId",m.sender_id AS "senderId",u.name AS "senderName",m.created_at AS "createdAt",COALESCE((SELECT json_agg(json_build_object('userId',r.user_id,'emoji',r.emoji)) FROM reactions r WHERE r.message_id=m.id),'[]') AS reactions FROM messages m JOIN "user" u ON u.id=m.sender_id WHERE m.room_id=$1 AND ($2::timestamptz IS NULL OR m.created_at<$2) ORDER BY m.created_at DESC,m.id DESC LIMIT 80`,
+      `SELECT m.id,m.text,m.event_id AS "eventId",m.sender_id AS "senderId",u.name AS "senderName",u.image AS "senderImage",(SELECT json_build_object('id',a.id,'name',a.name,'mime',a.mime,'size',a.size) FROM media a WHERE a.id=m.attachment_id) AS attachment,m.created_at AS "createdAt",COALESCE((SELECT json_agg(json_build_object('userId',r.user_id,'emoji',r.emoji)) FROM reactions r WHERE r.message_id=m.id),'[]') AS reactions FROM messages m JOIN "user" u ON u.id=m.sender_id WHERE m.room_id=$1 AND ($2::timestamptz IS NULL OR m.created_at<$2) ORDER BY m.created_at DESC,m.id DESC LIMIT 80`,
       [req.params.room, before],
     )
   ).rows.reverse();
@@ -207,7 +207,7 @@ app.get("/api/rooms/:room/members", member, async (req, res) =>
   res.json({
     members: (
       await pool.query(
-        'SELECT u.id,u.name FROM members m JOIN "user" u ON u.id=m.user_id WHERE m.room_id=$1 ORDER BY m.joined_at',
+        'SELECT u.id,u.name,u.image FROM members m JOIN "user" u ON u.id=m.user_id WHERE m.room_id=$1 ORDER BY m.joined_at',
         [req.params.room],
       )
     ).rows,
@@ -216,9 +216,13 @@ app.get("/api/rooms/:room/members", member, async (req, res) =>
 app.post("/api/rooms/:room/messages", member, async (req, res) => {
   const data = messageInput.safeParse(req.body);
   if (!data.success) return jsonError(res, 400, "INVALID_INPUT");
+  if (data.data.attachmentId) {
+    const a = await pool.query("SELECT id FROM media WHERE id=$1 AND owner_id=$2 AND room_id=$3", [data.data.attachmentId,req.user.id,req.params.room]);
+    if (!a.rowCount) return jsonError(res,400,"INVALID_INPUT");
+  }
   const r = await pool.query(
-    "INSERT INTO messages(id,room_id,sender_id,text) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING RETURNING id",
-    [data.data.id, req.params.room, req.user.id, data.data.text],
+    "INSERT INTO messages(id,room_id,sender_id,text,attachment_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO NOTHING RETURNING id",
+    [data.data.id, req.params.room, req.user.id, data.data.text, data.data.attachmentId || null],
   );
   if (!r.rowCount) {
     const existing = (
@@ -349,6 +353,41 @@ app.delete("/api/rooms/:room/events/:event", member, async (req, res) => {
   await publish(req.params.room);
   res.json({ ok: true });
 });
+
+// Binary bodies are parsed only after authentication and room membership checks.
+const mediaBody = express.raw({type:()=>true,limit:"10mb"});
+async function saveMedia(req, res, roomId, avatar) {
+  const mime=(req.headers["content-type"]||"").split(";")[0];
+  const allowed=new Set(["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/quicktime","audio/webm","audio/mp4","audio/ogg","audio/mpeg","audio/wav","audio/aac","audio/x-m4a","application/pdf","text/plain","application/zip","application/octet-stream","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation"]);
+  if(!allowed.has(mime)|| (avatar && !["image/jpeg","image/png","image/webp","image/gif"].includes(mime)) || !Buffer.isBuffer(req.body)||!req.body.length || (avatar&&req.body.length>1048576))return jsonError(res,400,"INVALID_INPUT");
+  const name=String(req.query.name||"arquivo").replace(/[\\/\r\n\x00-\x1f]/g,"_").slice(0,180);
+  const id=randomUUID(); const c=await pool.connect();
+  try {
+    await c.query("BEGIN");
+    await c.query('SELECT id FROM "user" WHERE id=$1 FOR UPDATE',[req.user.id]);
+    const quota=await c.query("SELECT coalesce(sum(size),0)::bigint AS total FROM media WHERE owner_id=$1",[req.user.id]);
+    if(Number(quota.rows[0].total)+req.body.length>100*1048576){await c.query("ROLLBACK");return jsonError(res,413,"STORAGE_FULL");}
+    await c.query("INSERT INTO media(id,owner_id,room_id,name,mime,size,bytes) VALUES($1,$2,$3,$4,$5,$6,$7)",[id,req.user.id,roomId,name,mime,req.body.length,req.body]);
+    if(avatar){
+      const url="/api/media/"+id;
+      if(roomId)await c.query("UPDATE rooms SET image=$1 WHERE id=$2",[url,roomId]);
+      else await c.query('UPDATE "user" SET image=$1 WHERE id=$2',[url,req.user.id]);
+    }
+    await c.query("COMMIT");
+  }catch(e){await c.query("ROLLBACK");throw e;}finally{c.release();}
+  if(roomId)await publish(roomId);
+  res.status(201).json({id,image:"/api/media/"+id,name,mime,size:req.body.length});
+}
+app.post("/api/profile/photo",mediaBody,(req,res)=>saveMedia(req,res,null,true));
+app.post("/api/rooms/:room/photo",member,(req,res,next)=>req.room.owner_id===req.user.id?next():jsonError(res,403,"FORBIDDEN"),mediaBody,(req,res)=>saveMedia(req,res,req.params.room,true));
+app.post("/api/rooms/:room/files",member,mediaBody,(req,res)=>saveMedia(req,res,req.params.room,false));
+app.get("/api/media/:id",async(req,res)=>{
+ if(!/^[a-f0-9-]{36}$/i.test(req.params.id))return jsonError(res,404,"NOT_FOUND");
+ const r=await pool.query(`SELECT a.* FROM media a WHERE a.id=$1 AND (a.owner_id=$2 OR EXISTS(SELECT 1 FROM members m WHERE m.room_id=a.room_id AND m.user_id=$2) OR (a.room_id IS NULL AND EXISTS(SELECT 1 FROM members me JOIN members peer ON peer.room_id=me.room_id WHERE me.user_id=$2 AND peer.user_id=a.owner_id)))`,[req.params.id,req.user.id]);
+ if(!r.rowCount)return jsonError(res,404,"NOT_FOUND");
+ const a=r.rows[0];res.set({"Content-Type":a.mime,"Content-Disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(a.name),"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}).send(a.bytes);
+});
+
 app.use("/api", (_, res) => jsonError(res, 404, "NOT_FOUND"));
 // The API stays available to Cloudflare; the Render HTML is a local-only portfolio.
 const dist = fileURLToPath(new URL("../dist-portfolio", import.meta.url));
@@ -361,7 +400,7 @@ app.use((err, req, res, next) => {
   if (!res.headersSent)
     jsonError(
       res,
-      err.type === "entity.parse.failed" ? 400 : 500,
+      err.type === "entity.too.large" ? 413 : err.type === "entity.parse.failed" ? 400 : 500,
       err.type === "entity.parse.failed" ? "INVALID_INPUT" : "SERVER_ERROR",
     );
 });

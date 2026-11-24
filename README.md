@@ -62,3 +62,9 @@ Esta versão inclui texto, reações e compromissos de um único dia. Anexos, ch
 ## Identidade visual
 
 Verde-turquesa e azul definem a identidade visual. O logo é somente o texto PeakBoo, com Peak em turquesa e Boo em azul. Cores de apoio identificam planos e conversas. Fundos de leitura são neutros e o texto das mensagens tem 16 px. Os tokens dos dois temas estão centralizados em `src/styles.css`. Cores de preenchimento e cores de texto são separadas para manter o contraste.
+
+### Fotos e anexos
+
+Fotos de perfil: Configurações → Perfil → Alterar foto. Para alterar a foto da conversa, o criador clica na imagem no cabeçalho. O botão **+** reutiliza o compositor da `main` do [Uorqui](https://github.com/gabrielduclos/uorqui/tree/58e5c199cbf0731bdafaa95ed4bff959ddb559e3) (MIT): galeria, câmera (foto/vídeo), arquivos, localização, gravação de áudio, prévia e editor de fotos. Fotos e vídeos são compactados no dispositivo quando compatível; envio como arquivo mantém o original.
+
+A API aceita até **10 MB por arquivo**, foto de perfil de até **1 MB** e **100 MB por usuário**. Os binários ficam no PostgreSQL, com migração aditiva `002_media.sql`; nenhum arquivo depende do disco temporário do Render. Downloads exigem sessão e participação na conversa. Somente o criador altera a foto da conversa. A demo mantém os arquivos no IndexedDB do navegador e não faz uploads à API. Câmera, microfone e localização dependem de permissão e suporte do navegador.

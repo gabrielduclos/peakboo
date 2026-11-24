@@ -8,8 +8,9 @@ export const roomInput = z.object({
 });
 export const messageInput = z.object({
   id: z.uuid(),
-  text: z.string().trim().min(1).max(4000),
-});
+  text: z.string().trim().max(4000),
+  attachmentId: z.uuid().optional(),
+}).refine(x => !!x.text || !!x.attachmentId);
 export const eventInput = z
   .object({
     title: z.string().trim().min(2).max(120),

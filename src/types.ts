@@ -1,11 +1,12 @@
 export type Color = "purple" | "coral" | "green" | "blue" | "yellow";
-export type User = { id: string; name: string; email: string };
+export type User = { id: string; name: string; email: string; image?: string | null };
 export type Room = {
   id: string;
   name: string;
   description: string;
   color: Color;
   ownerId: string;
+  image?: string | null;
   inviteCode?: string;
   memberCount: number;
   lastText?: string;
@@ -37,6 +38,8 @@ export type Message = {
   eventId?: string;
   senderId: string;
   senderName: string;
+  senderImage?: string | null;
+  attachment?: { id: string; name: string; mime: string; size: number; url?: string };
   createdAt: string;
   reactions: { userId: string; emoji: string }[];
 };

@@ -317,6 +317,33 @@ try {
   check("cancellation preserved for other participants", () =>
     assert.equal(after.data.events[0].cancelled, true),
   );
+  const binary = async(route,token,mime,bytes) => fetch("http://localhost:3001"+route,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":mime},body:bytes});
+  const uploaded=await binary(`/api/rooms/${id}/files?name=teste.txt`,alice.token,"text/plain",Buffer.from("private file"));
+  assert.equal(uploaded.status,201);const file=await uploaded.json();
+  check("members can upload durable files",()=>assert.ok(file.id));
+  const deniedUpload=await binary(`/api/rooms/${id}/files`,charlie.token,"text/plain",Buffer.from("denied"));
+  check("outsiders cannot upload",()=>assert.equal(deniedUpload.status,404));
+  const attach=await call(`/api/rooms/${id}/messages`,alice.token,"POST",{id:randomUUID(),text:"",attachmentId:file.id});
+  check("file-only messages supported",()=>assert.equal(attach.status,201));
+  const invalidAttach=await call(`/api/rooms/${id}/messages`,bob.token,"POST",{id:randomUUID(),text:"",attachmentId:file.id});
+  check("another sender cannot reuse uploaded files",()=>assert.equal(invalidAttach.status,400));
+  const download=await fetch("http://localhost:3001/api/media/"+file.id,{headers:{Authorization:"Bearer "+bob.token}});
+  check("members download original bytes",()=>assert.equal(download.status,200));assert.equal(await download.text(),"private file");
+  const deniedDownload=await call("/api/media/"+file.id,charlie.token);
+  check("outsiders cannot download",()=>assert.equal(deniedDownload.status,404));
+  const photo=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aKd8AAAAASUVORK5CYII=","base64");
+  const roomPhoto=await binary(`/api/rooms/${id}/photo`,alice.token,"image/png",photo);
+  check("owner changes conversation photo",()=>assert.equal(roomPhoto.status,201));
+  const refusedPhoto=await binary(`/api/rooms/${id}/photo`,bob.token,"image/png",photo);
+  check("other members cannot change conversation photo",()=>assert.equal(refusedPhoto.status,403));
+  const profilePhoto=await binary('/api/profile/photo',alice.token,"image/png",photo);
+  check("profile photo is saved",()=>assert.equal(profilePhoto.status,201));
+  const badPhoto=await binary('/api/profile/photo',alice.token,"image/svg+xml",Buffer.from("<svg/>"));
+  check("active image formats rejected",()=>assert.equal(badPhoto.status,400));
+  const oversized=await binary(`/api/rooms/${id}/files`,alice.token,"text/plain",Buffer.alloc(10485761,65));
+  check("oversized uploads rejected",()=>assert.equal(oversized.status,413));
+  const photosBoot=await call('/api/bootstrap',alice.token);
+  check("photos persist in bootstrap",()=>{assert.ok(photosBoot.data.user.image);assert.ok(photosBoot.data.rooms[0].image)});
   await call("/api/auth/sign-out", bob.token, "POST", {});
   const expired = await call("/api/bootstrap", bob.token);
   check("sign-out revokes API access", () => assert.equal(expired.status, 401));

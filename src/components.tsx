@@ -1,3 +1,4 @@
+import { AvatarPhoto } from './Media';
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, LoaderCircle } from "lucide-react";
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
@@ -85,14 +86,16 @@ export function Avatar({
   name,
   color = "purple",
   small = false,
+  image,
 }: {
   name: string;
   color?: string;
   small?: boolean;
+  image?: string | null;
 }) {
   return (
     <span className={cn("avatar", color, small && "small")} aria-hidden="true">
-      {name
+      {image ? <AvatarPhoto src={image} /> : name
         .split(" ")
         .filter(Boolean)
         .slice(0, 2)

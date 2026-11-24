@@ -1,3 +1,5 @@
+import {LiveMessageComposer} from "../LiveMessageComposer";
+import {MessageMedia,MessageText,uploadMedia,photoFile,localFile} from "../Media";
 import UpcomingEventsBar from "../UpcomingEventsBar";
 import {
   useEffect,
@@ -130,7 +132,7 @@ export default function App() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarMode, setCalendarMode] = useState("month");
   const [hiddenCalendars, setHiddenCalendars] = useState<string[]>([]);
-  const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
+  const [members, setMembers] = useState<{ id: string; name: string; image?: string | null }[]>([]);
   const [pendingInvite, setPendingInvite] = useState(() => "");
   const [failed, setFailed] = useState<{
     id: string;
@@ -161,6 +163,7 @@ export default function App() {
   const notify = (message: string) => setToast(message);
   const errorText = (e: unknown) => {
     const k = e instanceof Error ? e.message : "";
+    if(k==="STORAGE_FULL")return lang==="pt"?"Seu espaço para arquivos está cheio.":"Your file storage is full.";
     const codes: Record<string, string> = {
       UNAUTHORIZED: "sessionExpired",
       NETWORK_ERROR: "networkError",
@@ -503,6 +506,28 @@ export default function App() {
     } finally {
       setBusy(null);
     }
+  }
+  async function sendAttachment(file:File,caption:string){
+    if(!selected)return;
+    const roomId=selected;
+    setBusy("media");
+    try{
+      if(file.size>10*1024*1024)throw Error("INVALID_INPUT");
+      const attachment={id:crypto.randomUUID(),name:file.name,mime:file.type||"application/octet-stream",size:file.size,url:await localFile(file)};
+      const m:Message={id:crypto.randomUUID(),text:caption,senderId:boot.user.id,senderName:boot.user.name,createdAt:new Date().toISOString(),reactions:[],attachment};
+      setMessages(old=>({...old,[roomId]:[...(old[roomId]||[]),m]}));
+      setText("");
+    }catch(e){notify(errorText(e));throw e;}finally{setBusy(null)}
+  }
+  async function sendLocation(lat:number,lon:number,caption:string){
+    const content=[caption,`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`].filter(Boolean).join("\n");
+    await sendMessage({id:crypto.randomUUID(),text:content,roomId:selected!});
+  }
+  async function changePhoto(file:File|undefined,roomPhoto=false){
+    if(!file)return;setBusy("photo");
+    try{const photo=await photoFile(file);
+      const image=await localFile(photo);setBoot(old=>roomPhoto?{...old,rooms:old.rooms.map(r=>r.id===selected?{...r,image}:r)}:{...old,user:{...old.user,image}});
+    }catch(e){notify(errorText(e))}finally{setBusy(null)}
   }
   async function sendMessage(retry?: typeof failed) {
     const content = (retry?.text || text).trim(),
@@ -1348,7 +1373,7 @@ export default function App() {
             <span>{t("settings")}</span>
           </button>
           <div className="user-profile">
-            <Avatar name={boot.user.name || "P"} color="purple" />
+            <Avatar image={boot.user.image} name={boot.user.name || "P"} color="purple" />
             <button
               onClick={() =>
                 demo
@@ -1511,7 +1536,7 @@ export default function App() {
                           onClick={() => selectRoom(r)}
                         >
                           <span className="room-avatar-wrap">
-                            <Avatar name={r.name} color={r.color} />
+                            <Avatar image={r.image} name={r.name} color={r.color} />
                             {r.id === "weekend" && demo && (
                               <span className="avatar-decoration">✦</span>
                             )}
@@ -1596,7 +1621,7 @@ export default function App() {
                     >
                       <ArrowLeft size={21} />
                     </button>
-                    <Avatar name={room.name} color={room.color} />
+                    <button type="button" aria-label={lang==="pt"?"Foto da conversa":"Conversation photo"} onClick={()=>openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
                     <div className="chat-header-title">
                       <h2>{room.name}</h2>
                       <button onClick={showMembers}>
@@ -1719,6 +1744,7 @@ export default function App() {
                             >
                               {!own && !grouped ? (
                                 <Avatar
+                                  image={m.senderImage}
                                   name={m.senderName}
                                   color={
                                     COLORS[
@@ -1739,7 +1765,7 @@ export default function App() {
                                 {p ? (
                                   eventCard(p)
                                 ) : (
-                                  <div className="message-bubble">{m.text}</div>
+                                  <div className="message-bubble"><MessageMedia attachment={m.attachment}/><MessageText text={m.text}/></div>
                                 )}
                                 <div className="message-footer">
                                   {m.reactions.length > 0 && (
@@ -1847,97 +1873,10 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <form
-                    className="composer-wrapper"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      sendMessage();
-                    }}
-                  >
-                    <div className="composer">
-                      <textarea
-                        ref={composerRef}
-                        rows={1}
-                        value={text}
-                        maxLength={4000}
-                        onChange={(e) => setText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === "Enter" &&
-                            !e.shiftKey &&
-                            !e.nativeEvent.isComposing
-                          ) {
-                            e.preventDefault();
-                            sendMessage();
-                          }
-                        }}
-                        placeholder={t("messagePlaceholder")}
-                        aria-label={t("messagePlaceholder")}
-                      />
-                      <div className="composer-actions">
-                        <div className="emoji-wrapper">
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={t("emoji")}
-                            onClick={() => setEmojiOpen(!emojiOpen)}
-                          >
-                            <Smile size={20} />
-                          </button>
-                          {emojiOpen && (
-                            <div className="emoji-menu composer-emoji">
-                              {[
-                                "😊",
-                                "💜",
-                                "☕",
-                                "✨",
-                                "😂",
-                                "🎉",
-                                "👍",
-                                "🔥",
-                                "🙌",
-                                "❤️",
-                              ].map((emoji) => (
-                                <button
-                                  type="button"
-                                  key={emoji}
-                                  aria-label={emoji}
-                                  onClick={() => {
-                                    setText((s) => s + emoji);
-                                    setEmojiOpen(false);
-                                    composerRef.current?.focus();
-                                  }}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="icon-button composer-calendar"
-                          aria-label={t("createEvent")}
-                          onClick={() => openEvent()}
-                        >
-                          <CalendarPlus size={20} />
-                        </button>
-                        <Button
-                          className="send-button"
-                          type="submit"
-                          aria-label={t("send")}
-                          disabled={!text.trim()}
-                          busy={busy === "send"}
-                        >
-                          {busy !== "send" && <ArrowUp size={20} />}
-                        </Button>
-                      </div>
-                    </div>
-                    <span className="composer-hint">
-                      {t("enterSend")}
-                      <span>PeakBoo</span>
-                    </span>
-                  </form>
+                  <div className="composer-wrapper peakboo-composer">
+                    <LiveMessageComposer key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={busy === "send" || busy === "media"} locale={locale} textareaRef={composerRef} allowOffice />
+                    <button type="button" className="button ghost compact-event" onClick={()=>openEvent()}><CalendarPlus size={17}/>{t("createEvent")}</button>
+                  </div>
                 </>
               ) : (
                 <div className="empty-state chat-empty">
@@ -2383,7 +2322,7 @@ export default function App() {
         closeLabel={t("close")}
       >
         <div className="invite-preview">
-          <Avatar name={room?.name || ""} color={room?.color} />
+          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room?.ownerId===boot.user.id&&<label className="button outline photo-picker">{lang==="pt"?"Foto da conversa":"Conversation photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
           <h3>{room?.name}</h3>
           <p>
             {room?.memberCount} {t("members")}
@@ -2421,7 +2360,7 @@ export default function App() {
           ) : (
             members.map((m, i) => (
               <div key={m.id}>
-                <Avatar name={m.name} color={COLORS[i % 5]} />
+                <Avatar image={m.image} name={m.name} color={COLORS[i % 5]} />
                 <span>
                   {m.name}
                   {m.id === boot.user.id && <small> · {t("me")}</small>}
@@ -2602,7 +2541,8 @@ export default function App() {
           </Tabs.Content>
           <Tabs.Content forceMount value="profile" className="settings-tab">
             <div className="settings-profile">
-              <Avatar name={boot.user.name} />
+              <Avatar image={boot.user.image} name={boot.user.name} />
+              <label className="button outline photo-picker">{busy==="photo"?"…":(lang==="pt"?"Alterar foto":"Change photo")}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0]);e.target.value=""}}/></label>
               <strong>{boot.user.name}</strong>
               <span>{demo ? t("demoShort") : boot.user.email}</span>
             </div>
