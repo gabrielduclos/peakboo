@@ -49,7 +49,7 @@ import { Button, Modal, Avatar, Logo, cn } from "./components";
 import type { Boot, Room, Message, Plan, Color } from "./types";
 import { strings } from "./i18n";
 import { makeDemo } from "./demo";
-import { request, getToken, watchChanges, PREVIEW_ONLY } from "./api";
+import { request, getToken, watchChanges, PREVIEW_ONLY, API } from "./api";
 
 const COLORS: Color[] = ["purple", "coral", "green", "blue", "yellow"];
 const EMOJIS = ["❤️", "👍", "😂", "🎉", "🔥"];
@@ -762,9 +762,7 @@ export default function App() {
   }
   async function copyInvite() {
     if (!room?.inviteCode) return;
-    const url =
-      (import.meta as unknown as { env: { VITE_API_URL?: string } }).env
-        .VITE_API_URL || location.origin;
+    const url = API || location.origin;
     try {
       await navigator.clipboard.writeText(url + "/#invite=" + room.inviteCode);
       notify(t("copied"));
@@ -2430,8 +2428,7 @@ export default function App() {
             readOnly
             aria-label={t("inviteCode")}
             value={
-              ((import.meta as unknown as { env: { VITE_API_URL?: string } })
-                .env.VITE_API_URL || location.origin) +
+              (API || location.origin) +
               "/#invite=" +
               room?.inviteCode
             }
