@@ -1,4 +1,4 @@
-import type { Boot, Message, Color } from "./types";
+import type { Boot, Message, Color } from "../types";
 export function makeDemo(lang = "pt"): {
   boot: Boot;
   messages: Record<string, Message[]>;

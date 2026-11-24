@@ -8,10 +8,12 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && vite build --mode portfolio",
     "start": "node server/index.mjs",
-    "test": "node --test server/validation.test.mjs",
-    "test:integration": "node server/integration.mjs"
+    "test": "node --test server/validation.test.mjs scripts/ui-modes.test.mjs",
+    "test:integration": "node server/integration.mjs",
+    "build:app": "tsc --noEmit && vite build",
+    "build:portfolio": "tsc --noEmit && vite build --mode portfolio"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -36,6 +38,8 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.1.1",
     "embedded-postgres": "^18.7.0-beta.19",
+    "esbuild": "^0.28.2",
+    "jsdom": "^31.0.1",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
     "vite": "^7.2.2",

@@ -48,9 +48,7 @@ import {
 import { Button, Modal, Avatar, Logo, cn } from "./components";
 import type { Boot, Room, Message, Plan, Color } from "./types";
 import { strings } from "./i18n";
-import { makeDemo } from "./demo";
-import { request, getToken, watchChanges, PREVIEW_ONLY, API } from "./api";
-
+import { request, getToken, watchChanges, API } from "./api";
 const COLORS: Color[] = ["purple", "coral", "green", "blue", "yellow"];
 const EMOJIS = ["❤️", "👍", "😂", "🎉", "🔥"];
 const localDate = (d: Date) =>
@@ -59,13 +57,6 @@ const localTime = (d: Date) =>
   `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 const sameDay = (a: Date, b: Date) => localDate(a) === localDate(b);
 const today = new Date();
-function initialDemo() {
-  try {
-    const d = JSON.parse(localStorage.getItem("peakboo-demo-v1") || "null");
-    if (d?.boot?.rooms && d.messages) return d;
-  } catch {}
-  return makeDemo(localStorage.getItem("peakboo-language") || "pt");
-}
 const emptyBoot: Boot = {
   user: { id: "", name: "", email: "" },
   rooms: [],
@@ -79,16 +70,10 @@ export default function App() {
   const [theme, setTheme] = useState(
     localStorage.getItem("peakboo-theme") || "light",
   );
-  const [demo, setDemo] = useState(!getToken());
-  const [boot, setBoot] = useState<Boot>(() =>
-    getToken() ? emptyBoot : initialDemo().boot,
-  );
-  const [messages, setMessages] = useState<Record<string, Message[]>>(() =>
-    getToken() ? {} : initialDemo().messages,
-  );
-  const [selected, setSelected] = useState<string | null>(() =>
-    getToken() ? null : initialDemo().boot.rooms[0]?.id || null,
-  );
+
+  const [boot, setBoot] = useState<Boot>(() => emptyBoot);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+  const [selected, setSelected] = useState<string | null>(() => null);
   const [view, setView] = useState<"chats" | "calendar">("chats");
   const [mobileChat, setMobileChat] = useState(false);
   const [query, setQuery] = useState("");
@@ -113,7 +98,7 @@ export default function App() {
     | "detail"
     | null
   >(null);
-  const [authMode, setAuthMode] = useState("signup");
+  const [authMode, setAuthMode] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState("");
   const [toast, setToast] = useState("");
@@ -128,7 +113,12 @@ export default function App() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarMode, setCalendarMode] = useState("month");
   const [hiddenCalendars, setHiddenCalendars] = useState<string[]>([]);
-  const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
+  const [members, setMembers] = useState<
+    {
+      id: string;
+      name: string;
+    }[]
+  >([]);
   const [pendingInvite, setPendingInvite] = useState(
     () => new URLSearchParams(location.hash.slice(1)).get("invite") || "",
   );
@@ -142,8 +132,8 @@ export default function App() {
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
-  const demoRef = useRef(demo);
-  demoRef.current = demo;
+  const signedOutRef = useRef(!getToken());
+  signedOutRef.current = !getToken();
   const room = boot.rooms.find((r) => r.id === selected);
   const events = boot.events
     .filter((e) => !e.cancelled)
@@ -194,13 +184,7 @@ export default function App() {
         ? "Peakboo · Conversas que viram planos"
         : "Peakboo · Conversations become plans";
   }, [lang]);
-  useEffect(() => {
-    if (demo)
-      localStorage.setItem(
-        "peakboo-demo-v1",
-        JSON.stringify({ boot, messages }),
-      );
-  }, [boot, messages, demo]);
+
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 4000);
@@ -208,7 +192,7 @@ export default function App() {
   }, [toast]);
   const fetchMessages = useCallback(async (id: string) => {
     const data = await request("/api/rooms/" + id + "/messages");
-    if (!demoRef.current)
+    if (!signedOutRef.current)
       setMessages((m) => ({
         ...m,
         [id]: [
@@ -225,7 +209,7 @@ export default function App() {
   }, []);
   const refresh = useCallback(async () => {
     const data: Boot = await request("/api/bootstrap");
-    if (demoRef.current) return;
+    if (signedOutRef.current) return;
     setBoot(data);
     setSelected((id) =>
       data.rooms.some((r: Room) => r.id === id)
@@ -234,7 +218,7 @@ export default function App() {
     );
   }, []);
   useEffect(() => {
-    if (demo) return;
+    if (!getToken()) return;
     let alive = true;
     setLoading(true);
     refresh()
@@ -243,11 +227,9 @@ export default function App() {
           setFormError(errorText(e));
           if (e.message === "UNAUTHORIZED") {
             sessionStorage.removeItem("peakboo-session");
-            const d = initialDemo();
-            setBoot(d.boot);
-            setMessages(d.messages);
-            setSelected(d.boot.rooms[0]?.id);
-            setDemo(true);
+            setBoot(emptyBoot);
+            setMessages({});
+            setSelected(null);
             setAuthMode("login");
             setModal("auth");
           }
@@ -259,9 +241,9 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [demo, refresh]);
+  }, [refresh]);
   useEffect(() => {
-    if (demo || !selected) return;
+    if (!selected) return;
     let alive = true;
     setLoadingMessages(!messages[selected]);
     fetchMessages(selected)
@@ -280,9 +262,9 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [selected, demo, fetchMessages]);
+  }, [selected, fetchMessages]);
   useEffect(() => {
-    if (demo) return;
+    if (!getToken()) return;
     let stopped = false,
       controller: AbortController | null = null,
       reconnect: ReturnType<typeof setTimeout> | null = null;
@@ -342,18 +324,15 @@ export default function App() {
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [demo, refresh, fetchMessages]);
+  }, [boot.user.id, refresh, fetchMessages]);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "instant" as ScrollBehavior,
     });
   }, [selected, currentMessages.length, view, mobileChat]);
   useEffect(() => {
-    if (pendingInvite && demo) {
-      setAuthMode("signup");
-      setModal("auth");
-    }
-    if (pendingInvite && !demo && !loading) {
+    if (!getToken()) return;
+    if (pendingInvite && !loading) {
       request("/api/join", "POST", { code: pendingInvite })
         .then(async (data) => {
           await refresh();
@@ -369,8 +348,7 @@ export default function App() {
           setPendingInvite("");
         });
     }
-  }, [pendingInvite, demo, loading]);
-
+  }, [pendingInvite, boot.user.id, loading]);
   function selectRoom(r: Room) {
     setSelected(r.id);
     setView("chats");
@@ -413,7 +391,8 @@ export default function App() {
       setMessages({});
       setSelected(null);
       setHiddenCalendars([]);
-      setDemo(false);
+      signedOutRef.current = false;
+      await refresh();
       setModal(null);
       notify(t("authSuccess"));
     } catch (err) {
@@ -427,11 +406,9 @@ export default function App() {
     try {
       await request("/api/auth/sign-out", "POST", {});
       sessionStorage.removeItem("peakboo-session");
-      const d = initialDemo();
-      setBoot(d.boot);
-      setMessages(d.messages);
-      setSelected(d.boot.rooms[0]?.id || null);
-      setDemo(true);
+      setBoot(emptyBoot);
+      setMessages({});
+      setSelected(null);
       setHiddenCalendars([]);
       setModal(null);
       setView("chats");
@@ -455,12 +432,6 @@ export default function App() {
             new URLSearchParams(new URL(code).hash.slice(1)).get("invite") ||
             code;
         } catch {}
-        if (demo) {
-          setPendingInvite(code);
-          setAuthMode("signup");
-          setModal("auth");
-          return;
-        }
         id = (await request("/api/join", "POST", { code })).id;
       } else {
         const data = {
@@ -469,22 +440,11 @@ export default function App() {
           color: newColor,
         };
         if (data.name.length < 2) throw new Error("INVALID_INPUT");
-        if (demo) {
-          id = crypto.randomUUID();
-          const r: Room = {
-            ...data,
-            id,
-            ownerId: "me",
-            memberCount: 1,
-            unread: 0,
-          };
-          setBoot((b) => ({ ...b, rooms: [r, ...b.rooms] }));
-          setMessages((m) => ({ ...m, [id]: [] }));
-        } else {
+        {
           id = (await request("/api/rooms", "POST", data)).id;
         }
       }
-      if (!demo) await refresh();
+      await refresh();
       setSelected(id);
       setMobileChat(true);
       setView("chats");
@@ -504,25 +464,7 @@ export default function App() {
     setBusy("send");
     setFailed(null);
     try {
-      if (demo) {
-        const msg: Message = {
-          id,
-          text: content,
-          senderId: "me",
-          senderName: boot.user.name,
-          createdAt: new Date().toISOString(),
-          reactions: [],
-        };
-        setMessages((m) => ({ ...m, [roomId]: [...(m[roomId] || []), msg] }));
-        setBoot((b) => ({
-          ...b,
-          rooms: b.rooms.map((r) =>
-            r.id === roomId
-              ? { ...r, lastText: content, lastAt: msg.createdAt }
-              : r,
-          ),
-        }));
-      } else {
+      {
         await request("/api/rooms/" + roomId + "/messages", "POST", {
           id,
           text: content,
@@ -545,25 +487,7 @@ export default function App() {
     if (!selected) return;
     setBusy("reaction-" + m.id);
     try {
-      if (demo)
-        setMessages((data) => ({
-          ...data,
-          [selected]: (data[selected] || []).map((x) =>
-            x.id !== m.id
-              ? x
-              : {
-                  ...x,
-                  reactions: x.reactions.some(
-                    (r) => r.userId === "me" && r.emoji === emoji,
-                  )
-                    ? x.reactions.filter(
-                        (r) => !(r.userId === "me" && r.emoji === emoji),
-                      )
-                    : [...x.reactions, { userId: "me", emoji }],
-                },
-          ),
-        }));
-      else {
+      {
         await request(
           "/api/rooms/" + selected + "/messages/" + m.id + "/reaction",
           "POST",
@@ -603,41 +527,7 @@ export default function App() {
     };
     setBusy("event");
     try {
-      if (demo) {
-        const plan: Plan = {
-          ...data,
-          id: editPlan?.id || crypto.randomUUID(),
-          roomId,
-          creatorId: "me",
-          cancelled: false,
-          roomName: boot.rooms.find((r) => r.id === roomId)?.name,
-          rsvps: editPlan?.rsvps || [
-            { userId: "me", name: boot.user.name, status: "yes" },
-          ],
-        };
-        setBoot((b) => ({
-          ...b,
-          events: editPlan
-            ? b.events.map((x) => (x.id === plan.id ? plan : x))
-            : [...b.events, plan],
-        }));
-        if (!editPlan)
-          setMessages((m) => ({
-            ...m,
-            [roomId]: [
-              ...(m[roomId] || []),
-              {
-                id: crypto.randomUUID(),
-                text: plan.title,
-                eventId: plan.id,
-                senderId: "me",
-                senderName: boot.user.name,
-                createdAt: new Date().toISOString(),
-                reactions: [],
-              },
-            ],
-          }));
-      } else {
+      {
         await request(
           "/api/rooms/" +
             roomId +
@@ -660,22 +550,7 @@ export default function App() {
   async function rsvp(plan: Plan, status: "yes" | "maybe" | "no") {
     setBusy("rsvp-" + plan.id);
     try {
-      if (demo)
-        setBoot((b) => ({
-          ...b,
-          events: b.events.map((x) =>
-            x.id === plan.id
-              ? {
-                  ...x,
-                  rsvps: [
-                    ...x.rsvps.filter((r) => r.userId !== "me"),
-                    { userId: "me", name: boot.user.name, status },
-                  ],
-                }
-              : x,
-          ),
-        }));
-      else {
+      {
         await request(
           "/api/rooms/" + plan.roomId + "/events/" + plan.id + "/rsvp",
           "POST",
@@ -694,14 +569,7 @@ export default function App() {
     if (!window.confirm(t("cancelConfirm"))) return;
     setBusy("cancel");
     try {
-      if (demo)
-        setBoot((b) => ({
-          ...b,
-          events: b.events.map((x) =>
-            x.id === plan.id ? { ...x, cancelled: true } : x,
-          ),
-        }));
-      else {
+      {
         await request(
           "/api/rooms/" + plan.roomId + "/events/" + plan.id,
           "DELETE",
@@ -753,11 +621,6 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
   async function invite() {
-    if (demo) {
-      setAuthMode("signup");
-      openModal("auth");
-      return;
-    }
     openModal("invite");
   }
   async function copyInvite() {
@@ -772,15 +635,6 @@ export default function App() {
   }
   async function showMembers() {
     openModal("members");
-    if (demo) {
-      setMembers([
-        { id: "me", name: boot.user.name },
-        ...["Marina Costa", "Lucas Almeida", "Bia Santos"]
-          .slice(0, (room?.memberCount || 1) - 1)
-          .map((name, i) => ({ id: String(i), name })),
-      ]);
-      return;
-    }
     if (!selected) return;
     setBusy("members");
     try {
@@ -1295,7 +1149,6 @@ export default function App() {
       </section>
     );
   }
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -1374,17 +1227,9 @@ export default function App() {
           </button>
           <div className="user-profile">
             <Avatar name={boot.user.name || "P"} color="purple" />
-            <button
-              onClick={() =>
-                demo
-                  ? (setAuthMode("signup"), openModal("auth"))
-                  : openModal("settings")
-              }
-            >
-              <strong>
-                {demo ? "Alex Morgan" : boot.user.name || "Peakboo"}
-              </strong>
-              <span>{demo ? t("demoShort") : boot.user.email}</span>
+            <button onClick={() => openModal("settings")}>
+              <strong>{boot.user.name || "Peakboo"}</strong>
+              <span>{boot.user.email}</span>
             </button>
             <button
               className="icon-button"
@@ -1409,26 +1254,14 @@ export default function App() {
               <CalendarDays size={15} />
               {fmt(today, { day: "numeric", month: "long" })}
             </span>
-            {demo ? (
-              <button
-                className="demo-pill"
-                onClick={() => {
-                  setAuthMode("signup");
-                  openModal("auth");
-                }}
-              >
-                <span />
-                {t("demoShort")}
-                <ChevronDown size={12} />
-              </button>
-            ) : (
+            {
               <span className={cn("connection", !connected && "reconnecting")}>
                 {connected ? <span /> : <WifiOff size={13} />}
                 <span className="connection-text">
                   {t(connected ? "online" : "connecting")}
                 </span>
               </span>
-            )}
+            }
             <button
               className="mobile-settings icon-button"
               aria-label={t("settings")}
@@ -1438,21 +1271,7 @@ export default function App() {
             </button>
           </div>
         </header>
-        {demo && (
-          <div className="demo-banner">
-            <Sparkles size={14} />
-            <span>{t("demoDesc")}</span>
-            <button
-              onClick={() => {
-                setAuthMode("signup");
-                openModal("auth");
-              }}
-            >
-              {t("createAccount")}
-              <Plus size={13} />
-            </button>
-          </div>
-        )}
+        {false}
         {view === "calendar" ? (
           calendarContent()
         ) : (
@@ -1537,7 +1356,7 @@ export default function App() {
                         >
                           <span className="room-avatar-wrap">
                             <Avatar name={r.name} color={r.color} />
-                            {r.id === "weekend" && demo && (
+                            {r.id === "weekend" && false && (
                               <span className="avatar-decoration">✦</span>
                             )}
                           </span>
@@ -2427,11 +2246,7 @@ export default function App() {
           <input
             readOnly
             aria-label={t("inviteCode")}
-            value={
-              (API || location.origin) +
-              "/#invite=" +
-              room?.inviteCode
-            }
+            value={(API || location.origin) + "/#invite=" + room?.inviteCode}
           />
         </div>
         <Button className="full-width" onClick={copyInvite}>
@@ -2479,12 +2294,12 @@ export default function App() {
       </Modal>
 
       <Modal
-        open={modal === "auth"}
+        open={modal === "auth" || !getToken()}
         onOpenChange={(v) => !v && setModal(null)}
         title={t(authMode === "signup" ? "signupTitle" : "welcome")}
         description={pendingInvite ? t("joinAfterAuth") : t("authDesc")}
         closeLabel={t("close")}
-        className="auth-modal"
+        className={!getToken() ? "auth-modal auth-required" : "auth-modal"}
       >
         <div className="auth-brand">
           <Logo />
@@ -2509,24 +2324,7 @@ export default function App() {
             {t("signIn")}
           </button>
         </div>
-        {PREVIEW_ONLY ? (
-          <div className="preview-explanation">
-            <CalendarDays size={35} />
-            <h3>
-              {lang === "pt"
-                ? "Sua turma chega na próxima etapa."
-                : "Your people join in the next step."}
-            </h3>
-            <p>
-              {lang === "pt"
-                ? "Esta prévia permite experimentar as conversas e a agenda com dados de exemplo. As contas e os convites serão liberados na ativação do aplicativo."
-                : "This preview lets you try chats and calendars with sample data. Accounts and invitations will be available when the app is activated."}
-            </p>
-            <Button onClick={() => setModal(null)}>
-              {lang === "pt" ? "Continuar explorando" : "Keep exploring"}
-            </Button>
-          </div>
-        ) : (
+        {
           <form className="form" onSubmit={authenticate}>
             {authMode === "signup" && (
               <label>
@@ -2577,7 +2375,7 @@ export default function App() {
               {t(authMode === "signup" ? "signUp" : "signIn")}
             </Button>
           </form>
-        )}
+        }
       </Modal>
 
       <Modal
@@ -2641,37 +2439,9 @@ export default function App() {
             <div className="settings-profile">
               <Avatar name={boot.user.name} />
               <strong>{boot.user.name}</strong>
-              <span>{demo ? t("demoShort") : boot.user.email}</span>
+              <span>{boot.user.email}</span>
             </div>
-            {demo ? (
-              <>
-                <p className="muted">{t("demoDesc")}</p>
-                <Button
-                  className="full-width"
-                  onClick={() => {
-                    setAuthMode("signup");
-                    openModal("auth");
-                  }}
-                >
-                  {t("createAccount")}
-                </Button>
-                <Button
-                  className="full-width"
-                  variant="ghost"
-                  onClick={() => {
-                    const d = makeDemo(lang);
-                    setBoot(d.boot);
-                    setMessages(d.messages);
-                    setSelected(d.boot.rooms[0].id);
-                    setHiddenCalendars([]);
-                    setModal(null);
-                    notify(t("resetDone"));
-                  }}
-                >
-                  {t("demoReset")}
-                </Button>
-              </>
-            ) : (
+            {
               <>
                 <form
                   className="form"
@@ -2714,12 +2484,10 @@ export default function App() {
                   {t("signOut")}
                 </Button>
               </>
-            )}
+            }
           </Tabs.Content>
           <Tabs.Content forceMount value="security" className="settings-tab">
-            {demo ? (
-              <p className="muted">{t("demoOnly")}</p>
-            ) : (
+            {
               <form
                 className="form"
                 onSubmit={async (e) => {
@@ -2780,7 +2548,7 @@ export default function App() {
                   {t("changePassword")}
                 </Button>
               </form>
-            )}
+            }
           </Tabs.Content>
         </Tabs.Root>
         {formError && (

@@ -13,7 +13,7 @@
 - Export individual events as `.ics` files.
 - Light/dark themes, Portuguese/English, responsive layout, and tabbed settings dialogs.
 - Better Auth with a minimum password length of eight characters, show/hide controls, name editing, password changes, and session revocation on sign-out.
-- Separate demo with sample data stored only in the browser. Samples never enter real accounts.
+- The main application requires real authentication and has no demo mode. The portfolio presentation is compiled separately into `dist-portfolio`, with browser-local sample data and no real sign-in.
 
 ## Development
 
@@ -49,7 +49,7 @@ API: Render Free, build `npm ci --include=dev && npm run build`, start `npm star
 
 Independent frontend: Cloudflare Worker with Static Assets using `wrangler.jsonc`. Build with `VITE_API_URL` set to the actual Render API origin, and add the frontend origin to `FRONTEND_ORIGINS`. Connect the repository to Workers Builds for automatic build and deployment. Separately hosted frontends use the official Better Auth Bearer plugin; tokens remain in the tab’s `sessionStorage`.
 
-`VITE_PREVIEW_ONLY=true npm run build` produces a demo review build that explains that registration and invitations have not been activated. It contains no credentials and does not connect sample records to the API. The live deployment uses `VITE_PREVIEW_ONLY=false`. Private review hosting metadata is kept outside the public source copy.
+The default build produces two interfaces: `dist` contains only the real Cloudflare application; `dist-portfolio` contains only the portfolio demo served on Render. Run `npm run build:app` or `npm run build:portfolio` to build them separately. The portfolio ignores real sessions and never calls the API. Render `/api` routes remain available to the real application on Cloudflare.
 
 ## Architecture and current limits
 

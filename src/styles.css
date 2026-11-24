@@ -3563,4 +3563,16 @@ textarea::placeholder {
   }
 }
 
-[data-theme=dark] .rsvp-button.confirmed-button{color:var(--green)}@media(max-width:700px){.chat-header-title>button>span{display:inline;margin:0 4px}}
+[data-theme="dark"] .rsvp-button.confirmed-button {
+  color: var(--green);
+}
+@media (max-width: 700px) {
+  .chat-header-title > button > span {
+    display: inline;
+    margin: 0 4px;
+  }
+}
+
+.auth-required .modal-heading > .icon-button {
+  display: none;
+}

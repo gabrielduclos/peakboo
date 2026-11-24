@@ -13,7 +13,7 @@
 - Exportação do compromisso em `.ics` para outros calendários.
 - Temas claro/escuro, português/inglês, interface responsiva e configurações em dialog com abas.
 - Better Auth com senha mínima de 8 caracteres, controle para mostrar senha, edição do nome, alteração de senha e saída com revogação da sessão.
-- Demonstração com dados fictícios. Os exemplos ficam somente no navegador e nunca entram nas contas reais.
+- O aplicativo principal exige autenticação real e não oferece modo de demonstração. A apresentação do portfólio é compilada separadamente em `dist-portfolio`, com dados fictícios locais e sem login real.
 
 ## Desenvolvimento
 
@@ -49,7 +49,7 @@ API: Render, plano Free, build `npm ci --include=dev && npm run build`, início 
 
 Frontend independente: Cloudflare Worker com Static Assets usando `wrangler.jsonc`. No build, defina `VITE_API_URL` com a URL real da API no Render e adicione a origem do frontend em `FRONTEND_ORIGINS`. Conecte o repositório a Workers Builds para build e deploy automáticos. O frontend hospedado separadamente usa o plugin Bearer oficial do Better Auth; o token permanece no `sessionStorage` da aba.
 
-`VITE_PREVIEW_ONLY=true npm run build` gera uma prévia de demonstração que informa que cadastro e convites ainda não estão ativados. Não contém credenciais nem conecta dados de exemplo à API. A publicação ativa usa `VITE_PREVIEW_ONLY=false`. A configuração de hospedagem privada de revisão é mantida fora da cópia pública do código.
+O build padrão gera duas interfaces: `dist` contém somente o aplicativo real para o Cloudflare; `dist-portfolio` contém somente a demonstração de portfólio servida no Render. Também é possível executar `npm run build:app` ou `npm run build:portfolio` separadamente. A demonstração ignora sessões reais e não faz chamadas à API. As rotas `/api` do Render continuam disponíveis para o aplicativo real no Cloudflare.
 
 ## Arquitetura e limites desta versão
 

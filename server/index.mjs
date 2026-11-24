@@ -350,7 +350,8 @@ app.delete("/api/rooms/:room/events/:event", member, async (req, res) => {
   res.json({ ok: true });
 });
 app.use("/api", (_, res) => jsonError(res, 404, "NOT_FOUND"));
-const dist = fileURLToPath(new URL("../dist", import.meta.url));
+// The API stays available to Cloudflare; the Render HTML is a local-only portfolio.
+const dist = fileURLToPath(new URL("../dist-portfolio", import.meta.url));
 if (existsSync(dist)) {
   app.use(express.static(dist));
   app.get("/{*splat}", (_, res) => res.sendFile(path.join(dist, "index.html")));
