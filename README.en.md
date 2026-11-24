@@ -1,4 +1,4 @@
-# Peakboo
+# PeakBoo
 
 [Português](README.md)
 
@@ -61,4 +61,4 @@ This version covers text, reactions, and single-day events. Attachments, calls, 
 
 ## Visual identity
 
-Violet is the primary color. Coral, green, blue, and yellow identify plans and conversations. Reading surfaces are neutral; message text is 16 px. Both themes are centralized in `src/styles.css`. Fill colors and text colors are separate to retain contrast.
+Turquoise and blue define the visual identity. The text-only PeakBoo wordmark uses turquoise for Peak and blue for Boo. Supporting colors identify plans and conversations. Reading surfaces are neutral; message text is 16 px. Both themes are centralized in `src/styles.css`. Fill colors and text colors are separate to retain contrast.

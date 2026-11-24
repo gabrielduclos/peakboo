@@ -103,22 +103,14 @@ export function Avatar({
 }
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="brand">
-      <span className="brand-mark">
-        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
-          <path
-            d="M9 15a7 7 0 0 1 7-7h9a7 7 0 0 1 7 7v9a7 7 0 0 1-7 7h-8l-8 6V24z"
-            fill="currentColor"
-          />
-          <circle cx="17" cy="19" r="2" fill="#703ce8" />
-          <circle cx="25" cy="19" r="2" fill="#703ce8" />
-        </svg>
+    <span
+      className={cn("brand", compact && "brand-compact")}
+      aria-label="PeakBoo"
+    >
+      <span className="brand-wordmark">
+        <span className="brand-peak">Peak</span>
+        <span className="brand-boo">Boo</span>
       </span>
-      {!compact && (
-        <span>
-          peakboo<span className="brand-dot">.</span>
-        </span>
-      )}
     </span>
   );
 }

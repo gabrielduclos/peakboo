@@ -1,4 +1,4 @@
-# Peakboo
+# PeakBoo
 
 [English](README.en.md)
 
@@ -61,4 +61,4 @@ Esta versão inclui texto, reações e compromissos de um único dia. Anexos, ch
 
 ## Identidade visual
 
-Violeta é a cor principal; coral, verde, azul e amarelo identificam planos e conversas. Fundos de leitura são neutros e o texto das mensagens tem 16 px. Os tokens dos dois temas estão centralizados em `src/styles.css`. Cores de preenchimento e cores de texto são separadas para manter o contraste.
+Verde-turquesa e azul definem a identidade visual. O logo é somente o texto PeakBoo, com Peak em turquesa e Boo em azul. Cores de apoio identificam planos e conversas. Fundos de leitura são neutros e o texto das mensagens tem 16 px. Os tokens dos dois temas estão centralizados em `src/styles.css`. Cores de preenchimento e cores de texto são separadas para manter o contraste.

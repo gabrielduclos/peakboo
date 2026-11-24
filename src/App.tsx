@@ -182,8 +182,8 @@ export default function App() {
     localStorage.setItem("peakboo-language", lang);
     document.title =
       lang === "pt"
-        ? "Peakboo · Conversas que viram planos"
-        : "Peakboo · Conversations become plans";
+        ? "PeakBoo · Conversas que viram planos"
+        : "PeakBoo · Conversations become plans";
   }, [lang]);
 
   useEffect(() => {
@@ -1753,7 +1753,7 @@ export default function App() {
                     </div>
                     <span className="composer-hint">
                       {t("enterSend")}
-                      <span>✦ peakboo</span>
+                      <span>PeakBoo</span>
                     </span>
                   </form>
                 </>

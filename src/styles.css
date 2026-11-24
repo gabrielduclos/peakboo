@@ -3,7 +3,7 @@
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--ink);
-  --color-primary: var(--purple);
+  --color-primary: var(--primary);
   --color-primary-foreground: #fff;
   --color-muted: var(--surface);
   --color-border: var(--line);
@@ -14,50 +14,50 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   color-scheme: light;
-  --bg: #faf9fc;
+  --bg: #f7fafb;
   --surface: #fff;
-  --surface-2: #f5f4f8;
-  --ink: #272431;
-  --muted: #736d7d;
-  --subtle: #656172;
-  --line: #eeecf3;
-  --purple: #703ce8;
-  --purple-dark: #592ac9;
-  --purple-soft: #f0eafa;
+  --surface-2: #f0f5f6;
+  --ink: #20333d;
+  --muted: #66747c;
+  --subtle: #536571;
+  --line: #e1eaee;
+  --primary: #087f75;
+  --primary-dark: #06695f;
+  --primary-soft: #e5f6f2;
   --coral: #f06b57;
   --coral-soft: #fff0e9;
   --green: #3d966e;
   --green-soft: #eaf7f0;
-  --blue: #5086d7;
-  --blue-soft: #edf3fd;
+  --blue: #477bb5;
+  --blue-soft: #edf3fb;
   --yellow: #a67c17;
   --yellow-soft: #fff7dd;
-  --shadow: 0 10px 40px #34235b0a;
+  --shadow: 0 10px 40px #20333d0a;
   --radius: 14px;
-  --ring: #a684f0;
+  --ring: #18b89d;
 }
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #16151d;
-  --surface: #1d1b26;
-  --surface-2: #252231;
-  --ink: #f0edf8;
-  --muted: #aaa4ba;
-  --subtle: #c0b9cf;
-  --line: #302c3c;
-  --purple: #a88aff;
-  --purple-dark: #bba1ff;
-  --purple-soft: #342749;
+  --bg: #101b21;
+  --surface: #16262e;
+  --surface-2: #20333d;
+  --ink: #edf6f8;
+  --muted: #a4b8c1;
+  --subtle: #bfd0d7;
+  --line: #2b414c;
+  --primary: #59d8bc;
+  --primary-dark: #85e7d0;
+  --primary-soft: #183d38;
   --coral: #ff9b83;
   --coral-soft: #3b2829;
   --green: #85d5ab;
   --green-soft: #203a2e;
-  --blue: #99baff;
-  --blue-soft: #242f48;
+  --blue: #90b8e7;
+  --blue-soft: #233a52;
   --yellow: #e5c56f;
   --yellow-soft: #3b3423;
   --shadow: 0 10px 40px #0002;
-  --ring: #a88aff;
+  --ring: #59d8bc;
 }
 * {
   box-sizing: border-box;
@@ -175,13 +175,13 @@ textarea::placeholder {
 .brand-mark {
   width: 38px;
   height: 39px;
-  background: var(--purple);
+  background: var(--primary);
   color: white;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 3px 0 #5828c414;
+  box-shadow: 0 3px 0 #087f7514;
 }
 .brand-mark svg {
   height: 34px;
@@ -220,14 +220,14 @@ textarea::placeholder {
   background: var(--surface-2);
 }
 .nav-item.active {
-  background: var(--purple-soft);
-  color: var(--purple);
+  background: var(--primary-soft);
+  color: var(--primary);
   font-weight: 600;
 }
 .nav-item b {
   margin-left: auto;
   border-radius: 6px;
-  background: var(--purple);
+  background: var(--primary);
   color: var(--surface);
   font-size: 11px;
   padding: 0 5px;
@@ -245,7 +245,7 @@ textarea::placeholder {
 }
 .sidebar-note {
   margin: 10px 2px 35px;
-  background: var(--purple-soft);
+  background: var(--primary-soft);
   border-radius: 14px;
   padding: 17px 15px 0;
   overflow: hidden;
@@ -257,12 +257,12 @@ textarea::placeholder {
   gap: 23px;
   position: relative;
   height: 80px;
-  color: var(--purple);
+  color: var(--primary);
 }
 .note-art > svg:first-child {
   transform: rotate(-13deg);
-  fill: var(--purple);
-  color: var(--purple);
+  fill: var(--primary);
+  color: var(--primary);
   stroke: var(--surface);
 }
 .note-art > svg:last-child {
@@ -303,8 +303,8 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #703ce81c;
-  color: var(--purple);
+  border-top: 1px solid #087f751c;
+  color: var(--primary);
   font-size: 12px;
   font-weight: 600;
   width: calc(100% + 30px);
@@ -312,7 +312,7 @@ textarea::placeholder {
   padding: 13px 15px;
 }
 .sidebar-note > button:hover {
-  background: #703ce80c;
+  background: #087f750c;
 }
 .sidebar-bottom > .nav-item {
   margin-bottom: 12px;
@@ -365,8 +365,8 @@ textarea::placeholder {
   font-size: 10px;
 }
 .purple {
-  --accent: var(--purple);
-  --tint: var(--purple-soft);
+  --accent: var(--primary);
+  --tint: var(--primary-soft);
 }
 .coral {
   --accent: var(--coral);
@@ -402,7 +402,7 @@ textarea::placeholder {
 }
 .icon-button:hover {
   background: var(--surface-2);
-  color: var(--purple);
+  color: var(--primary);
 }
 .icon-button.tiny {
   height: 26px;
@@ -456,20 +456,20 @@ textarea::placeholder {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--purple);
+  color: var(--primary);
   border: 1px solid var(--line);
   padding: 6px 9px;
   border-radius: 7px;
 }
 .demo-pill > span {
-  background: var(--purple);
+  background: var(--primary);
   height: 5px;
   width: 5px;
   border-radius: 50%;
 }
 .demo-banner {
   padding: 8px 30px;
-  background: var(--purple-soft);
+  background: var(--primary-soft);
   color: var(--subtle);
   font-size: 11px;
   display: flex;
@@ -478,13 +478,13 @@ textarea::placeholder {
   min-height: 33px;
 }
 .demo-banner > svg {
-  color: var(--purple);
+  color: var(--primary);
 }
 .demo-banner > button {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: var(--purple);
+  color: var(--primary);
   font-weight: 600;
   margin-left: auto;
   white-space: nowrap;
@@ -528,14 +528,14 @@ textarea::placeholder {
     transform 0.15s;
 }
 .button.primary {
-  background: var(--purple);
+  background: var(--primary);
   color: white;
 }
 .button.primary:hover:not(:disabled) {
-  background: var(--purple-dark);
+  background: var(--primary-dark);
 }
 [data-theme="dark"] .button.primary {
-  color: #1b102e;
+  color: #102a2a;
 }
 .button.outline {
   background: var(--surface);
@@ -585,8 +585,8 @@ textarea::placeholder {
   color: var(--coral);
 }
 .new-chat {
-  background: var(--purple-soft);
-  color: var(--purple);
+  background: var(--primary-soft);
+  color: var(--primary);
   height: 31px;
   width: 31px;
   min-width: 31px;
@@ -628,13 +628,13 @@ textarea::placeholder {
   margin-bottom: -1px;
 }
 .conversation-tabs > button.active {
-  color: var(--purple);
-  border-bottom-color: var(--purple);
+  color: var(--primary);
+  border-bottom-color: var(--primary);
   font-weight: 600;
 }
 .conversation-tabs > button > span {
   font-size: 10px;
-  background: var(--purple-soft);
+  background: var(--primary-soft);
   padding: 0 5px;
   border-radius: 5px;
   line-height: 17px;
@@ -658,7 +658,7 @@ textarea::placeholder {
   background: var(--surface-2);
 }
 .conversation-item.selected {
-  background: var(--purple-soft);
+  background: var(--primary-soft);
 }
 .conversation-summary {
   flex: 1;
@@ -695,7 +695,7 @@ textarea::placeholder {
 }
 .conversation-summary b {
   font-size: 10px;
-  background: var(--purple);
+  background: var(--primary);
   color: white;
   min-width: 17px;
   height: 17px;
@@ -741,7 +741,7 @@ textarea::placeholder {
   margin-left: auto;
 }
 .join-shortcut:hover {
-  color: var(--purple);
+  color: var(--primary);
 }
 .chat-panel {
   display: flex;
@@ -794,8 +794,8 @@ textarea::placeholder {
   gap: 5px;
 }
 .chat-header-actions .highlight {
-  color: var(--purple);
-  background: var(--purple-soft);
+  color: var(--primary);
+  background: var(--primary-soft);
   margin-left: 5px;
 }
 .chat-context {
@@ -813,11 +813,11 @@ textarea::placeholder {
 .context-icon {
   display: flex;
   align-items: center;
-  color: var(--purple);
+  color: var(--primary);
 }
 .chat-context > button {
   margin-left: auto;
-  color: var(--purple);
+  color: var(--primary);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -899,7 +899,7 @@ textarea::placeholder {
   overflow-wrap: anywhere;
 }
 .message.own .message-bubble {
-  background: var(--purple);
+  background: var(--primary);
   color: white;
   border-color: transparent;
   border-radius: 13px 0 13px 13px;
@@ -908,7 +908,7 @@ textarea::placeholder {
   max-width: 83%;
 }
 [data-theme="dark"] .message.own .message-bubble {
-  background: #6a3acb;
+  background: #315e94;
   color: #fff;
 }
 .message.grouped {
@@ -931,7 +931,7 @@ textarea::placeholder {
   justify-content: flex-end;
 }
 .message-footer > svg {
-  color: var(--purple);
+  color: var(--primary);
 }
 .message-actions {
   display: flex;
@@ -968,7 +968,7 @@ textarea::placeholder {
   font-size: 11px;
 }
 .reactions > button.mine {
-  background: var(--purple-soft);
+  background: var(--primary-soft);
   border-color: var(--ring);
 }
 .reactions small {
@@ -996,7 +996,7 @@ textarea::placeholder {
   padding: 2px;
 }
 .emoji-menu > button:hover {
-  background: var(--purple-soft);
+  background: var(--primary-soft);
 }
 .message.own .emoji-menu {
   left: auto;
@@ -1078,7 +1078,7 @@ textarea::placeholder {
   text-align: left;
 }
 .event-title:hover {
-  color: var(--purple);
+  color: var(--primary);
 }
 .event-meta {
   display: flex;
@@ -1268,8 +1268,8 @@ textarea::placeholder {
   justify-content: center;
   width: 34px;
   height: 34px;
-  background: var(--purple-soft);
-  color: var(--purple);
+  background: var(--primary-soft);
+  color: var(--primary);
   border-radius: 10px;
   flex-shrink: 0;
 }
@@ -1330,11 +1330,11 @@ textarea::placeholder {
   color: var(--subtle);
 }
 .mini-day:hover {
-  background: var(--purple-soft);
-  color: var(--purple);
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .mini-day.is-today {
-  background: var(--purple);
+  background: var(--primary);
   color: white;
   font-weight: 600;
 }
@@ -1410,7 +1410,7 @@ textarea::placeholder {
   display: block;
 }
 .upcoming-item:hover strong {
-  color: var(--purple);
+  color: var(--primary);
 }
 .upcoming-item small {
   font-size: 10px;
@@ -1473,7 +1473,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--purple);
+  color: var(--primary);
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -1592,7 +1592,7 @@ textarea::placeholder {
 .segmented > button.active {
   background: var(--surface);
   box-shadow: 0 1px 4px #2620300c;
-  color: var(--purple);
+  color: var(--primary);
   font-weight: 600;
 }
 .month-grid {
@@ -1635,11 +1635,11 @@ textarea::placeholder {
   margin-bottom: 5px;
 }
 .day-number:hover {
-  background: var(--purple-soft);
+  background: var(--primary-soft);
 }
 .day-number.is-today,
 .week-day-title strong.is-today {
-  background: var(--purple);
+  background: var(--primary);
   color: white;
 }
 .month-cell.outside .day-number {
@@ -1749,8 +1749,8 @@ textarea::placeholder {
   margin-top: 6px;
 }
 .week-add:hover {
-  background: var(--purple-soft);
-  color: var(--purple);
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .agenda-list {
   padding: 10px 24px;
@@ -1840,8 +1840,8 @@ textarea::placeholder {
   gap: 12px;
 }
 .empty-state > svg {
-  color: var(--purple);
-  background: var(--purple-soft);
+  color: var(--primary);
+  background: var(--primary-soft);
   box-sizing: content-box;
   padding: 16px;
   border-radius: 18px;
@@ -1873,7 +1873,7 @@ textarea::placeholder {
   height: 66px;
   border-radius: 22px;
   margin-bottom: 20px;
-  box-shadow: 0 10px 30px #703ce824;
+  box-shadow: 0 10px 30px #087f7524;
 }
 .chat-empty .brand-mark > svg {
   width: 55px;
@@ -2067,8 +2067,8 @@ textarea::placeholder {
   margin-bottom: -1px;
 }
 .dialog-tabs > button[data-state="active"] {
-  color: var(--purple);
-  border-color: var(--purple);
+  color: var(--primary);
+  border-color: var(--primary);
   font-weight: 600;
 }
 .settings-tab[data-state="inactive"] {
@@ -2099,9 +2099,9 @@ textarea::placeholder {
   font-size: 13px;
 }
 .theme-options > button.selected {
-  border: 2px solid var(--purple);
+  border: 2px solid var(--primary);
   padding: 9px;
-  color: var(--purple);
+  color: var(--primary);
 }
 .theme-options > button > svg:last-child:not(:first-of-type) {
   margin-left: auto;
@@ -2126,17 +2126,17 @@ textarea::placeholder {
   top: 0;
   bottom: 0;
   width: 22%;
-  background: #eee9f6;
+  background: #e5f6f2;
 }
 .theme-preview i {
   height: 8px;
   width: 100%;
-  background: #edeaf2;
+  background: #e1eaee;
   border-radius: 3px;
 }
 .theme-preview i:nth-child(2) {
   width: 70%;
-  background: #d4c2f9;
+  background: #a7e7d9;
 }
 .theme-preview i:last-child {
   width: 45%;
@@ -2145,16 +2145,16 @@ textarea::placeholder {
   background: white;
 }
 .dark-preview {
-  background: #201c2c;
+  background: #16262e;
 }
 .dark-preview:before {
-  background: #2d273e;
+  background: #20333d;
 }
 .dark-preview i {
-  background: #3a324d;
+  background: #2b414c;
 }
 .dark-preview i:nth-child(2) {
-  background: #7855b8;
+  background: #258a7a;
 }
 .language-label select {
   font-size: 14px;
@@ -2665,7 +2665,7 @@ textarea::placeholder {
     height: 19px;
     width: 3px;
     border-radius: 2px;
-    background: var(--purple);
+    background: var(--primary);
     position: absolute;
     left: -12px;
   }
@@ -2818,7 +2818,7 @@ textarea::placeholder {
     background: transparent;
   }
   .conversation-item:active {
-    background: var(--purple-soft);
+    background: var(--primary-soft);
   }
   .conversation-summary strong {
     font-size: 15px;
@@ -3089,11 +3089,11 @@ textarea::placeholder {
     min-width: 75px;
   }
   .mobile-nav > button.active {
-    color: var(--purple);
+    color: var(--primary);
     font-weight: 600;
   }
   .mobile-nav > button.active > svg {
-    fill: var(--purple-soft);
+    fill: var(--primary-soft);
   }
   .calendar-page {
     padding: 23px 15px;
@@ -3384,11 +3384,11 @@ textarea::placeholder {
   font-size: 13px;
 }
 .sidebar-note {
-  background: var(--purple);
+  background: var(--primary);
   color: #fff;
 }
 .sidebar-note p {
-  color: #eee6ff;
+  color: #e5f6f2;
 }
 .sidebar-note > button {
   color: #fff;
@@ -3399,13 +3399,13 @@ textarea::placeholder {
 }
 .note-art > svg:first-child {
   fill: white;
-  stroke: var(--purple);
+  stroke: var(--primary);
 }
 .sparkle.two {
-  color: #d8c7ff;
+  color: #a4efe1;
 }
 .sidebar-note .sparkle.one {
-  color: #ffb18b;
+  color: #90b8e7;
 }
 .demo-banner > span {
   font-size: 12px;
@@ -3426,10 +3426,10 @@ textarea::placeholder {
   min-width: 5px;
 }
 [data-theme="dark"] .sidebar-note {
-  background: #6331c4;
+  background: #087f75;
 }
 [data-theme="dark"] .note-art > svg:first-child {
-  stroke: #6331c4;
+  stroke: #087f75;
 }
 @media (max-width: 700px) {
   .conversation-summary strong {
@@ -3492,8 +3492,8 @@ textarea::placeholder {
   padding: 10px 0 6px;
 }
 .preview-explanation > svg {
-  color: var(--purple);
-  background: var(--purple-soft);
+  color: var(--primary);
+  background: var(--primary-soft);
   padding: 17px;
   box-sizing: content-box;
   border-radius: 20px;
@@ -3593,7 +3593,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: var(--purple);
+  color: var(--primary);
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
@@ -3620,7 +3620,7 @@ textarea::placeholder {
   text-align: left;
 }
 .chat-events-items > button:hover {
-  background: var(--purple-soft);
+  background: var(--primary-soft);
   border-color: var(--ring);
 }
 .chat-events-items strong {
@@ -3651,3 +3651,53 @@ textarea::placeholder {
     max-width: 220px;
   }
 }
+
+/* PeakBoo wordmark: the reference colors are reserved for branding. */
+:root {
+  --brand-teal: #00c49a;
+  --brand-blue: #477bb5;
+}
+[data-theme="dark"] {
+  --brand-teal: #23d6ae;
+  --brand-blue: #84afe1;
+}
+.brand {
+  gap: 0;
+  letter-spacing: -1.2px;
+  font-weight: 750;
+  font-size: 30px;
+  white-space: nowrap;
+}
+.brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+}
+.brand-peak {
+  color: var(--brand-teal);
+}
+.brand-boo {
+  color: var(--brand-blue);
+}
+.brand-compact {
+  font-size: 36px;
+  margin-bottom: 18px;
+}
+.about-app .brand {
+  font-size: 25px;
+}
+.chat-empty .brand {
+  margin-bottom: 18px;
+}
+@media (max-width: 950px) and (min-width: 701px) {
+  .sidebar .brand {
+    font-size: 18px;
+    letter-spacing: -0.6px;
+  }
+  .sidebar .brand > .brand-wordmark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+  }
+}
+@media(max-width:950px) and (min-width:701px){.sidebar .brand>.brand-wordmark:last-child{display:flex;flex-direction:column;align-items:center;line-height:1.1}}
