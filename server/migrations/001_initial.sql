@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS peakboo_migrations(version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS rooms(id uuid PRIMARY KEY, name text NOT NULL, description text NOT NULL DEFAULT '', color text NOT NULL DEFAULT 'purple', owner_id text NOT NULL REFERENCES "user"(id), invite_code text NOT NULL UNIQUE, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS members(room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,user_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,joined_at timestamptz NOT NULL DEFAULT now(),last_read_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(room_id,user_id));
+CREATE TABLE IF NOT EXISTS events(id uuid PRIMARY KEY,room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,creator_id text NOT NULL REFERENCES "user"(id),title text NOT NULL,description text NOT NULL DEFAULT '',location text NOT NULL DEFAULT '',starts_at timestamptz NOT NULL,ends_at timestamptz NOT NULL,color text NOT NULL DEFAULT 'purple',cancelled boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now(),CHECK(ends_at>starts_at));
+CREATE TABLE IF NOT EXISTS messages(id uuid PRIMARY KEY,room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,sender_id text NOT NULL REFERENCES "user"(id),text text NOT NULL DEFAULT '',event_id uuid REFERENCES events(id) ON DELETE CASCADE,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS rsvps(event_id uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,user_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,status text NOT NULL CHECK(status IN ('yes','maybe','no')),PRIMARY KEY(event_id,user_id));
+CREATE TABLE IF NOT EXISTS reactions(message_id uuid NOT NULL REFERENCES messages(id) ON DELETE CASCADE,user_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,emoji text NOT NULL,PRIMARY KEY(message_id,user_id,emoji));
+CREATE INDEX IF NOT EXISTS messages_room_time ON messages(room_id,created_at);
+CREATE INDEX IF NOT EXISTS events_room_time ON events(room_id,starts_at);
+CREATE INDEX IF NOT EXISTS members_user ON members(user_id,room_id);

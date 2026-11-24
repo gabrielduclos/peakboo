@@ -1,0 +1,43 @@
+export type Color = "purple" | "coral" | "green" | "blue" | "yellow";
+export type User = { id: string; name: string; email: string };
+export type Room = {
+  id: string;
+  name: string;
+  description: string;
+  color: Color;
+  ownerId: string;
+  inviteCode?: string;
+  memberCount: number;
+  lastText?: string;
+  lastAt?: string;
+  unread: number;
+};
+export type RSVP = {
+  userId: string;
+  name: string;
+  status: "yes" | "maybe" | "no";
+};
+export type Plan = {
+  id: string;
+  roomId: string;
+  creatorId: string;
+  title: string;
+  description: string;
+  location: string;
+  startsAt: string;
+  endsAt: string;
+  color: Color;
+  cancelled: boolean;
+  roomName?: string;
+  rsvps: RSVP[];
+};
+export type Message = {
+  id: string;
+  text: string;
+  eventId?: string;
+  senderId: string;
+  senderName: string;
+  createdAt: string;
+  reactions: { userId: string; emoji: string }[];
+};
+export type Boot = { user: User; rooms: Room[]; events: Plan[] };

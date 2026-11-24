@@ -1,0 +1,68 @@
+export const API =
+  (import.meta as unknown as { env: { VITE_API_URL?: string } }).env
+    .VITE_API_URL || "";
+export const PREVIEW_ONLY =
+  (import.meta as unknown as { env: { VITE_PREVIEW_ONLY?: string } }).env
+    .VITE_PREVIEW_ONLY === "true";
+export const getToken = () => sessionStorage.getItem("peakboo-session");
+const inFlight = new Map<string, Promise<any>>();
+export function request(path: string, method = "GET", data?: unknown) {
+  if (method !== "GET") return performRequest(path, method, data);
+  const key = `${getToken() || "anonymous"}:${path}`;
+  const existing = inFlight.get(key);
+  if (existing) return existing;
+  const pending = performRequest(path, method, data).finally(() =>
+    inFlight.delete(key),
+  );
+  inFlight.set(key, pending);
+  return pending;
+}
+async function performRequest(path: string, method: string, data?: unknown) {
+  const token = getToken();
+  let res: Response;
+  try {
+    res = await fetch(API + path, {
+      method,
+      headers: {
+        ...(data ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: "Bearer " + token } : {}),
+      },
+      ...(data ? { body: JSON.stringify(data) } : {}),
+    });
+  } catch {
+    throw new Error("NETWORK_ERROR");
+  }
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.error || result.code || "SERVER_ERROR");
+  if (method === "GET" && token !== getToken()) throw new Error("UNAUTHORIZED");
+  const authToken = res.headers.get("set-auth-token");
+  if (authToken) sessionStorage.setItem("peakboo-session", authToken);
+  return result;
+}
+export async function watchChanges(
+  signal: AbortSignal,
+  onChange: () => void,
+  onStatus: (connected: boolean) => void,
+) {
+  const res = await fetch(API + "/api/live", {
+    headers: { Authorization: "Bearer " + getToken() },
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error("STREAM_FAILED");
+  onStatus(true);
+  const reader = res.body.getReader(),
+    decoder = new TextDecoder();
+  let buffer = "";
+  while (!signal.aborted) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let split;
+    while ((split = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, split);
+      buffer = buffer.slice(split + 2);
+      if (block.startsWith("data: ") && !block.includes('"connected"'))
+        onChange();
+    }
+  }
+}
