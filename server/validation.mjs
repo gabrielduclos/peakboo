@@ -29,5 +29,5 @@ export const eventInput = z
   });
 export const rsvpInput = z.object({ status: z.enum(["yes", "maybe", "no"]) });
 export const reactionInput = z.object({
-  emoji: z.enum(["❤️", "👍", "😂", "🎉", "🔥"]),
+  emoji: z.enum(["❤️", "👍", "😂", "🎉", "🔥", "😊", "😍", "🥰", "😮", "😢", "😭", "😡", "🤔", "😎", "🙏", "👏", "🙌", "💪", "👀", "✅", "💯", "🤝", "👎", "💔"]),
 });

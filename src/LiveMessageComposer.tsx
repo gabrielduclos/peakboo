@@ -531,7 +531,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       </button>
       : <button type="button" onClick={()=>void toggleRecording()} disabled={sending || editing || optimizing || (!!pending && recording==='idle') || pendingPhotos.length>0}
         aria-label={recording!=='idle'?(pt?'Finalizar gravação':'Finish recording'):(pt?'Gravar áudio':'Record voice note')}
-        className={cn('grid size-11 lg:size-12 shrink-0 place-items-center',recording!=='idle'?'bg-destructive text-destructive-foreground':'text-muted-foreground',sending && 'opacity-40')}>
+        className={cn('chat-send-touch grid size-11 lg:size-12 shrink-0 place-items-center',recording!=='idle'?'bg-destructive text-destructive-foreground':'text-muted-foreground',sending && 'opacity-40')}>
         {recording!=='idle'?<Square className="size-4" fill="currentColor"/>:<Mic className="size-5"/>}
       </button>}
   </form>;

@@ -1,3 +1,4 @@
+import {ReactionPicker} from "../ReactionPicker";
 import {useChatScroll} from "../useChatScroll";
 import {useOptimisticMessages,mergeMessages,type PendingMessage} from "../useOptimisticMessages";
 import {ChatGallery} from "../ChatGallery";
@@ -115,6 +116,7 @@ export default function App() {
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [showRoomSearch,setShowRoomSearch]=useState(false);
   const [galleryId,setGalleryId]=useState<string|null>(null);
+  const [pinnedMessages,setPinnedMessages]=useState<Message[]>([]);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [reactionOpen, setReactionOpen] = useState<string | null>(null);
@@ -171,6 +173,7 @@ export default function App() {
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
   const currentMessages = filtering ? rawMessages.filter(m=>matchesMessage(m,chatFilter,chatQuery)) : rawMessages;
+  useEffect(()=>{setPinnedMessages((selected?messages[selected]||[]:[]).filter(m=>m.pinned&&!m.deleted))},[selected,messages]);
   const chatScroll=useChatScroll(selected,currentMessages,loadingMessages,filtering,boot.user.id,view==='chats'&&(mobileChat||window.innerWidth>700));
   const locale = lang === "pt" ? "pt-BR" : "en-US";
   const fmt = (d: string | Date, options: Intl.DateTimeFormatOptions) =>
@@ -1630,6 +1633,19 @@ export default function App() {
                         {t("sharedCalendar")}
                       </button>
                     </div>
+                  {showChatSearch && (
+                    <div className="chat-search">
+
+                      <input
+                        autoFocus
+                        value={chatQuery}
+                        onChange={(e) => setChatQuery(e.target.value)}
+                        placeholder={t("searchMessages")}
+                        aria-label={t("searchMessages")}
+                      />
+                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
+                    </div>
+                  )}
                     <div className="chat-header-actions">
                       <button
                         className="icon-button"
@@ -1658,20 +1674,8 @@ export default function App() {
                       </button>
                     </div>
                   </div>
-                  {showChatSearch && (
-                    <div className="chat-search">
-                      <Search size={16} />
-                      <input
-                        autoFocus
-                        value={chatQuery}
-                        onChange={(e) => setChatQuery(e.target.value)}
-                        placeholder={t("searchMessages")}
-                        aria-label={t("searchMessages")}
-                      />
-                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
-                    </div>
-                  )}
                   {showChatSearch&&<ChatFilters value={chatFilter} onChange={setChatFilter} pt={lang==="pt"}/>}
+                  {!!pinnedMessages.length&&<div className="pinned-chat-bar" aria-label={lang==='pt'?'Mensagens fixadas':'Pinned messages'}><span>📌</span><button type="button" onClick={()=>{const first=pinnedMessages[0];const node=document.getElementById('message-'+first.id);if(node){node.scrollIntoView({block:'center',behavior:'smooth'});}else setChatFilter({...emptyFilter,kind:'pinned'})}}><strong>{lang==='pt'?'Mensagem fixada':'Pinned message'}{pinnedMessages.length>1?' · '+pinnedMessages.length:''}</strong><span>{pinnedMessages[0].text||mediaLabel(pinnedMessages[0].attachment?.mime||'',lang==='pt')}</span></button><button type="button" className="icon-button" aria-label={lang==='pt'?'Ver todas as fixadas':'View pinned messages'} onClick={()=>setChatFilter({...emptyFilter,kind:'pinned'})}><ChevronDown size={18}/></button></div>}
                   <UpcomingEventsBar
                     events={boot.events}
                     roomId={room.id}
@@ -1721,6 +1725,7 @@ export default function App() {
                             <Fragment key={m.id}>
                             {(i===0||localDayKey(new Date(arr[i-1].createdAt))!==localDayKey(new Date(m.createdAt)))&&<DaySeparator day={localDayKey(new Date(m.createdAt))} value={chatFilter} onChange={setChatFilter} lang={lang}/>}
                             <div
+                              id={"message-"+m.id}
                               onContextMenu={e=>{if(!m.deleted&&!m.pendingStatus){e.preventDefault();e.currentTarget.querySelector<HTMLButtonElement>('[data-message-actions]')?.click()}}}
                               className={cn(
                                 "message",
@@ -1802,31 +1807,8 @@ export default function App() {
                                 </div>
                               </div>
                               {!m.deleted&&!m.pendingStatus&&<div className="message-actions">
-                                <button
-                                  className="icon-button tiny"
-                                  aria-label={t("react")}
-                                  onClick={() =>
-                                    setReactionOpen(
-                                      reactionOpen === m.id ? null : m.id,
-                                    )
-                                  }
-                                >
-                                  <Smile size={15} />
-                                </button>
+                                <ReactionPicker label={t("react")} onReact={emoji=>{void react(m,emoji)}}/>
                                 <MessageActions message={m} own={own} pt={lang==="pt"} rooms={boot.rooms} onAction={messageAction}/>
-                                {reactionOpen === m.id && (
-                                  <div className="emoji-menu">
-                                    {EMOJIS.map((emoji) => (
-                                      <button
-                                        key={emoji}
-                                        aria-label={emoji}
-                                        onClick={() => react(m, emoji)}
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
                               </div>}
                             </div></Fragment>
                           );
@@ -1858,7 +1840,7 @@ export default function App() {
                   <div className="composer-wrapper peakboo-composer">
                     {(replying||editing)&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
                     <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice />
-                    <button type="button" className="button ghost compact-event" onClick={()=>openEvent()}><CalendarPlus size={17}/>{t("createEvent")}</button>
+
                   </div>
                 </>
               ) : (

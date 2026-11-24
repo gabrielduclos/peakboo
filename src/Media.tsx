@@ -60,7 +60,7 @@ export function MessageMedia({attachment,lang='pt',onOpen}:{attachment?:{id:stri
  {!ready&&!media.error&&<div className="media-skeleton" role="status" aria-label={lang==='pt'?'Carregando mídia':'Loading media'}/>}
  {media.url&&(attachment.mime.startsWith('image/')?<button type="button" className="open-chat-photo" onClick={onOpen} aria-label={lang==='pt'?'Abrir foto na galeria':'Open photo gallery'}><img src={media.url} alt={label} onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/></button>:attachment.mime.startsWith('video/')?<video controls preload="metadata" src={media.url} onLoadedData={()=>setReady(true)}/>:<ChatAudioPlayer src={media.url} lang={lang} onReady={()=>setReady(true)}/>)}
  </div>}
- {media.error?<button type="button" onClick={media.retry}>{lang==='pt'?'Tentar carregar novamente':'Retry loading'}</button>:media.url?<a href={media.url} download={attachment.name}>{label} · {(attachment.size/1024).toFixed(0)} KB ↓</a>:!visual&&!audio?<span className="media-skeleton file-skeleton" role="status" aria-label={lang==='pt'?'Carregando documento':'Loading document'}/>:null}
+ {media.error?<button type="button" onClick={media.retry}>{lang==='pt'?'Tentar carregar novamente':'Retry loading'}</button>:media.url?(!visual&&!audio?<a className="document-open" href={media.url} target="_blank" rel="noreferrer">{label}</a>:null):!visual&&!audio?<span className="media-skeleton file-skeleton" role="status" aria-label={lang==='pt'?'Carregando documento':'Loading document'}/>:null}
  </div>;
 }
 
