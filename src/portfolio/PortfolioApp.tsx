@@ -739,7 +739,7 @@ export default function App() {
     const content = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//Peakboo//Calendar//EN",
+      "PRODID:-//PeakBoo//Calendar//EN",
       "BEGIN:VEVENT",
       `UID:${plan.id}@peakboo`,
       `DTSTAMP:${stamp(new Date().toISOString())}`,
@@ -1315,7 +1315,7 @@ export default function App() {
             setView("chats");
             setMobileChat(false);
           }}
-          aria-label="Peakboo"
+          aria-label="PeakBoo"
         >
           <Logo />
         </a>
@@ -1363,7 +1363,7 @@ export default function App() {
               }
             >
               <strong>
-                {demo ? "Alex Morgan" : boot.user.name || "Peakboo"}
+                {demo ? "Alex Morgan" : boot.user.name || "PeakBoo"}
               </strong>
               <span>{demo ? t("demoShort") : boot.user.email}</span>
             </button>
@@ -1380,7 +1380,7 @@ export default function App() {
       <main className="main-area">
         <header className="topbar">
           <span className="breadcrumb">
-            Peakboo <span>/</span>{" "}
+            PeakBoo <span>/</span>{" "}
             <strong>
               {t(view === "chats" ? "conversations" : "calendar")}
             </strong>
