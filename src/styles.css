@@ -3775,3 +3775,6 @@ textarea::placeholder {
 }
 
 .calendar-actions{display:flex;justify-content:flex-end;margin-bottom:16px;gap:12px}@media(max-width:700px){.calendar-actions{margin-bottom:12px}.calendar-actions>.button{font-size:13px}}
+
+.calendar-actions.conversation-title{justify-content:space-between;align-items:center;padding:0}
+.calendar-actions .title-dot{color:var(--primary)}

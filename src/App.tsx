@@ -855,7 +855,8 @@ export default function App() {
     const currentMonth = fmt(calendarDate, { month: "long", year: "numeric" });
     return (
       <section className="calendar-page">
-        <div className="calendar-actions">
+        <div className="calendar-actions conversation-title">
+          <h1>{t("calendar")}<span className="title-dot">.</span></h1>
           <Button onClick={() => openEvent()}>
             <Plus size={17} />
             {t("newEvent")}
