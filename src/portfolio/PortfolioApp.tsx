@@ -1,3 +1,4 @@
+import {roomPreview,demoRoomPreview} from "../roomPreview";
 import {useAppNavigation,useMobileViewport} from "../appNavigation";
 import {ReplyReference,replySnapshot} from "../ReplyReference";
 import {ProfileEditor} from "../Social";
@@ -1559,7 +1560,7 @@ export default function App() {
                         </div>
                       </div>
                     ))
-                  : boot.rooms
+                  : boot.rooms.map(r=>demoRoomPreview(r,messages[r.id])).sort((a,b)=>Date.parse(b.lastAt||"1970-01-01")-Date.parse(a.lastAt||"1970-01-01"))
                       .filter(
                         (r) =>
                           r.name
@@ -1589,9 +1590,7 @@ export default function App() {
                             </span>
                             <span>
                               <p>
-                                {r.lastText ||
-                                  r.description ||
-                                  t("conversationStarted")}
+                                {roomPreview(r,boot.user.id,lang==="pt",t("conversationStarted"))}
                               </p>
                               {r.unread > 0 && <b>{r.unread}</b>}
                             </span>
