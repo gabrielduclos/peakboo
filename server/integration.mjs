@@ -317,7 +317,8 @@ try {
   const bobNotices=(await call("/api/bootstrap",bob.token)).data.reactionNotices;
   check("reactor does not receive their own reaction notice",()=>assert.equal(bobNotices.some(n=>n.messageId===messageId),false));
   check('reaction desired-state retries are idempotent',()=>{assert.equal(setReaction.data.reaction.active,true);assert.equal(repeatReaction.data.reaction.active,true)});
-  await call(`/api/rooms/${id}/messages/${messageId}/reaction`,alice.token,'POST',{emoji:'❤️',active:true});
+  const selfReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,alice.token,'POST',{emoji:'❤️',active:true});
+   check('authors cannot react to their own messages',()=>assert.equal(selfReaction.status,403));
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'🔥',active:true});
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:false});
   const replaced=await call(`/api/rooms/${id}/messages`,alice.token);
