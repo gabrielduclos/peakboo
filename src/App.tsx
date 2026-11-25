@@ -1017,7 +1017,7 @@ export default function App() {
               onCreate={()=>{setNewTab("create");openModal("new")}}
               onJoin={()=>{setNewTab("join");openModal("new")}}/>
             <ChatPanel room={room} rooms={boot.rooms} events={boot.events} userId={boot.user.id} lang={lang} locale={locale} t={t} time={time}
-              onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite} onProfile={openProfile}
+              onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} loadReactionMembers={async roomId=>(await request('/api/rooms/'+encodeURIComponent(roomId)+'/members')).members} invite={invite} onProfile={openProfile}
               onCreateEvent={()=>openEvent()} onSaveList={saveSharedList} onUpdateList={updateSharedList} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
               showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch} chatQuery={chatQuery} setChatQuery={setChatQuery}
               chatFilter={chatFilter} setChatFilter={setChatFilter} pinnedMessages={pinnedMessages} chatScroll={chatScroll}
