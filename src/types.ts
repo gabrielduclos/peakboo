@@ -58,7 +58,7 @@ export type Message = {
   createdAt: string;
   reactions: { userId: string; emoji: string }[];
 };
-export type EventActivity = {id:string;eventId:string;roomId:string;eventTitle:string;roomName:string;action:"created"|"updated"|"cancelled";createdAt:string};
+export type EventActivity = {id:string;eventId:string;roomId:string;eventTitle:string;roomName:string;action:"created"|"updated"|"cancelled"|"confirmed";actorName?:string;createdAt:string};
 export type RoomPreview =
   | {kind:"message";senderId:string;senderName:string;text:string;mime?:string|null;deleted?:boolean;eventId?:string|null}
   | {kind:"reaction";actorName:string;emoji:string;text:string;mime?:string|null};

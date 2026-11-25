@@ -2,6 +2,7 @@ import {randomUUID} from "node:crypto";
 import {z} from "zod";
 import {vapidKeys,validateSubscription,sendWebPush} from "./web-push.mjs";
 const keys=vapidKeys();
+const shortName=name=>{const parts=String(name||"").trim().split(/\s+/);return parts.length>1?parts[0]+" "+parts.at(-1):parts[0]};
 const input=z.object({endpoint:z.string().max(2048),keys:z.object({p256dh:z.string().max(100),auth:z.string().max(40)}),locale:z.enum(["pt","en"]),preview:z.boolean()});
 const endpointInput=z.object({endpoint:z.string().max(2048)});
 const uuid=z.uuid();
@@ -13,9 +14,9 @@ export function createPush(pool){
  let enabled=!!keys,hasSubscribers=false,running=false,timer,rerun=false,stopped=false;
  const deliver=async(row,notice)=>{
   const pt=row.locale==="pt",preview=row.preview;
-  const labels={message:pt?"Nova mensagem":"New message",reaction:pt?"Nova reação":"New reaction",created:pt?"Novo compromisso":"New event",updated:pt?"Compromisso atualizado":"Event updated",cancelled:pt?"Compromisso cancelado":"Event cancelled",reminder:pt?"Lembrete da agenda":"Calendar reminder"};
+  const labels={message:pt?"Nova mensagem":"New message",reaction:pt?"Nova reação":"New reaction",created:pt?"Novo compromisso":"New event",updated:pt?"Compromisso atualizado":"Event updated",cancelled:pt?"Compromisso cancelado":"Event cancelled",confirmed:pt?"Presença confirmada":"Attendance confirmed",reminder:pt?"Lembrete da agenda":"Calendar reminder"};
   const label=labels[notice.kind];
-  const payload={title:preview?String(row.room_name).slice(0,100):"Peakboo",body:preview&&notice.body?String(notice.kind==="reaction"?notice.body+(pt?" reagiu à sua mensagem":" reacted to your message"):notice.body).slice(0,220):notice.kind==="reminder"?(pt?"Compromisso em até "+notice.minutes+" minutos.":"Event in up to "+notice.minutes+" minutes."):label,roomId:row.room_id,eventId:notice.eventId||null,tag:"peakboo-"+(notice.eventId||row.room_id)};
+  const payload={title:preview?String(row.room_name).slice(0,100):"Peakboo",body:preview&&notice.body?String(notice.kind==="confirmed"?shortName(notice.actorName)+(pt?" confirmou presença em ":" confirmed attendance at ")+notice.body:notice.kind==="reaction"?notice.body+(pt?" reagiu à sua mensagem":" reacted to your message"):notice.body).slice(0,220):notice.kind==="reminder"?(pt?"Compromisso em até "+notice.minutes+" minutos.":"Event in up to "+notice.minutes+" minutes."):label,roomId:row.room_id,eventId:notice.eventId||null,tag:"peakboo-"+(notice.eventId||row.room_id)};
   try{
    const status=await sendWebPush(keys,{endpoint:row.endpoint,keys:{p256dh:row.p256dh,auth:row.auth_key}},payload);
    if(status===404||status===410){await pool.query("DELETE FROM push_subscriptions WHERE id=$1 AND endpoint=$2",[row.id,row.endpoint]);return true}

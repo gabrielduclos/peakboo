@@ -24,7 +24,7 @@ app.get("/api/bootstrap", async (req, res) => {
     )
   ).rows;
   const activity=(await pool.query(
-    `SELECT a.id,a.event_id AS "eventId",e.room_id AS "roomId",e.title AS "eventTitle",r.name AS "roomName",a.action,a.created_at AS "createdAt" FROM event_activity a JOIN events e ON e.id=a.event_id JOIN rooms r ON r.id=e.room_id JOIN members m ON m.room_id=e.room_id WHERE m.user_id=$1 AND r.kind='group' AND a.actor_id<>$1 AND a.created_at>=m.joined_at AND a.created_at>now()-interval '30 days' ORDER BY a.created_at DESC LIMIT 100`,[req.user.id])).rows;
+    `SELECT a.id,a.event_id AS "eventId",e.room_id AS "roomId",e.title AS "eventTitle",r.name AS "roomName",a.action,u.name AS "actorName",a.created_at AS "createdAt" FROM event_activity a JOIN "user" u ON u.id=a.actor_id JOIN events e ON e.id=a.event_id JOIN rooms r ON r.id=e.room_id JOIN members m ON m.room_id=e.room_id LEFT JOIN push_muted_groups muted ON muted.room_id=r.id AND muted.user_id=$1 WHERE m.user_id=$1 AND r.kind='group' AND (a.action<>'confirmed' OR muted.user_id IS NULL) AND a.actor_id<>$1 AND a.created_at>=m.joined_at AND a.created_at>now()-interval '30 days' ORDER BY a.created_at DESC LIMIT 100`,[req.user.id])).rows;
   const reactionNotices=(await pool.query(
     `SELECT rx.activity_id AS id,msg.id AS "messageId",r.id AS "roomId",r.name AS "roomName",u.name AS "actorName",rx.emoji,msg.text,media.mime,rx.changed_at AS "createdAt"
       FROM reactions rx JOIN messages msg ON msg.id=rx.message_id JOIN rooms r ON r.id=msg.room_id JOIN members m ON m.room_id=r.id AND m.user_id=$1 JOIN "user" u ON u.id=rx.user_id LEFT JOIN media ON media.id=msg.attachment_id

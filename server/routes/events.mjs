@@ -70,20 +70,21 @@ app.put("/api/rooms/:room/events/:event", member, async (req, res) => {
 app.post("/api/rooms/:room/events/:event/rsvp", member, async (req, res) => {
   const data = rsvpInput.safeParse(req.body);
   if (!data.success) return jsonError(res, 400, "INVALID_INPUT");
-  const e = (
-    await pool.query(
-      "SELECT id FROM events WHERE id=$1 AND room_id=$2 AND NOT cancelled",
-      [req.params.event, req.params.room],
-    )
-  ).rows[0];
-  if (!e) return jsonError(res, 404, "NOT_FOUND");
-  await pool.query(
-    "INSERT INTO rsvps(event_id,user_id,status) VALUES($1,$2,$3) ON CONFLICT(event_id,user_id) DO UPDATE SET status=excluded.status",
-    [e.id, req.user.id, data.data.status],
-  );
-  await publish(req.params.room);
-  push.reschedule();
-  res.json({ ok: true });
+  const client=await pool.connect();
+  let event,confirmed=false,changed=false;
+  try {
+    await client.query("BEGIN");
+    event=(await client.query("SELECT id,title FROM events WHERE id=$1 AND room_id=$2 AND NOT cancelled FOR UPDATE",[req.params.event,req.params.room])).rows[0];
+    if(!event){await client.query("ROLLBACK");return jsonError(res,404,"NOT_FOUND")}
+    const result=await client.query("INSERT INTO rsvps(event_id,user_id,status) VALUES($1,$2,$3) ON CONFLICT(event_id,user_id) DO UPDATE SET status=excluded.status WHERE rsvps.status IS DISTINCT FROM excluded.status RETURNING status",[event.id,req.user.id,data.data.status]);
+    changed=!!result.rowCount;
+    confirmed=changed&&data.data.status==="yes";
+    if(confirmed)await client.query("INSERT INTO event_activity(id,event_id,actor_id,action) VALUES($1,$2,$3,'confirmed')",[randomUUID(),event.id,req.user.id]);
+    await client.query("COMMIT");
+  }catch(error){await client.query("ROLLBACK");throw error}finally{client.release()}
+  if(changed){await publish(req.params.room);push.reschedule()}
+  if(confirmed)push.notify({kind:"confirmed",roomId:req.params.room,actorId:req.user.id,eventId:event.id,actorName:req.user.name,body:event.title});
+  res.json({ok:true});
 });
 app.delete("/api/rooms/:room/events/:event", member, async (req, res) => {
   const r = await pool.query(
