@@ -266,6 +266,10 @@ try {
       0,
     ),
   );
+  const setReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
+  const repeatReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
+  check('reaction desired-state retries are idempotent',()=>{assert.equal(setReaction.data.reaction.active,true);assert.equal(repeatReaction.data.reaction.active,true)});
+  await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:false});
   client = postgres.getPgClient();
   await client.connect();
   for (let i = 0; i < 85; i++)
@@ -465,35 +469,17 @@ try {
   const keptProfile=await call('/api/bootstrap',alice.token);
   check("deletion preserves user accounts and profile photos",()=>assert.ok(keptProfile.data.user.image));
 
-  const publicPhotoId=profilePhoto.status===201?(await keptProfile.data.user.image).split('/').at(-1):null;
   const aliceId=alice.data.user.id,bobId=bob.data.user.id,charlieId=charlie.data.user.id;
-  const makeProfile=(handle,name,isPublic=true)=>({handle,name,bio:'A shared bio',isPublic});
-  const noProfile=await call('/api/me/profile',alice.token);
-  check('existing accounts remain private until explicitly published',()=>assert.equal(noProfile.data.profile.isPublic,false));
-  const saveAlice=await call('/api/me/profile',alice.token,'PUT',makeProfile('alice','Alice Public'));
-  check('owner can publish a profile',()=>assert.equal(saveAlice.status,200));
-  await call('/api/me/profile',bob.token,'PUT',makeProfile('bob','Bob Public'));
-  await call('/api/me/profile',charlie.token,'PUT',makeProfile('charlie','Charlie Public',false));
-  const publicAlice=await call('/api/public/profiles/alice');
-  check('anonymous profile contains public details without email or authentication data',()=>{assert.equal(publicAlice.data.profile.name,'Alice Public');assert.equal(publicAlice.data.profile.handle,'alice');assert.ok(!JSON.stringify(publicAlice.data).includes('peakboo-test.invalid'));assert.equal(publicAlice.data.profile.email,undefined)});
-  const publicImage=await fetch('http://localhost:3001'+publicAlice.data.profile.image);
-  check('only the current published profile photo is anonymously accessible',()=>assert.equal(publicImage.status,200));
-  const privateProfile=await call('/api/public/profiles/charlie');
-  check('private profiles cannot be read anonymously',()=>assert.equal(privateProfile.status,404));
-  const searchPeople=await call('/api/profiles/search?q=Public',bob.token);
-  check('people discovery is unavailable',()=>assert.equal(searchPeople.status,404));
-  const reserved=await call('/api/me/profile',charlie.token,'PUT',makeProfile('admin','Charlie'));
-  check('reserved handles are rejected',()=>assert.equal(reserved.status,400));
-  const taken=await call('/api/me/profile',charlie.token,'PUT',makeProfile('alice','Charlie'));
-  check('handles are unique across accounts',()=>assert.equal(taken.status,423));
-  // A new profile has no cooldown; test unique handling separately.
-  await client.query(`UPDATE profiles SET handle_changed_at=now()-interval '16 days' WHERE user_id=$1`,[charlieId]);
-  const takenAfterCooldown=await call('/api/me/profile',charlie.token,'PUT',makeProfile('alice','Charlie'));
-  check('duplicate handles return a stable conflict after cooldown',()=>assert.equal(takenAfterCooldown.status,409));
-  const cooldown=await call('/api/me/profile',alice.token,'PUT',makeProfile('alice_new','Alice Public'));
-  check('username changes enforce the adapted 15-day cooldown',()=>assert.equal(cooldown.status,423));
-  const invalidProfile=await call('/api/me/profile',alice.token,'PUT',{...makeProfile('alice','Alice'),userId:bobId});
+  const savedProfile=await call('/api/me/profile',alice.token,'PUT',{name:'Alice Updated',bio:'A shared bio'});
+  check('profile saves without username',()=>assert.equal(savedProfile.status,200));
+  const privateProfile=await call('/api/me/profile',alice.token);
+  check('profile exposes no username or public setting',()=>{assert.equal(privateProfile.data.profile.name,'Alice Updated');assert.equal(privateProfile.data.profile.handle,undefined);assert.equal(privateProfile.data.profile.isPublic,undefined)});
+  const invalidProfile=await call('/api/me/profile',alice.token,'PUT',{name:'Alice',bio:'',userId:bobId});
   check('profile edits cannot target another account',()=>assert.equal(invalidProfile.status,400));
+  const publicAlice=await call('/api/public/profiles/alice');
+  check('legacy public profile is inaccessible',()=>assert.equal(publicAlice.status,404));
+  const publicImage=await call('/api/public-media/'+keptProfile.data.user.image.split('/').at(-1));
+  check('legacy public media is inaccessible',()=>assert.equal(publicImage.status,404));
   const deniedDirect=await call('/api/contacts/'+bobId+'/conversation',alice.token,'POST');
   check('direct conversation creation is unavailable',()=>assert.equal(deniedDirect.status,404));
   const deniedContacts=await call('/api/contacts',alice.token);
@@ -507,11 +493,8 @@ try {
   check('legacy direct room endpoints are unavailable',()=>assert.equal(legacyRead.status,404));
   const cover=await binary('/api/profile/cover',alice.token,'image/png',photo);
   check('cover photos use independent durable storage',()=>assert.equal(cover.status,201));
-  const aliceWithCover=await call('/api/public/profiles/alice');
-  check('published cover is visible independently of the avatar',()=>{assert.ok(aliceWithCover.data.profile.cover);assert.notEqual(aliceWithCover.data.profile.cover,aliceWithCover.data.profile.image)});
-  await call('/api/me/profile',alice.token,'PUT',makeProfile('alice','Alice Public',false));
-  const revokedPublic=await call('/api/public/profiles/alice'),revokedPhoto=await fetch('http://localhost:3001'+publicAlice.data.profile.image);
-  check('making a profile private revokes public profile and photo URLs',()=>{assert.equal(revokedPublic.status,404);assert.equal(revokedPhoto.status,404)});
+  const aliceWithCover=await call('/api/me/profile',alice.token);
+  check('private cover and avatar remain independent',()=>{assert.ok(aliceWithCover.data.profile.cover);assert.notEqual(aliceWithCover.data.profile.cover,aliceWithCover.data.profile.image)});
   await call("/api/auth/sign-out", bob.token, "POST", {});
   const expired = await call("/api/bootstrap", bob.token);
   check("sign-out revokes API access", () => assert.equal(expired.status, 401));

@@ -92,7 +92,7 @@ No mobile, o cabeçalho mostra a marca PeakBoo e as configurações ficam na nav
 
 O Peakboo é focado em grupos privados, inclusive grupos de duas pessoas. Crie um grupo ou entre com um link/código de convite. O menu não tem contatos, conversas individuais ou exploração de grupos públicos. Os convites podem ser copiados ou exibidos como QR Code gerado localmente; `VITE_APP_URL` define a origem canônica do aplicativo (por padrão, https://main.peakboo.workers.dev).
 
-Em Configurações → Perfil, é possível editar nome, @usuário, biografia, foto e capa. Perfis públicos podem ser consultados pelo link, sem expor dados privados de grupos. A API verifica a participação nos grupos antes de entregar mensagens e anexos. A demo continua isolada da API real.
+Em Configurações → Perfil, é possível editar nome, biografia, foto e capa. Não há username nem perfis públicos; links antigos não expõem dados. A API verifica a participação nos grupos antes de entregar mensagens e anexos. A demo continua isolada da API real.
 
 Os dados legados de contatos e conversas individuais permanecem armazenados, mas não são listados nem acessíveis pelos endpoints de grupos. Nenhuma exclusão de dados ou migração destrutiva foi introduzida.
 
@@ -101,3 +101,5 @@ Os dados legados de contatos e conversas individuais permanecem armazenados, mas
 O token é o segredo já usado no link de convite; pode ser copiado separadamente e inserido em **Entrar com token**. Links e QR Codes existentes continuam válidos. O servidor restringe mensagens, prévias, buscas, respostas, ações e anexos à data de entrada de cada participante. Reutilizar um token não altera essa data.
 
 A agenda permanece compartilhada. Novos compromissos, alterações e cancelamentos de outros participantes são registrados no servidor e atualizados pelo SSE. Badges mostram mensagens não lidas e avisos da agenda; a central interna inclui lembretes de 60 e 15 minutos. A leitura dos avisos da agenda é armazenada por conta neste navegador, e os lembretes são calculados localmente enquanto o aplicativo está aberto ou ao retornar. Não há push, e-mail nem consultas periódicas adicionais ao banco.
+
+Reações usam alteração otimista e confirmação idempotente. O SSE entrega alterações de reações aos participantes autorizados sem recarregar a agenda; outras mudanças são agrupadas e sincronizadas ao reconectar. A distribuição SSE utiliza a instância única do Render.

@@ -1,5 +1,5 @@
 import {ReplyReference,replySnapshot} from "./ReplyReference";
-import {ProfileEditor,PublicProfile} from "./Social";
+import {ProfileEditor} from "./Social";
 import {InvitationTools} from "./InvitationTools";
 import {inviteLink} from "./links";
 import {useInternalNotifications,NotificationBadge,NotificationCenter} from "./InternalNotifications";
@@ -8,6 +8,7 @@ import {socialAPI} from "./socialApi";
 import {SwipeReply} from "./SwipeReply";
 import {usePinnedMessages,clearRoomPins,pruneRoomPins} from "./usePinnedMessages";
 import {ReactionPicker} from "./ReactionPicker";
+import {applyReaction,type ReactionChange,type LiveChange} from "./realtime";
 import {useChatScroll} from "./useChatScroll";
 import {useOptimisticMessages,mergeMessages,type PendingMessage} from "./useOptimisticMessages";
 import {ChatGallery} from "./ChatGallery";
@@ -95,10 +96,6 @@ export default function App() {
 
   const [boot, setBoot] = useState<Boot>(() => emptyBoot);
   const social=socialAPI;
-  const [publicHandle,setPublicHandle]=useState(()=>/^\/@([a-z][a-z0-9_]{2,31})$/.exec(location.pathname)?.[1]||'');
-  const authReturnHandle=useRef('');
-  useEffect(()=>{const update=()=>setPublicHandle(/^\/@([a-z][a-z0-9_]{2,31})$/.exec(location.pathname)?.[1]||'');window.addEventListener('popstate',update);return()=>window.removeEventListener('popstate',update)},[]);
-  useEffect(()=>{if(boot.user.id&&authReturnHandle.current){const handle=authReturnHandle.current;authReturnHandle.current='';setPublicHandle(handle);history.replaceState(null,'','/@'+handle)}},[boot.user.id]);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [selected, setSelected] = useState<string | null>(() => null);
   const [view, setView] = useState<"chats" | "calendar">("chats");
@@ -120,11 +117,17 @@ export default function App() {
   const pinnedMessages=usePinnedMessages(boot.user.id,selected,pinnedRevision);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const [reactionOpen, setReactionOpen] = useState<string | null>(null);
+  const [reactionOpen,setReactionOpen]=useState<string|null>(null);
+  const pendingReactionRef=useRef<Record<string,ReactionChange>>({});
+  const [pendingReactions,setPendingReactions]=useState<Record<string,ReactionChange>>({});
+  const reactionAccount=useRef(boot.user.id);reactionAccount.current=boot.user.id;
+  useEffect(()=>{pendingReactionRef.current={};setPendingReactions({})},[boot.user.id]);
+  const overlayReaction=(m:Message)=>Object.values(pendingReactions).reduce(applyReaction,m);
+
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(!!getToken());
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [connected, setConnected] = useState(true);
+  const [connected, setConnected] = useState(false);
   const [hasMore, setHasMore] = useState<Record<string, boolean>>({});
   const [modal, setModal] = useState<
     | "new"
@@ -186,7 +189,7 @@ export default function App() {
   const optimistic=useOptimisticMessages(boot.user.id);
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
-  const currentMessages = filtering ? filtered : rawMessages;
+  const currentMessages = (filtering ? filtered : rawMessages).map(overlayReaction);
 
   const chatScroll=useChatScroll(selected,currentMessages,loadingMessages||filterLoading,filtering,boot.user.id,view==='chats'&&(mobileChat||window.innerWidth>700));
   const locale = lang === "pt" ? "pt-BR" : "en-US";
@@ -325,70 +328,48 @@ export default function App() {
     };
   }, [selected, fetchMessages,view,mobileChat]);
   useEffect(() => {
-    if (!getToken()) return;
-    let stopped = false,
-      controller: AbortController | null = null,
-      reconnect: ReturnType<typeof setTimeout> | null = null;
-    let delay = 1000;
-    const sync = (event?:{deletedRoomId?:string;profileChanged?:boolean}) => {
-      if(event?.deletedRoomId) removeRoomLocally(event.deletedRoomId);
-      setPinnedRevision(value=>value+1);
-      if (refreshTimer.current) clearTimeout(refreshTimer.current);
-      refreshTimer.current = setTimeout(() => {
-        refresh()
-          .then(() => {
-            const id = selectedRef.current;
-            if (!id || !chatVisibleRef.current || document.hidden) return;
-            return fetchMessages(id).then(async () => {
-              if(!chatVisibleRef.current||document.hidden||selectedRef.current!==id)return;
-              await request("/api/rooms/" + id + "/read", "POST");
-              setBoot((b) => ({
-                ...b,
-                rooms: b.rooms.map((r) =>
-                  r.id === id ? { ...r, unread: 0 } : r,
-                ),
-              }));
-            });
-          })
-          .catch(() => setConnected(false));
-      }, 180);
+    if(!getToken()||!boot.user.id)return;
+    let stopped=false,controller:AbortController|null=null,reconnect:ReturnType<typeof setTimeout>|null=null;
+    let delay=1000,full=false,dirty=new Set<string>(),running=false;
+    const flush=async()=>{
+      refreshTimer.current=null;
+      if(stopped||document.hidden||running)return;
+      running=true;const all=full,changed=dirty;full=false;dirty=new Set();
+      try{
+        await refresh();
+        const id=selectedRef.current;
+        if(id&&chatVisibleRef.current&&(all||changed.has(id))){
+          setPinnedRevision(v=>v+1);await fetchMessages(id);
+          if(!stopped&&!document.hidden&&chatVisibleRef.current&&selectedRef.current===id){
+            await request("/api/rooms/"+id+"/read","POST");setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r)}));
+          }
+        }
+      }catch{full=true}
+      finally{running=false;if(!stopped&&!document.hidden&&(full||dirty.size)&&!refreshTimer.current)refreshTimer.current=setTimeout(flush,1000);}
     };
-    const connect = async () => {
-      if (stopped || document.hidden) return;
-      controller = new AbortController();
-      try {
-        await watchChanges(controller.signal, sync, (v) => {
-          setConnected(v);
-          delay = 1000;
-        });
-      } catch {}
-      if (!stopped && !document.hidden) {
-        setConnected(false);
-        reconnect = setTimeout(() => {
-          sync();
-          connect();
-        }, delay);
-        delay = Math.min(delay * 2, 30000);
-      }
+    const sync=(event?:LiveChange)=>{
+      if(stopped)return;
+      if(event?.deletedRoomId)removeRoomLocally(event.deletedRoomId);
+      if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);return;}
+      if(event?.roomId)dirty.add(event.roomId);else full=true;
+      if(event?.profileChanged)full=true;
+      if(!refreshTimer.current&&!running&&!document.hidden)refreshTimer.current=setTimeout(flush,180);
     };
-    const visibility = () => {
-      controller?.abort();
-      if (reconnect) clearTimeout(reconnect);
-      if (!document.hidden) {
-        sync();
-        connect();
-      }
+    const connect=async()=>{
+      if(stopped||document.hidden||controller)return;
+      const mine=new AbortController();controller=mine;
+      try{await watchChanges(mine.signal,sync,v=>{if(!stopped&&controller===mine){setConnected(v);if(v){delay=1000;sync();}}})}catch{}
+      if(controller!==mine)return;controller=null;
+      if(!stopped&&!document.hidden){setConnected(false);reconnect=setTimeout(()=>{reconnect=null;void connect()},delay);delay=Math.min(delay*2,30000);}
     };
-    connect();
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      stopped = true;
-      controller?.abort();
-      if (reconnect) clearTimeout(reconnect);
-      if (refreshTimer.current) clearTimeout(refreshTimer.current);
-      document.removeEventListener("visibilitychange", visibility);
+    const visibility=()=>{
+      const mine=controller;controller=null;mine?.abort();if(reconnect)clearTimeout(reconnect);reconnect=null;
+      if(refreshTimer.current)clearTimeout(refreshTimer.current);refreshTimer.current=null;
+      setConnected(false);if(!document.hidden){full=true;void connect()}
     };
-  }, [boot.user.id, refresh, fetchMessages]);
+    void connect();document.addEventListener("visibilitychange",visibility);
+    return()=>{stopped=true;controller?.abort();controller=null;if(reconnect)clearTimeout(reconnect);if(refreshTimer.current)clearTimeout(refreshTimer.current);refreshTimer.current=null;document.removeEventListener("visibilitychange",visibility)};
+  },[boot.user.id,refresh,fetchMessages]);
   useEffect(() => {
     if (!getToken()) return;
     if (pendingInvite && !loading) {
@@ -580,23 +561,25 @@ export default function App() {
     await fetchMessages(selected);await refresh();
     if(action==='report')notify(lang==='pt'?'Denúncia registrada.':'Report recorded.');
   }
-  async function react(m: Message, emoji: string) {
+  function commitReaction(roomId:string,change:ReactionChange){
+    setMessages(old=>({...old,[roomId]:(old[roomId]||[]).map(m=>applyReaction(m,change))}));
+    if(selectedRef.current===roomId)setFiltered(old=>old.map(m=>applyReaction(m,change)));
+  }
+  async function react(m:Message,emoji:string){
     setReactionOpen(null);
-    if (!selected) return;
-    setBusy("reaction-" + m.id);
-    try {
-      {
-        await request(
-          "/api/rooms/" + selected + "/messages/" + m.id + "/reaction",
-          "POST",
-          { emoji },
-        );
-        await fetchMessages(selected);
-      }
-    } catch (e) {
-      notify(errorText(e));
-    } finally {
-      setBusy(null);
+    if(!selected||m.pendingStatus||m.deleted)return;
+    const roomId=selected,userId=boot.user.id,key=m.id+":"+emoji;
+    if(pendingReactionRef.current[key])return;
+    const change={messageId:m.id,userId,emoji,active:!m.reactions.some(r=>r.userId===userId&&r.emoji===emoji)};
+    
+    pendingReactionRef.current={...pendingReactionRef.current,[key]:change};setPendingReactions(pendingReactionRef.current);
+    try{
+      const data=await request("/api/rooms/"+roomId+"/messages/"+m.id+"/reaction","POST",{emoji,active:change.active});
+      if(reactionAccount.current===userId)commitReaction(roomId,data.reaction||change);
+    }catch(e){
+      if(reactionAccount.current===userId){notify(errorText(e));void fetchMessages(roomId).catch(()=>{});}
+    }finally{
+      if(reactionAccount.current===userId&&pendingReactionRef.current[key]===change){const next={...pendingReactionRef.current};delete next[key];pendingReactionRef.current=next;setPendingReactions(next)}
     }
   }
   async function saveEvent(e: FormEvent<HTMLFormElement>) {
@@ -1267,7 +1250,6 @@ export default function App() {
   async function syncSocialProfile(){
     await refresh();
   }
-  if(publicHandle)return <PublicProfile handle={publicHandle} api={social} lang={lang} signedIn={!!boot.user.id} userId={boot.user.id} onBack={()=>{setPublicHandle('');history.replaceState(null,'','/')}} onSignIn={()=>{authReturnHandle.current=publicHandle;setPublicHandle('');openModal('auth')}}/>;
   return (
     <div className={cn("app-shell", view === "chats" && mobileChat && !!room && "chat-open")}>
       <aside className="sidebar">
@@ -1686,7 +1668,7 @@ export default function App() {
                                               ? "mine"
                                               : ""
                                           }
-                                          disabled={busy === "reaction-" + m.id}
+                                          disabled={!!pendingReactions[m.id+":"+emoji]}
                                           onClick={() => react(m, emoji)}
                                         >
                                           {emoji}

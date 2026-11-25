@@ -3813,14 +3813,9 @@ textarea::placeholder {
 .profile-photo-actions,.invite-options { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 .profile-editor .form { margin:0; }
 .profile-editor .form textarea { resize:vertical; width:100%; font-size:16px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px; }
-.profile-editor .profile-visibility { display:flex; flex-direction:row; align-items:center; gap:10px; }
-.profile-editor .profile-visibility input { width:20px; height:20px; min-height:20px; accent-color:var(--primary); }
 .profile-editor .muted { font-size:13px; }
 .social-empty { text-align:center; padding:32px 12px; color:var(--muted); }
 .social-skeleton { position:relative; height:180px; border-radius:12px; background:var(--surface-2); }
-.public-profile-page { max-width:760px; margin:auto; padding:24px 16px; }
-.public-profile-page>header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
-.public-profile-card { background:var(--surface); padding:20px; border:1px solid var(--line); border-radius:16px; }
 .public-avatar { display:grid; place-items:center; overflow:hidden; background:var(--primary-soft); color:var(--primary); }
 .public-avatar img { width:100%; height:100%; object-fit:cover; }
 .invite-options .button { flex:1; min-height:44px; }
@@ -3832,8 +3827,6 @@ textarea::placeholder {
 .crop-modal canvas { touch-action:none; }
 .swipe-reply.swiping .message-bubble { user-select:none; -webkit-user-select:none; }
 @media(max-width:700px) {
- .public-profile-page { padding:16px 12px; }
- .public-profile-card { padding:14px; }
  .profile-photo-actions>.button { flex:1; font-size:13px; }
  .invite-options { flex-direction:column; }
 }
@@ -3874,3 +3867,5 @@ button.reply-reference-line:hover{text-decoration:underline}
 .invite-token input{font-family:ui-monospace,monospace;font-size:16px}
 @media(max-width:700px){.mobile-nav{gap:4px;padding-inline:8px}.mobile-nav>button{min-width:0;flex:1;min-height:44px;font-size:10px}}
 @media(min-width:701px) and (max-width:1000px){.sidebar .nav-item{position:relative}.sidebar .nav-item>.notification-count{display:inline-flex;position:absolute;top:2px;right:0}}
+
+@media(prefers-reduced-motion:no-preference){.reactions>button{animation:reaction-pop 180ms ease-out;transition:background-color 140ms,transform 140ms}.reactions>button:active{transform:scale(.94)}@keyframes reaction-pop{from{transform:scale(.78);opacity:.5}to{transform:scale(1);opacity:1}}}

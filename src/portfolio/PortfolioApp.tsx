@@ -1,5 +1,5 @@
 import {ReplyReference,replySnapshot} from "../ReplyReference";
-import {ProfileEditor,PublicProfile} from "../Social";
+import {ProfileEditor} from "../Social";
 import {InvitationTools} from "../InvitationTools";
 import {inviteLink} from "../links";
 import {useInternalNotifications,NotificationBadge,NotificationCenter} from "../InternalNotifications";
@@ -7,6 +7,7 @@ import {Bell,KeyRound} from "lucide-react";
 import {demoSocial} from "./social";
 import {SwipeReply} from "../SwipeReply";
 import {ReactionPicker} from "../ReactionPicker";
+import {applyReaction,type ReactionChange,type LiveChange} from "../realtime";
 import {useChatScroll} from "../useChatScroll";
 import {useOptimisticMessages,mergeMessages,type PendingMessage} from "../useOptimisticMessages";
 import {ChatGallery} from "../ChatGallery";
@@ -107,10 +108,6 @@ export default function App() {
     return {...data,rooms:data.rooms.map(r=>({...r,inviteCode:r.inviteCode||'demo-'+r.id}))};
   });
   const social=useMemo(()=>demoSocial(boot.user),[boot.user.id]);
-  const [publicHandle,setPublicHandle]=useState(()=>/^\/@([a-z][a-z0-9_]{2,31})$/.exec(location.pathname)?.[1]||'');
-  const authReturnHandle=useRef('');
-  useEffect(()=>{const update=()=>setPublicHandle(/^\/@([a-z][a-z0-9_]{2,31})$/.exec(location.pathname)?.[1]||'');window.addEventListener('popstate',update);return()=>window.removeEventListener('popstate',update)},[]);
-  useEffect(()=>{if(boot.user.id&&authReturnHandle.current){const handle=authReturnHandle.current;authReturnHandle.current='';setPublicHandle(handle);history.replaceState(null,'','/@'+handle)}},[boot.user.id]);
   const [messages, setMessages] = useState<Record<string, Message[]>>(() =>
     getToken() ? {} : initialDemo().messages,
   );
@@ -135,7 +132,13 @@ export default function App() {
   const [pinnedMessages,setPinnedMessages]=useState<Message[]>([]);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const [reactionOpen, setReactionOpen] = useState<string | null>(null);
+  const [reactionOpen,setReactionOpen]=useState<string|null>(null);
+  const pendingReactionRef=useRef<Record<string,ReactionChange>>({});
+  const [pendingReactions,setPendingReactions]=useState<Record<string,ReactionChange>>({});
+  const reactionAccount=useRef(boot.user.id);reactionAccount.current=boot.user.id;
+  useEffect(()=>{pendingReactionRef.current={};setPendingReactions({})},[boot.user.id]);
+  const overlayReaction=(m:Message)=>Object.values(pendingReactions).reduce(applyReaction,m);
+
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(!!getToken());
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -193,7 +196,7 @@ export default function App() {
   const optimistic=useOptimisticMessages(boot.user.id);
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
-  const currentMessages = filtering ? rawMessages.filter(m=>matchesMessage(m,chatFilter,chatQuery)) : rawMessages;
+  const currentMessages = (filtering ? rawMessages.filter(m=>matchesMessage(m,chatFilter,chatQuery)) : rawMessages).map(overlayReaction);
   useEffect(()=>{setPinnedMessages((selected?messages[selected]||[]:[]).filter(m=>m.pinned&&!m.deleted))},[selected,messages]);
   const chatScroll=useChatScroll(selected,currentMessages,loadingMessages,filtering,boot.user.id,view==='chats'&&(mobileChat||window.innerWidth>700));
   const locale = lang === "pt" ? "pt-BR" : "en-US";
@@ -612,41 +615,25 @@ export default function App() {
     if(action==='report'){notify(lang==='pt'?'Denúncia registrada nesta demonstração.':'Report recorded in this demo.');return;}
     setMessages(old=>({...old,[selected]:(old[selected]||[]).map(x=>x.id!==m.id?x:action==='pin'?{...x,pinned:!x.pinned}:action==='delete'?{...x,deleted:true,text:'',attachment:undefined,pinned:false}:{...x,text:target||'',editedAt:new Date().toISOString()})}));
   }
-  async function react(m: Message, emoji: string) {
+  function commitReaction(roomId:string,change:ReactionChange){
+    setMessages(old=>({...old,[roomId]:(old[roomId]||[]).map(m=>applyReaction(m,change))}));
+    
+  }
+  async function react(m:Message,emoji:string){
     setReactionOpen(null);
-    if (!selected) return;
-    setBusy("reaction-" + m.id);
-    try {
-      if (demo)
-        setMessages((data) => ({
-          ...data,
-          [selected]: (data[selected] || []).map((x) =>
-            x.id !== m.id
-              ? x
-              : {
-                  ...x,
-                  reactions: x.reactions.some(
-                    (r) => r.userId === "me" && r.emoji === emoji,
-                  )
-                    ? x.reactions.filter(
-                        (r) => !(r.userId === "me" && r.emoji === emoji),
-                      )
-                    : [...x.reactions, { userId: "me", emoji }],
-                },
-          ),
-        }));
-      else {
-        await request(
-          "/api/rooms/" + selected + "/messages/" + m.id + "/reaction",
-          "POST",
-          { emoji },
-        );
-        await fetchMessages(selected);
-      }
-    } catch (e) {
-      notify(errorText(e));
-    } finally {
-      setBusy(null);
+    if(!selected||m.pendingStatus||m.deleted)return;
+    const roomId=selected,userId=boot.user.id,key=m.id+":"+emoji;
+    if(pendingReactionRef.current[key])return;
+    const change={messageId:m.id,userId,emoji,active:!m.reactions.some(r=>r.userId===userId&&r.emoji===emoji)};
+    if(demo){commitReaction(roomId,change);return;}
+    pendingReactionRef.current={...pendingReactionRef.current,[key]:change};setPendingReactions(pendingReactionRef.current);
+    try{
+      const data=await request("/api/rooms/"+roomId+"/messages/"+m.id+"/reaction","POST",{emoji,active:change.active});
+      if(reactionAccount.current===userId)commitReaction(roomId,data.reaction||change);
+    }catch(e){
+      if(reactionAccount.current===userId){notify(errorText(e));void fetchMessages(roomId).catch(()=>{});}
+    }finally{
+      if(reactionAccount.current===userId&&pendingReactionRef.current[key]===change){const next={...pendingReactionRef.current};delete next[key];pendingReactionRef.current=next;setPendingReactions(next)}
     }
   }
   async function saveEvent(e: FormEvent<HTMLFormElement>) {
@@ -1383,7 +1370,6 @@ export default function App() {
   async function syncSocialProfile(){
     const p=await social.me();setBoot(b=>({...b,user:{...b.user,name:p.name,image:p.image}}));
   }
-  if(publicHandle)return <PublicProfile handle={publicHandle} api={social} lang={lang} signedIn={!!boot.user.id} userId={boot.user.id} onBack={()=>{setPublicHandle('');history.replaceState(null,'','/')}} onSignIn={()=>{authReturnHandle.current=publicHandle;setPublicHandle('');openModal('auth')}}/>;
   return (
     <div className={cn("app-shell", view === "chats" && mobileChat && !!room && "chat-open")}>
       <aside className="sidebar">
@@ -1836,7 +1822,7 @@ export default function App() {
                                               ? "mine"
                                               : ""
                                           }
-                                          disabled={busy === "reaction-" + m.id}
+                                          disabled={!!pendingReactions[m.id+":"+emoji]}
                                           onClick={() => react(m, emoji)}
                                         >
                                           {emoji}

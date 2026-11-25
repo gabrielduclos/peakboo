@@ -42,34 +42,27 @@ async function performRequest(path: string, method: string, data?: unknown) {
   if (authToken) sessionStorage.setItem("peakboo-session", authToken);
   return result;
 }
+import type {LiveChange} from "./realtime";
 export async function watchChanges(
   signal: AbortSignal,
-  onChange: (event?: { roomId?: string; profileChanged?: boolean; deletedRoomId?: string }) => void,
+  onChange: (event?: LiveChange) => void,
   onStatus: (connected: boolean) => void,
 ) {
-  const res = await fetch(API + "/api/live", {
-    headers: { Authorization: "Bearer " + getToken() },
-    signal,
-  });
-  if (!res.ok || !res.body) throw new Error("STREAM_FAILED");
-  onStatus(true);
-  const reader = res.body.getReader(),
-    decoder = new TextDecoder();
-  let buffer = "";
-  while (!signal.aborted) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let split;
-    while ((split = buffer.indexOf("\n\n")) >= 0) {
-      const block = buffer.slice(0, split);
-      buffer = buffer.slice(split + 2);
-      if (block.startsWith("data: ")) {
-        try {
-          const event = JSON.parse(block.slice(6));
-          if (!event.connected) onChange(event);
-        } catch {}
-      }
-    }
-  }
+  const controller=new AbortController();
+  const abort=()=>controller.abort();signal.addEventListener("abort",abort,{once:true});if(signal.aborted)abort();
+  let watchdog:ReturnType<typeof setTimeout>|undefined;
+  const renew=()=>{clearTimeout(watchdog);watchdog=setTimeout(abort,70000)};
+  renew();
+  try{
+    const res=await fetch(API+"/api/live",{headers:{Authorization:"Bearer "+getToken()},signal:controller.signal,cache:"no-store"});
+    if(!res.ok||!res.body)throw Error("STREAM_FAILED");
+    onStatus(true);
+    const reader=res.body.getReader(),decoder=new TextDecoder();let buffer="";
+    try{while(!controller.signal.aborted){
+      const {value,done}=await reader.read();if(done)break;renew();buffer+=decoder.decode(value,{stream:true});
+      if(buffer.length>262144)throw Error("STREAM_INVALID");
+      let split;while((split=buffer.indexOf("\n\n"))>=0){const block=buffer.slice(0,split);buffer=buffer.slice(split+2);if(block.startsWith("data: ")){try{const event=JSON.parse(block.slice(6));if(!event.connected)onChange(event)}catch{}}}
+    }}finally{await reader.cancel().catch(()=>{});reader.releaseLock()}
+  }finally{clearTimeout(watchdog);signal.removeEventListener("abort",abort);controller.abort();}
+
 }
