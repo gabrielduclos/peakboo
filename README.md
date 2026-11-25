@@ -117,3 +117,7 @@ Ao abrir o Peakboo no navegador, o convite de instalação aparece no máximo um
 ### Prévias e reações nos grupos
 
 A lista de grupos mostra o remetente, texto ou tipo de mídia da última mensagem. Se alguém reagir mais recentemente a uma mensagem sua, a prévia mostra essa reação. Reações recebidas aparecem também na central interna (até 100 reações ativas dos últimos 30 dias), com leitura por conta neste navegador; remover ou trocar a reação atualiza a atividade. Grupos silenciados não geram avisos internos de reação nem push, mas mantêm a prévia. A migração 009 preserva reações anteriores sem gerar notificações antigas.
+
+### Organização modular da interface
+
+Componentes visuais compartilhados ficam em `src/features/<domínio>/`. A lista de grupos (`groups/GroupsPanel.tsx`) e as visualizações da agenda (`calendar/CalendarViews.tsx`) recebem dados e callbacks por propriedades. Produção e demonstração preservam suas fontes de dados e operações independentes; os componentes compartilhados não importam a API nem o armazenamento da demo. Novas extrações devem manter o comportamento e ser acompanhadas de testes de regressão.
