@@ -605,8 +605,8 @@ try {
   check("search includes edited checklist items",()=>assert.ok(searched.data.messages.some(m=>m.id===listId)));
   const deletedList=await call(listRoot+"/messages/"+listId,alice.token,"DELETE");
   check("deleting a list message clears its checklist",()=>assert.equal(deletedList.status,200));
-  const afterDelete=await call(listRoot+"/lists/refresh",bob.token,"POST",{ids:[listId]});
-  check("reconnect observes deleted checklist",()=>{assert.equal(afterDelete.data.lists[0].deleted,true);assert.equal(afterDelete.data.lists[0].checklist,null)});
+  const afterListDelete=await call(listRoot+"/lists/refresh",bob.token,"POST",{ids:[listId]});
+  check("reconnect observes deleted checklist",()=>{assert.equal(afterListDelete.data.lists[0].deleted,true);assert.equal(afterListDelete.data.lists[0].checklist,null)});
   await call("/api/auth/sign-out", bob.token, "POST", {});
   const expired = await call("/api/bootstrap", bob.token);
   check("sign-out revokes API access", () => assert.equal(expired.status, 401));
