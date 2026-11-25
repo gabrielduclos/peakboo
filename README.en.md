@@ -120,4 +120,4 @@ The group list shows the sender, text or media type of the latest message. If so
 
 ### Modular UI organization
 
-Shared presentation components live in `src/features/<domain>/`. The group list (`groups/GroupsPanel.tsx`) and calendar views (`calendar/CalendarViews.tsx`) receive data and callbacks through props. Production and portfolio retain independent data sources and operations; shared components do not import the API or demo storage. New extractions should preserve behavior and include regression tests.
+Shared presentation components live in `src/features/<domain>/`. The group list (`groups/GroupsPanel.tsx`) and calendar views (`calendar/CalendarViews.tsx`) and the chat panel (`chat/ChatPanel.tsx`) receive data and callbacks through props. Production and portfolio retain independent data sources and operations; shared components do not import the API or demo storage. New extractions should preserve behavior and include regression tests.
