@@ -12,16 +12,20 @@ function distance(first: Position, second: Position) {
   return Math.hypot(second.x - first.x, second.y - first.y);
 }
 
-export function ZoomableChatImage({ src, alt, locale = 'pt-BR' }: {
+export function ZoomableChatImage({ src, alt, locale = 'pt-BR', onPrevious, onNext }: {
   src: string;
   alt: string;
   locale?: string;
+  onPrevious?: () => void;
+  onNext?: () => void;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const image = useRef<HTMLImageElement>(null);
   const pointers = useRef(new Map<number, Position>());
   const down = useRef(new Map<number, Position>());
   const pinch = useRef<Pinch | null>(null);
+  const swipe = useRef<{id:number;start:Position}|null>(null);
+  const [dragX,setDragX]=useState(0);
   const previousPan = useRef<Position | null>(null);
   const lastTap = useRef<{ at: number; point: Position } | null>(null);
   const current = useRef<Zoom>(INITIAL);
@@ -73,8 +77,12 @@ export function ZoomableChatImage({ src, alt, locale = 'pt-BR' }: {
     const point = { x: event.clientX, y: event.clientY };
     pointers.current.set(event.pointerId, point);
     down.current.set(event.pointerId, point);
-    if (pointers.current.size === 1) previousPan.current = point;
+    if (pointers.current.size === 1) {
+      previousPan.current = point;
+      swipe.current = current.current.scale===1&&(onPrevious||onNext)?{id:event.pointerId,start:point}:null;
+    }
     if (pointers.current.size === 2) {
+      swipe.current=null;setDragX(0);
       const [first, second] = [...pointers.current.values()];
       pinch.current = {
         distance: Math.max(1, distance(first, second)),
@@ -108,14 +116,23 @@ export function ZoomableChatImage({ src, alt, locale = 'pt-BR' }: {
     } else if (pointers.current.size === 1 && previousPan.current && current.current.scale > 1) {
       apply({ ...current.current, x: current.current.x + point.x - previousPan.current.x, y: current.current.y + point.y - previousPan.current.y });
     }
+    if(swipe.current?.id===event.pointerId&&current.current.scale===1&&pointers.current.size===1){
+      const dx=point.x-swipe.current.start.x,dy=point.y-swipe.current.start.y;
+      setDragX(Math.abs(dx)>Math.abs(dy)?dx*((dx<0?onNext:onPrevious)?1:0.2):0);
+    }
     previousPan.current = point;
   }
 
   function end(event: PointerEvent<HTMLDivElement>) {
     const initial = down.current.get(event.pointerId);
     if (!initial) return;
-    const finalPoint = pointers.current.get(event.pointerId) ?? initial;
-    if (pointers.current.size === 1 && !pinch.current && distance(initial, finalPoint) < 12) {
+    const finalPoint = {x:event.clientX,y:event.clientY};
+    const candidate=swipe.current;
+    const dx=candidate?finalPoint.x-candidate.start.x:0,dy=candidate?finalPoint.y-candidate.start.y:0;
+    const navigate=event.type==='pointerup'&&candidate?.id===event.pointerId&&pointers.current.size===1&&current.current.scale===1&&Math.abs(dx)>=Math.min(80,Math.max(40,(viewport.current?.clientWidth??300)*0.15))&&Math.abs(dx)>Math.abs(dy)*1.4?(dx<0?onNext:onPrevious):undefined;
+    swipe.current=null;setDragX(0);
+    if(navigate)lastTap.current=null;
+    if (event.type==='pointerup' && !navigate && pointers.current.size === 1 && !pinch.current && distance(initial, finalPoint) < 12) {
       const last = lastTap.current;
       const at = Date.now();
       if (last && at - last.at < 320 && distance(last.point, finalPoint) < 36) {
@@ -128,6 +145,7 @@ export function ZoomableChatImage({ src, alt, locale = 'pt-BR' }: {
     if (pointers.current.size < 2) pinch.current = null;
     previousPan.current = pointers.current.size === 1 ? [...pointers.current.values()][0] : null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    navigate?.();
   }
 
   return <div className="relative h-full min-h-0 w-full min-w-0 overflow-hidden">
@@ -138,7 +156,7 @@ export function ZoomableChatImage({ src, alt, locale = 'pt-BR' }: {
       <img ref={image} src={src} alt={alt} draggable={false}
         onLoad={()=>setLoadedSrc(src)} onError={()=>setFailedSrc(src)}
         className="max-h-full max-w-full select-none object-contain"
-        style={{ transform: 'translate3d(' + zoom.x + 'px,' + zoom.y + 'px,0) scale(' + zoom.scale + ')', transformOrigin: 'center', userSelect: 'none', pointerEvents: 'none' }} />
+        style={{ transform: 'translate3d(' + (zoom.x+dragX) + 'px,' + zoom.y + 'px,0) scale(' + zoom.scale + ')', transition:dragX===0&&zoom.scale===1?'transform 160ms ease-out':'none', transformOrigin: 'center', userSelect: 'none', pointerEvents: 'none' }} />
     </div>
     {loadedSrc!==src&&failedSrc!==src&&
       <span role="status" aria-label={pt?'Carregando imagem':'Loading image'} className="pointer-events-none absolute inset-0 grid place-items-center">
