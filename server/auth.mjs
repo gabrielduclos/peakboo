@@ -1,6 +1,8 @@
 import pg from "pg";
 import { betterAuth } from "better-auth";
 import { bearer } from "better-auth/plugins";
+import {emailVerificationConfig,createVerificationSender} from "./email-verification.mjs";
+const verification=emailVerificationConfig();
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   max: 5,
@@ -26,7 +28,9 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     maxPasswordLength: 128,
+    requireEmailVerification: verification.enabled,
   },
+  ...(verification.enabled?{emailVerification:{sendVerificationEmail:createVerificationSender(verification),sendOnSignUp:true,sendOnSignIn:true,autoSignInAfterVerification:false,expiresIn:3600}}:{}),
   session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24 },
   rateLimit: { enabled: true, window: 60, max: 30 },
   plugins: [bearer()],
