@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
-import {Bell,CalendarDays,MessageCircle,Check} from "lucide-react";
+import {reactionPreview} from "./roomPreview";
+import {Bell,CalendarDays,MessageCircle,Check,Smile} from "lucide-react";
 import {Button} from "./components";
 import type {Boot,Plan,Room} from "./types";
 export type AgendaNotice={id:string;eventId:string;roomId:string;title:string;roomName:string;action:"created"|"updated"|"cancelled"|"reminder";at:string;minutes?:number};
@@ -27,9 +28,11 @@ export function useInternalNotifications(boot:Boot){
  },[boot.activity,boot.events,boot.rooms,boot.user.id,now]);
  const read=new Set(seen.key===key?seen.ids:readIds(key));
  const agendaUnread=notices.filter(n=>!read.has(n.id)).length;
+ const reactionNotices=(boot.reactionNotices||[]).filter(n=>boot.rooms.some(r=>r.id===n.roomId));
+ const reactionUnread=reactionNotices.filter(n=>!read.has("reaction:"+n.id)).length;
  const messageUnread=boot.rooms.reduce((total,r)=>total+(r.unread||0),0);
  const mark=(ids:string[])=>{setSeen(old=>{const next=[...new Set([...(old.key===key?old.ids:readIds(key)),...ids])].slice(-1500);try{localStorage.setItem(key,JSON.stringify(next))}catch{}return {key,ids:next}})};
- return {notices,read,agendaUnread,messageUnread,total:agendaUnread+messageUnread,mark};
+ return {notices,reactionNotices,read,agendaUnread,reactionUnread,messageUnread,total:agendaUnread+messageUnread+reactionUnread,mark};
 }
 export function NotificationBadge({count}:{count:number}){return count>0?<b className="notification-count" aria-label={String(count)}>{count>99?"99+":count}</b>:null}
 export function NotificationCenter({boot,center,lang,onRoom,onEvent}:{boot:Boot;center:ReturnType<typeof useInternalNotifications>;lang:string;onRoom:(room:Room)=>void;onEvent:(event:Plan|undefined)=>void}){
@@ -38,7 +41,9 @@ export function NotificationCenter({boot,center,lang,onRoom,onEvent}:{boot:Boot;
  return <section className="notification-center" aria-label={pt?"Notificações internas":"In-app notifications"}>
   {center.agendaUnread>0&&<Button variant="outline" className="full-width" onClick={()=>center.mark(center.notices.map(n=>n.id))}><Check size={16}/>{pt?"Marcar avisos da agenda como lidos":"Mark calendar notices as read"}</Button>}
   {rooms.map(r=><button type="button" className="notification-row notification-unread" key={r.id} onClick={()=>onRoom(r)}><MessageCircle size={20}/><span><strong>{r.name}</strong><small>{r.unread} {pt?"mensagens não lidas":"unread messages"}</small></span><NotificationBadge count={r.unread}/></button>)}
+  {center.reactionUnread>0&&<Button variant="outline" className="full-width" onClick={()=>center.mark(center.reactionNotices.map(n=>"reaction:"+n.id))}><Check size={16}/>{pt?"Marcar reações como lidas":"Mark reactions as read"}</Button>}
+  {center.reactionNotices.map(n=><button type="button" key={"reaction:"+n.id} className={"notification-row"+(!center.read.has("reaction:"+n.id)?" notification-unread":"")} onClick={()=>{center.mark(["reaction:"+n.id]);const room=boot.rooms.find(r=>r.id===n.roomId);if(room)onRoom(room)}}><Smile size={20}/><span><strong>{reactionPreview(n,pt)}</strong><small>{n.roomName} · {new Date(n.createdAt).toLocaleString(pt?"pt-BR":"en",{dateStyle:"short",timeStyle:"short"})}</small></span>{!center.read.has("reaction:"+n.id)&&<span className="notification-unread-dot" aria-hidden="true"/>}</button>)}
   {center.notices.map(n=><button type="button" key={n.id} className={"notification-row"+(!center.read.has(n.id)?" notification-unread":"")} onClick={()=>{center.mark([n.id]);onEvent(boot.events.find(e=>e.id===n.eventId))}}><CalendarDays size={20}/><span><strong>{labels[n.action]}</strong><small>{n.title}{n.roomName?" · "+n.roomName:""}</small>{n.minutes&&<small>{pt?"Aviso de ":"Reminder: "}{n.minutes} min</small>}<small>{new Date(n.at).toLocaleString(pt?"pt-BR":"en",{dateStyle:"short",timeStyle:"short"})}</small></span>{!center.read.has(n.id)&&<span className="notification-unread-dot" aria-hidden="true"/>}</button>)}
-  {!rooms.length&&!center.notices.length&&<div className="notification-empty"><Bell size={28}/><p>{pt?"Nenhuma notificação por enquanto.":"No notifications yet."}</p></div>}
+  {!rooms.length&&!center.notices.length&&!center.reactionNotices.length&&<div className="notification-empty"><Bell size={28}/><p>{pt?"Nenhuma notificação por enquanto.":"No notifications yet."}</p></div>}
  </section>
 }
