@@ -12,6 +12,7 @@ export type Room = {
   ownerId: string;
   image?: string | null;
   inviteCode?: string;
+  joinedAt?: string;
   memberCount: number;
   lastText?: string;
   lastAt?: string;
@@ -57,4 +58,5 @@ export type Message = {
   createdAt: string;
   reactions: { userId: string; emoji: string }[];
 };
-export type Boot = { user: User; rooms: Room[]; events: Plan[] };
+export type EventActivity = {id:string;eventId:string;roomId:string;eventTitle:string;roomName:string;action:"created"|"updated"|"cancelled";createdAt:string};
+export type Boot = { user: User; rooms: Room[]; events: Plan[]; activity?: EventActivity[] };

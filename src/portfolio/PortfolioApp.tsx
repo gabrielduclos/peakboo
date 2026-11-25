@@ -2,6 +2,8 @@ import {ReplyReference,replySnapshot} from "../ReplyReference";
 import {ProfileEditor,PublicProfile} from "../Social";
 import {InvitationTools} from "../InvitationTools";
 import {inviteLink} from "../links";
+import {useInternalNotifications,NotificationBadge,NotificationCenter} from "../InternalNotifications";
+import {Bell,KeyRound} from "lucide-react";
 import {demoSocial} from "./social";
 import {SwipeReply} from "../SwipeReply";
 import {ReactionPicker} from "../ReactionPicker";
@@ -117,6 +119,8 @@ export default function App() {
   );
   const [view, setView] = useState<"chats" | "calendar">("chats");
   const [mobileChat, setMobileChat] = useState(false);
+  const chatVisibleRef=useRef(false);
+  chatVisibleRef.current=view==="chats"&&(mobileChat||window.innerWidth>700);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [chatQuery, setChatQuery] = useState("");
@@ -141,6 +145,7 @@ export default function App() {
     | "new"
     | "invite"
     | "members"
+    | "notifications"
     | "settings"
     | "auth"
     | "event"
@@ -184,6 +189,7 @@ export default function App() {
     .filter((e) => !e.cancelled)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const upcoming = events.filter((e) => new Date(e.endsAt) >= new Date());
+  const notificationCenter=useInternalNotifications(boot);
   const optimistic=useOptimisticMessages(boot.user.id);
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
@@ -315,26 +321,18 @@ export default function App() {
     };
   }, [demo, refresh]);
   useEffect(() => {
-    if (demo || !selected) return;
+    if (demo || !selected || !chatVisibleRef.current || document.hidden) return;
     let alive = true;
     setLoadingMessages(!messages[selected]);
-    fetchMessages(selected)
-      .catch((e) => notify(errorText(e)))
-      .finally(() => alive && setLoadingMessages(false));
-    request("/api/rooms/" + selected + "/read", "POST")
-      .then(() =>
-        setBoot((b) => ({
-          ...b,
-          rooms: b.rooms.map((r) =>
-            r.id === selected ? { ...r, unread: 0 } : r,
-          ),
-        })),
-      )
-      .catch(() => {});
+    fetchMessages(selected).then(async()=>{
+      if(!alive||!chatVisibleRef.current||document.hidden)return;
+      await request("/api/rooms/" + selected + "/read", "POST");
+      if(alive)setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===selected?{...r,unread:0}:r)}));
+    }).catch(e=>notify(errorText(e))).finally(()=>alive&&setLoadingMessages(false));
     return () => {
       alive = false;
     };
-  }, [selected, demo, fetchMessages]);
+  }, [selected, demo, fetchMessages,view,mobileChat]);
   useEffect(() => {
     if (demo) return;
     let stopped = false,
@@ -347,8 +345,9 @@ export default function App() {
         refresh()
           .then(() => {
             const id = selectedRef.current;
-            if (!id) return;
+            if (!id || !chatVisibleRef.current || document.hidden) return;
             return fetchMessages(id).then(async () => {
+              if(!chatVisibleRef.current||document.hidden||selectedRef.current!==id)return;
               await request("/api/rooms/" + id + "/read", "POST");
               setBoot((b) => ({
                 ...b,
@@ -499,12 +498,8 @@ export default function App() {
     try {
       let id: string;
       if (newTab === "join") {
-        let code = String(d.get("code") || "").trim();
-        try {
-          code =
-            new URLSearchParams(new URL(code).hash.slice(1)).get("invite") ||
-            code;
-        } catch {}
+        const code = String(d.get("code") || "").trim();
+        if(!/^[A-Za-z0-9_-]{1,100}$/.test(code))throw new Error("INVITE_NOT_FOUND");
         if (demo) {
           setPendingInvite(code);
           setAuthMode("signup");
@@ -822,10 +817,10 @@ export default function App() {
   async function invite() {
     openModal("invite");
   }
-  async function copyInvite() {
+  async function copyInvite(token=false) {
     if (!room?.inviteCode) return;
     try {
-      await navigator.clipboard.writeText(inviteLink(room.inviteCode));
+      await navigator.clipboard.writeText(token?room.inviteCode:inviteLink(room.inviteCode));
       notify(t("copied"));
     } catch {
       setFormError(t("error"));
@@ -1404,7 +1399,7 @@ export default function App() {
             }}
           >
             <MessageCircle size={20} />
-            <span>{t("conversations")}</span>
+            <span>{t("conversations")}</span><NotificationBadge count={notificationCenter.messageUnread}/>
           </button>
           <button
             className={cn("nav-item", view === "calendar" && "active")}
@@ -1415,8 +1410,9 @@ export default function App() {
             }}
           >
             <CalendarDays size={20} />
-            <span>{t("calendar")}</span>
+            <span>{t("calendar")}</span><NotificationBadge count={notificationCenter.agendaUnread}/>
           </button>
+          <button className="nav-item" onClick={()=>openModal("notifications")} aria-label={t("notifications")}><Bell size={20}/><span>{t("notifications")}</span><NotificationBadge count={notificationCenter.total}/></button>
         </nav>
         <div className="sidebar-spacer" />
         <div className="sidebar-bottom">
@@ -1996,7 +1992,7 @@ export default function App() {
             setMobileChat(false);
           }}
         >
-          <MessageCircle size={21} />
+          <span className="notification-icon"><MessageCircle size={21}/><NotificationBadge count={notificationCenter.messageUnread}/></span>
           {t("conversations")}
         </button>
         <button
@@ -2007,15 +2003,19 @@ export default function App() {
             setMobileChat(false);
           }}
         >
-          <CalendarDays size={21} />
+          <span className="notification-icon"><CalendarDays size={21}/><NotificationBadge count={notificationCenter.agendaUnread}/></span>
           {t("calendar")}
         </button>
+        <button onClick={()=>openModal("notifications")} aria-label={t("notifications")}><span className="notification-icon"><Bell size={21}/><NotificationBadge count={notificationCenter.total}/></span>{t("notifications")}</button>
         <button onClick={() => openModal("settings")}>
           <Settings size={21} />
           {t("settings")}
         </button>
       </nav>
 
+      <Modal open={modal==="notifications"} onOpenChange={v=>!v&&setModal(null)} title={t("notifications")} closeLabel={t("close")} className="notification-modal">
+        <NotificationCenter boot={boot} center={notificationCenter} lang={lang} onRoom={r=>{setModal(null);selectRoom(r)}} onEvent={p=>{if(p)openDetail(p);else{setModal(null);setView("calendar");setMobileChat(false)}}}/>
+      </Modal>
       <Modal
         open={modal === "new"}
         onOpenChange={(v) => !v && setModal(null)}
@@ -2064,10 +2064,11 @@ export default function App() {
             </Tabs.Content>
             <Tabs.Content value="join">
               <label>
-                {t("inviteCode")}
+                {t("inviteToken")}
                 <input
                   name="code"
-                  placeholder="https://…/#invite=…"
+                  placeholder={t("tokenPlaceholder")}
+                  autoCapitalize="none" autoComplete="off" spellCheck={false} maxLength={100}
                   required={newTab === "join"}
                 />
               </label>
@@ -2345,14 +2346,16 @@ export default function App() {
           <Link size={17} />
           <input
             readOnly
-            aria-label={t("inviteCode")}
-            value={inviteLink(room?.inviteCode||"")}
+            aria-label={t("inviteLink")}
+            value={room?.inviteCode?inviteLink(room.inviteCode):""}
           />
         </div>
-        <Button className="full-width" onClick={copyInvite}>
+        <Button className="full-width" onClick={()=>copyInvite()}>
           <Copy size={16} />
           {t("copyInvite")}
         </Button>
+        <div className="invite-code invite-token"><KeyRound size={17}/><input readOnly aria-label={t("inviteToken")} value={room?.inviteCode||""}/></div>
+        <Button className="full-width" variant="outline" onClick={()=>copyInvite(true)}><Copy size={16}/>{t("copyToken")}</Button>
         {modal==='invite'&&room?.inviteCode&&<InvitationTools url={inviteLink(room.inviteCode)} name={room.name} lang={lang}/>}
         {room&&room.ownerId===boot.user.id&&<Button variant="ghost" className="full-width text-danger delete-group-entry" onClick={()=>{setDeleteError('');setDeleteTarget({id:room.id,name:room.name});setModal(null)}}><Trash2 size={16}/>{t('deleteGroup')}</Button>}
 
