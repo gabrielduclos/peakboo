@@ -129,3 +129,7 @@ Styles live in `src/styles/`, imported in explicit order from `src/styles.css`: 
 ### Backend organization
 
 The entry point `server/index.mjs` coordinates startup and middleware/route registration order. Modules in `server/routes/` separate bootstrap, groups, messages, events and media; `server/middleware/access.mjs` handles sessions and group authorization, and `server/realtime.mjs` handles SSE. Modules receive dependencies explicitly. The extraction preserves HTTP contracts, SQL, transactions, access rules and registration order without schema changes. Route registration and integration tests must pass before merging changes.
+
+### Script protection and private caching
+
+API responses use `Cache-Control: private, no-store`, including authentication and SSE. The frontend applies an initial CSP restricting scripts to its own origin, blocking inline JavaScript event handlers, embedded objects and external URL bases. Existing inline styles and blob media remain compatible; this is not a comprehensive CSP. The Worker and `_headers` protect assets, and Render applies the policy to the portfolio. The persistent bearer still lives in local storage: CSP reduces injection exposure but does not eliminate XSS risk. Moving to HttpOnly cookies requires a separate design covering CSRF, CORS, PWA sessions and real-browser testing. Verify deployed headers and media/login flows before declaring production protection.
