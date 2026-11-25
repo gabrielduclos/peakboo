@@ -308,6 +308,16 @@ try{
  try{const sender=document.querySelector('button.sender-name');assert.ok(sender);const name=sender.textContent;await act(async()=>sender.click());const profile=document.querySelector('[role=dialog] .profile-editor');assert.ok(profile);assert.ok(profile.textContent.includes(name));assert.equal(profile.querySelector('form'),null);assert.equal(calls,0);await act(async()=>document.querySelector('[role=dialog] [aria-label=Fechar]').click());assert.equal(document.querySelector('[role=dialog]'),null)}finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1')}
  });
 
+ await test('camera video capture is bounded and torch accepts Android and Safari capability shapes',async()=>{
+ const out=dir+'/camera-capture.mjs';await build({entryPoints:['src/cameraCapture.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});
+ const camera=await import(pathToFileURL(out));const limits=camera.cameraConstraints('video','environment');
+ assert.equal(limits.width.max,1280);assert.equal(limits.height.max,720);assert.equal(limits.frameRate.max,24);
+ assert.equal(camera.VIDEO_MAX_SECONDS,90);assert.ok(camera.VIDEO_MAX_BYTES<30*1024*1024);assert.ok(camera.VIDEO_STOP_BYTES<camera.VIDEO_MAX_BYTES);
+ assert.equal(camera.recordingMime(t=>t==='video/webm'),'video/webm');
+ let light=false;const track={readyState:'live',getCapabilities:()=>({torch:[false,true]}),getSettings:()=>({torch:light}),applyConstraints:async c=>{if(c.advanced)throw Error('unsupported syntax');light=c.torch;}};
+ assert.equal(camera.canAttemptTorch(track,'environment'),true);assert.equal(camera.canAttemptTorch(track,'user'),false);
+ assert.equal(await camera.setCameraTorch(track,true),true);assert.equal(light,true);assert.equal(await camera.setCameraTorch(track,false),true);assert.equal(light,false);
+ });
  await test('camera JPEG dimensions are parsed before a bounded resize and canvas is released',async()=>{
  const out=dir+'/camera-prepare.mjs';await build({entryPoints:['src/imageCompression.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {jpegDimensions,prepareCameraPhoto}=await import(pathToFileURL(out));
  const jpeg=new File([new Uint8Array([255,216,255,192,0,11,8,15,160,23,112,1,1,17,0,255,217])],'camera.jpg',{type:'image/jpeg'});
