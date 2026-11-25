@@ -567,7 +567,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 25px 21px 22px;
+  padding: 12px 21px 10px;
 }
 .conversation-title h1 {
   font-size: 23px;
@@ -1446,7 +1446,7 @@ textarea::placeholder {
   margin: auto;
 }
 .calendar-page {
-  padding: 32px;
+  padding: 14px 32px 32px;
   flex: 1;
   overflow: auto;
   min-height: 0;
@@ -2579,7 +2579,7 @@ textarea::placeholder {
     padding: 0 20px;
   }
   .calendar-page {
-    padding: 25px;
+    padding: 14px 25px 25px;
   }
   .calendar-hero h2 {
     font-size: 23px;
@@ -2771,7 +2771,7 @@ textarea::placeholder {
     width: 100%;
   }
   .conversation-title {
-    padding: 24px 21px 20px;
+    padding: 10px 21px 8px;
   }
   .conversation-title h1 {
     font-size: 28px;
@@ -3083,7 +3083,7 @@ textarea::placeholder {
     fill: var(--primary-soft);
   }
   .calendar-page {
-    padding: 23px 15px;
+    padding: 10px 15px 23px;
   }
   .calendar-hero {
     margin-bottom: 23px;
