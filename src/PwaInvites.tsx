@@ -23,12 +23,12 @@ export function PwaInvites({userId,lang,blocked}:{userId:string;lang:string;bloc
   return()=>{stop();clearTimeout(timer);document.removeEventListener("visibilitychange",visibility)};
  },[]);
  useEffect(()=>{
-  if(installation.installed)setInstallOpen(false);
+  if(!userId||installation.installed){setInstallOpen(false);return;}
   if(!ready||blocked||!visible||pushOpen||installOpen||!("serviceWorker" in navigator))return;
   if(shouldInviteInstall(installation.installed,installation.lastDay,localDay(),installation.native||device!=="desktop")){
    markInstallInvite();setInstallation(installationState());setInstallOpen(true);
   }
- },[ready,blocked,visible,pushOpen,installOpen,installation,device]);
+ },[userId,ready,blocked,visible,pushOpen,installOpen,installation,device]);
  useEffect(()=>{
   if(!userId){triedPush.current="";setPublicKey("");setPushOpen(false);return}
   if(!ready||blocked||!visible||installOpen||!canPush()||triedPush.current===userId)return;
@@ -65,7 +65,7 @@ export function PwaInvites({userId,lang,blocked}:{userId:string;lang:string;bloc
  }
  const later=pt?"Agora não":"Not now";
  return <>
-  <Modal open={installOpen&&!blocked&&!pushOpen} onOpenChange={v=>{if(!v)dismissInstall()}} title={pt?"Instale o Peakboo":"Install Peakboo"} description={pt?"Acesse seus grupos e compromissos direto da tela inicial.":"Access your groups and events directly from your home screen."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
+  <Modal open={!!userId&&installOpen&&!blocked&&!pushOpen&&!installation.installed} onOpenChange={v=>{if(!v)dismissInstall()}} title={pt?"Instale o Peakboo":"Install Peakboo"} description={pt?"Acesse seus grupos e compromissos direto da tela inicial.":"Access your groups and events directly from your home screen."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
    <div className="pwa-invite-body">
     <img src="/icon-192.png" width="64" height="64" alt="" className="pwa-invite-icon"/>
     {installation.native?<Button type="button" busy={busy} onClick={()=>void install()}><Download size={18}/>{pt?"Instalar aplicativo":"Install app"}</Button>:<p className="pwa-invite-instructions">{device==="ios"?(pt?"No Safari, toque em Compartilhar → Adicionar à Tela de Início.":"In Safari, tap Share → Add to Home Screen."):(pt?"Abra o menu do navegador (⋮) e escolha Instalar aplicativo ou Adicionar à tela inicial.":"Open the browser menu (⋮) and choose Install app or Add to Home screen.")}</p>}
