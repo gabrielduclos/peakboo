@@ -488,7 +488,6 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   }
   async function sendSelected(){
     if(!canSend)return;
-    if(emojiOpen)textareaRef.current?.blur();
     setEmojiOpen(false);emojiCaret.current=null;
     try{
       if(pendingPhotos.length){await sendPhotos();}
@@ -698,7 +697,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       <button type="button" aria-label={pt ? 'Abrir lista de emojis' : 'Open emoji picker'}
         aria-expanded={emojiOpen} aria-haspopup="dialog"
         onPointerDown={event => event.preventDefault()}
-        onClick={() => { textareaRef.current?.blur();setEmojiOpen(v => !v); setAttachmentsOpen(false); }}
+        onClick={() => { setEmojiOpen(v => !v); setAttachmentsOpen(false); }}
         className="grid size-11 lg:size-12 place-items-center text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
         <Smile className="size-5"/>
       </button>
@@ -730,7 +729,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         aria-label={pt?'Selecionar GIF':'Choose GIF'}
         className={cn('grid h-11 lg:h-12 shrink-0 place-items-center rounded-lg px-1.5 text-[11px] font-bold text-muted-foreground hover:bg-accent',gifOpen&&'text-primary')}>GIF</button>}
     {canSend
-      ? <button type="submit" aria-label={pt ? 'Enviar mensagem' : 'Send message'}
+      ? <button type="submit" onPointerDown={event=>{if(emojiOpen)event.preventDefault();}} aria-label={pt ? 'Enviar mensagem' : 'Send message'}
         className="chat-send-touch grid size-11 lg:size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         <Send className="size-5"/>
       </button>
