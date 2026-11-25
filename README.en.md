@@ -63,6 +63,8 @@ This version covers text, reactions, and single-day events. Attachments, calls, 
 
 Turquoise and blue define the visual identity. The text-only PeakBoo wordmark uses turquoise for Peak and blue for Boo. Supporting colors identify plans and conversations. Reading surfaces are neutral; message text is 16 px. Both themes are centralized in `src/styles.css`. Fill colors and text colors are separate to retain contrast.
 
+The PWA uses the character peeking over a speech bubble: color icons, a maskable variant and favicon, plus a transparent white badge for Android notifications. The build automatically versions image paths with content hashes without changing the manifest ID. The browser and operating system control when an installed icon is refreshed; the app does not automatically request reinstallation.
+
 ### Photos and attachments
 
 Profile photos: Settings → Profile → Change photo. Conversation owners click the header image to update their conversation photo. The **+** menu adapts the MIT-licensed [Uorqui main composer](https://github.com/gabrielduclos/uorqui/tree/58e5c199cbf0731bdafaa95ed4bff959ddb559e3): gallery, camera (photo/video), files, location, voice recording, previews and photo editor. Compatible photos/videos are optimized locally; sending as a file preserves original bytes.

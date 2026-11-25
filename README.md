@@ -63,6 +63,8 @@ Esta versão inclui texto, reações e compromissos de um único dia. Anexos, ch
 
 Verde-turquesa e azul definem a identidade visual. O logo é somente o texto PeakBoo, com Peak em turquesa e Boo em azul. Cores de apoio identificam planos e conversas. Fundos de leitura são neutros e o texto das mensagens tem 16 px. Os tokens dos dois temas estão centralizados em `src/styles.css`. Cores de preenchimento e cores de texto são separadas para manter o contraste.
 
+O PWA usa o personagem espiando por trás de um balão de conversa: ícones coloridos, variante maskable e favicon, além de um badge branco transparente para notificações Android. O build versiona automaticamente os caminhos com hash do conteúdo, sem alterar o ID do manifesto. O navegador e o sistema operacional controlam quando o ícone instalado será atualizado; não é necessário solicitar uma reinstalação automaticamente.
+
 ### Fotos e anexos
 
 Fotos de perfil: Configurações → Perfil → Alterar foto. Para alterar a foto da conversa, o criador clica na imagem no cabeçalho. O botão **+** reutiliza o compositor da `main` do [Uorqui](https://github.com/gabrielduclos/uorqui/tree/58e5c199cbf0731bdafaa95ed4bff959ddb559e3) (MIT): galeria, câmera (foto/vídeo), arquivos, localização, gravação de áudio, prévia e editor de fotos. Fotos e vídeos são compactados no dispositivo quando compatível; envio como arquivo mantém o original.
