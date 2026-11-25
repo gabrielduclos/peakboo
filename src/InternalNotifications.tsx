@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from "react";
-import {request} from "./api";
+import {request,getToken} from "./api";
 import {reactionPreview} from "./roomPreview";
 import {Bell,CalendarDays,MessageCircle,Check,Smile,X} from "lucide-react";
 import type {ReactNode} from 'react';
@@ -50,20 +50,21 @@ export function useInternalNotifications(boot:Boot,accountSync=false){
  useEffect(()=>{
   if(!accountSync||!boot.user.id||!remote)return;
   if(synced.current.key!==key)synced.current={key,read:new Set(),dismissed:new Set()};
-  const ack=synced.current;
+  const ack=synced.current,token=getToken();
+  if(!token)return;
   const [readIds,dismissedIds]=JSON.parse(pendingKey) as [string[],string[]];
   let stopped=false,running=false,timer:ReturnType<typeof setTimeout>|undefined;
   const flush=async()=>{
-   if(stopped||running||document.hidden||!navigator.onLine)return;
+   if(stopped||running||document.hidden||!navigator.onLine||getToken()!==token)return;
    clearTimeout(timer);running=true;
    try{
     const reads=readIds.filter(id=>!ack.read.has(id)),deletes=dismissedIds.filter(id=>!ack.dismissed.has(id));
-    while(!stopped&&(reads.length||deletes.length)){
+    while(!stopped&&getToken()===token&&(reads.length||deletes.length)){
      const batch={read:reads.splice(0,100),dismissed:deletes.splice(0,100)};
      await request("/api/notifications/state","POST",batch);
      batch.read.forEach(id=>ack.read.add(id));batch.dismissed.forEach(id=>{ack.dismissed.add(id);ack.read.add(id)});
     }
-    if(!stopped)setSyncError("");
+    if(!stopped&&getToken()===token)setSyncError("");
    }catch{if(!stopped){setSyncError(key);timer=setTimeout(flush,30000)}}
    finally{running=false}
   };
