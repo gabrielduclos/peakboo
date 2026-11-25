@@ -1,4 +1,5 @@
-import {roomPreview,demoRoomPreview} from "../roomPreview";
+import {demoRoomPreview} from "../roomPreview";
+import {GroupsPanel} from "../features/groups/GroupsPanel";
 import {useAppNavigation,useMobileViewport} from "../appNavigation";
 import {ReplyReference,replySnapshot} from "../ReplyReference";
 import {ProfileEditor} from "../Social";
@@ -1500,156 +1501,11 @@ export default function App() {
           calendarContent()
         ) : (
           <div className={cn("messenger", mobileChat && "show-mobile-chat")}>
-            <section className="conversation-panel">
-              <div className="conversation-title">
-                <h1>
-                  {t("conversations")}
-                </h1>
-                <button
-                  className="icon-button new-chat"
-                  aria-label={t("newConversation")}
-                  onClick={() => {
-                    setNewTab("create");
-                    openModal("new");
-                  }}
-                >
-                  <Plus size={20} />
-                </button>
-              </div>
-              <label className="search-field">
-                <Search size={17} />
-                <input
-                  aria-label={t("search")}
-                  placeholder={t("search")}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                {query && (
-                  <button
-                    aria-label={t("clearSearch")}
-                    className="icon-button tiny"
-                    onClick={() => setQuery("")}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </label>
-              <div className="conversation-tabs">
-                <button
-                  className={filter === "all" ? "active" : ""}
-                  onClick={() => setFilter("all")}
-                >
-                  {t("all")}
-                  <span>{boot.rooms.length}</span>
-                </button>
-                <button
-                  className={filter === "unread" ? "active" : ""}
-                  onClick={() => setFilter("unread")}
-                >
-                  {t("unread")}
-                </button>
-              </div>
-              <div className="conversation-list">
-                {loading
-                  ? Array.from({ length: 4 }, (_, i) => (
-                      <div className="room-skeleton" key={i}>
-                        <span className="skeleton skeleton-avatar" />
-                        <div>
-                          <span className="skeleton" />
-                          <span className="skeleton" />
-                        </div>
-                      </div>
-                    ))
-                  : boot.rooms.map(r=>demoRoomPreview(r,messages[r.id])).sort((a,b)=>Date.parse(b.lastAt||"1970-01-01")-Date.parse(a.lastAt||"1970-01-01"))
-                      .filter(
-                        (r) =>
-                          r.name
-                            .toLocaleLowerCase()
-                            .includes(query.toLocaleLowerCase()) &&
-                          (filter !== "unread" || r.unread > 0),
-                      )
-                      .map((r) => (
-                        <button
-                          className={cn(
-                            "conversation-item",
-                            selected === r.id && "selected",
-                          )}
-                          key={r.id}
-                          onClick={() => selectRoom(r)}
-                        >
-                          <span className="room-avatar-wrap">
-                            <Avatar image={r.image} name={r.name} color={r.color} />
-                            {r.id === "weekend" && demo && (
-                              <span className="avatar-decoration">✦</span>
-                            )}
-                          </span>
-                          <span className="conversation-summary">
-                            <span>
-                              <strong>{r.name}</strong>
-                              <small>{r.lastAt ? time(r.lastAt) : ""}</small>
-                            </span>
-                            <span>
-                              <p>
-                                {roomPreview(r,boot.user.id,lang==="pt",t("conversationStarted"))}
-                              </p>
-                              {r.unread > 0 && <b>{r.unread}</b>}
-                            </span>
-                          </span>
-                        </button>
-                      ))}
-                {!loading &&
-                  !boot.rooms.filter(
-                    (r) =>
-                      r.name.toLowerCase().includes(query.toLowerCase()) &&
-                      (filter !== "unread" || r.unread > 0),
-                  ).length && (
-                    <div className="empty-state small-empty">
-                      <Inbox size={30} />
-                      <h3>
-                        {t(
-                          query
-                            ? "noResults"
-                            : filter === "unread"
-                              ? "noUnread"
-                              : "noRooms",
-                        )}
-                      </h3>
-                      <p>
-                        {t(
-                          query
-                            ? "clearSearch"
-                            : filter === "unread"
-                              ? "noUnreadDesc"
-                              : "noRoomsDesc",
-                        )}
-                      </p>
-                      {!query && filter !== "unread" && (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setNewTab("create");
-                            openModal("new");
-                          }}
-                        >
-                          <Plus size={15} />
-                          {t("create")}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-              </div>
-              <button
-                className="join-shortcut"
-                onClick={() => {
-                  setNewTab("join");
-                  openModal("new");
-                }}
-              >
-                <Link size={16} />
-                {t("join")}
-                <ChevronRight size={15} />
-              </button>
-            </section>
+            <GroupsPanel rooms={boot.rooms.map(r=>demoRoomPreview(r,messages[r.id])).sort((a,b)=>Date.parse(b.lastAt||"1970-01-01")-Date.parse(a.lastAt||"1970-01-01"))} userId={boot.user.id} lang={lang} selected={selected}
+              loading={loading} query={query} filter={filter} t={t} time={time}
+              onQueryChange={setQuery} onFilterChange={setFilter} onSelect={selectRoom}
+              onCreate={()=>{setNewTab("create");openModal("new")}}
+              onJoin={()=>{setNewTab("join");openModal("new")}} decorateWeekend={demo}/>
             <section className="chat-panel">
               {room ? (
                 <>
