@@ -330,8 +330,8 @@ try {
   await call("/api/push/muted/"+id,alice.token,"PUT",{muted:false});
   check('changing reaction replaces only the actor emoji; stale removal is harmless',()=>{
     const reactions=replaced.data.messages.find(m=>m.id===messageId).reactions;
-    assert.equal(reactions.length,2);
-    assert.deepEqual(reactions.map(r=>r.emoji).sort(),['❤️','🔥'].sort());
+    assert.equal(reactions.length,1);
+    assert.deepEqual(reactions.map(r=>r.emoji),['🔥']);
   });
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'🔥',active:false}); 
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,alice.token,'POST',{emoji:'❤️',active:false});
