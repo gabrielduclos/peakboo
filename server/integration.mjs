@@ -347,6 +347,13 @@ try {
   const replaced=await call(`/api/rooms/${id}/messages`,alice.token);
   const reactionBoot=(await call("/api/bootstrap",alice.token)).data;
   check("reaction replacement updates preview and notification",()=>{const n=reactionBoot.reactionNotices.filter(n=>n.messageId===messageId);assert.equal(n.length,1);assert.equal(n[0].emoji,"🔥");assert.notEqual(n[0].id,firstNotice.id);assert.equal(reactionBoot.rooms.find(r=>r.id===id).preview.emoji,"🔥")});
+  const replacementNotice="reaction:"+reactionBoot.reactionNotices.find(n=>n.messageId===messageId).id;
+  const agendaBeforeRead=reactionBoot.activity.map(n=>"activity:"+n.id);
+  const groupRead=await noticeCall("/api/rooms/"+id+"/read",alice.token,"POST");
+  check("opening group marks reaction notifications as read",()=>assert.equal(groupRead.status,200));
+  const afterGroupRead=(await noticeCall("/api/bootstrap",secondDevice.token)).data;
+  check("group reading clears unread reactions across sessions without dismissing them",()=>{assert.ok(afterGroupRead.notificationState.read.includes(replacementNotice));assert.ok(!afterGroupRead.notificationState.dismissed.includes(replacementNotice));assert.equal(afterGroupRead.rooms.find(r=>r.id===id).unread,0)});
+  check("opening group does not mark calendar notifications as read",()=>assert.ok(agendaBeforeRead.every(id=>afterGroupRead.notificationState.read.includes(id)===reactionBoot.notificationState.read.includes(id))));
   await call("/api/push/muted/"+id,alice.token,"PUT",{muted:true});
   const mutedNotices=(await call("/api/bootstrap",alice.token)).data.reactionNotices;
   check("muted groups suppress internal reaction alerts",()=>assert.equal(mutedNotices.some(n=>n.messageId===messageId),false));

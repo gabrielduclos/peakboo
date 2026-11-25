@@ -207,7 +207,18 @@ export default function App() {
     .filter((e) => !e.cancelled)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const upcoming = events.filter((e) => new Date(e.endsAt) >= new Date());
+  chatVisibleRef.current=chatVisibleRef.current&&!modal;
   const notificationCenter=useInternalNotifications(boot,true);
+  const activeReactionIds=JSON.stringify((boot.reactionNotices||[]).filter(n=>n.roomId===selected&&!notificationCenter.read.has("reaction:"+n.id)).map(n=>"reaction:"+n.id));
+  useEffect(()=>{
+    if(!selected||view!=="chats"||!(mobileChat||window.innerWidth>700)||modal||loadingMessages||!boot.user.id)return;
+    const ids=JSON.parse(activeReactionIds) as string[];
+    if(!ids.length)return;
+    const markVisible=()=>{if(!document.hidden&&chatVisibleRef.current&&selectedRef.current===selected)notificationCenter.mark(ids)};
+    markVisible();
+    document.addEventListener("visibilitychange",markVisible);
+    return()=>document.removeEventListener("visibilitychange",markVisible);
+  },[selected,view,mobileChat,modal,loadingMessages,boot.user.id,activeReactionIds]);
   const optimistic=useOptimisticMessages(boot.user.id);
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
@@ -391,7 +402,7 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [selected, fetchMessages,view,mobileChat]);
+  }, [selected, fetchMessages,view,mobileChat,modal]);
   useEffect(() => {
     if(!getToken()||!boot.user.id)return;
     let stopped=false,controller:AbortController|null=null,reconnect:ReturnType<typeof setTimeout>|null=null;
