@@ -1,0 +1,7 @@
+/* Keep the header and composer inside the visible mobile viewport when the keyboard opens. */
+@media(max-width:700px){
+ .app-shell.chat-open{position:fixed;inset-inline:0;top:var(--peakboo-visible-top,0px);height:var(--peakboo-visible-height,100dvh);min-height:0}
+ .app-shell.chat-open .main-area,.app-shell.chat-open .messenger,.app-shell.chat-open .chat-panel{min-height:0;overflow:hidden}
+ .app-shell.chat-open .chat-header{flex-shrink:0;position:relative;z-index:2}
+ .app-shell.chat-open .peakboo-composer{flex-shrink:0}
+}
