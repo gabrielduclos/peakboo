@@ -1,3 +1,4 @@
+import {displayName} from "../../shared/display-name.mjs";
 import {AuthDialog,SettingsDialog} from "../features/account/AccountDialogs";
 import {ChatPanel} from "../features/chat/ChatPanel";
 import {CalendarPage,EventCard,MiniCalendar} from "../features/calendar/CalendarViews";
@@ -988,7 +989,7 @@ export default function App() {
             <span>{t("settings")}</span>
           </button>
           <div className="user-profile">
-            <Avatar image={boot.user.image} name={boot.user.name || "P"} color="purple" />
+            <Avatar image={boot.user.image} name={displayName(boot.user.name) || "P"} color="purple" />
             <button
               onClick={() =>
                 demo
@@ -997,7 +998,7 @@ export default function App() {
               }
             >
               <strong>
-                {demo ? "Alex Morgan" : boot.user.name || "PeakBoo"}
+                {displayName(boot.user.name) || "PeakBoo"}
               </strong>
               <span>{demo ? t("demoShort") : boot.user.email}</span>
             </button>
@@ -1448,8 +1449,8 @@ export default function App() {
             <div className="member-list">
               {detail.rsvps.map((r) => (
                 <div key={r.userId}>
-                  <Avatar name={r.name} small />
-                  <span>{r.name}</span>
+                  <Avatar name={displayName(r.name)} small />
+                  <span>{displayName(r.name)}</span>
                   <span className={cn("rsvp-status", r.status)}>
                     {t(
                       r.status === "yes"
@@ -1568,9 +1569,9 @@ export default function App() {
           ) : (
             members.map((m, i) => (
               <div key={m.id}>
-                <Avatar image={m.image} name={m.name} color={COLORS[i % 5]} />
+                <Avatar image={m.image} name={displayName(m.name)} color={COLORS[i % 5]} />
                 <button type="button" className="profile-name-link" onClick={()=>openProfile(m)}>
-                  {m.name}
+                  {displayName(m.name)}
                   {m.id === boot.user.id && <small> · {t("me")}</small>}
                 </button>
               </div>
