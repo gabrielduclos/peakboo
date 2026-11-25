@@ -1,5 +1,7 @@
 import {displayName} from "../shared/display-name.mjs";
 import {AuthDialog,SettingsDialog} from "./features/account/AccountDialogs";
+import type {ListDraft} from "./features/chat/SharedChecklist";
+import {type Checklist,type ChecklistOperation} from "../shared/checklists.mjs";
 import {ChatPanel} from "./features/chat/ChatPanel";
 import {EventFormDialog} from "./features/calendar/EventFormDialog";
 import {CalendarPage,EventCard,MiniCalendar} from "./features/calendar/CalendarViews";
@@ -284,7 +286,7 @@ export default function App() {
             (old) =>
               !data.messages.some((fresh: Message) => fresh.id === old.id),
           ),
-          ...data.messages,
+          ...data.messages.map((fresh:Message)=>{const old=(m[id]||[]).find(x=>x.id===fresh.id);return !fresh.deleted&&old?.checklist&&old.checklist.version>(fresh.checklist?.version||0)?{...fresh,checklist:old.checklist}:fresh}),
         ]
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
           .slice(-2000),
@@ -395,6 +397,7 @@ export default function App() {
     const sync=(event?:LiveChange)=>{
       if(stopped)return;
       if(event?.deletedRoomId)removeRoomLocally(event.deletedRoomId);
+      if(event?.listChange&&event.roomId){commitList(event.roomId,event.listChange.messageId,event.listChange.checklist);return;}
       if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
       else if(event?.roomId)dirty.add(event.roomId);else full=true;
       if(event?.profileChanged)full=true;
@@ -592,6 +595,24 @@ export default function App() {
       void refresh().catch(()=>{});
     } catch(error) {setDeleteError(errorText(error));}
     finally {deletingGroupRef.current=false;setBusy(null);}
+  }
+  function commitList(roomId:string,messageId:string,checklist:Checklist){
+    const merge=(m:Message)=>m.id===messageId&&!m.deleted&&(!m.checklist||m.checklist.version<=checklist.version)?{...m,checklist}:m;
+    setMessages(old=>({...old,[roomId]:(old[roomId]||[]).map(merge)}));
+    if(selectedRef.current===roomId)setFiltered(old=>old.map(merge));
+  }
+  async function saveSharedList(roomId:string,draft:ListDraft){
+    const session=getToken();
+    const base="/api/rooms/"+roomId;
+    const result=await request(draft.source?base+"/messages/"+draft.source.id+"/list":base+"/lists","POST",draft.source?{title:draft.title,items:draft.items,originalText:draft.source.text}:{id:draft.id,title:draft.title,items:draft.items});
+    if(session!==getToken())return;
+    if(draft.source)commitList(roomId,result.id,result.checklist);
+    else{if(selectedRef.current===roomId){setChatFilter(emptyFilter);setChatQuery("")}await fetchMessages(roomId);void refresh().catch(()=>{});}
+  }
+  async function updateSharedList(roomId:string,messageId:string,op:ChecklistOperation){
+    const session=getToken();
+    const result=await request("/api/rooms/"+roomId+"/messages/"+messageId+"/list","PUT",op);
+    if(session===getToken())commitList(roomId,result.id,result.checklist);
   }
   async function messageAction(action:MessageAction|'edit-save',m:Message,target?:string){
     if(!selected)return;
@@ -983,7 +1004,7 @@ export default function App() {
               onJoin={()=>{setNewTab("join");openModal("new")}}/>
             <ChatPanel room={room} rooms={boot.rooms} events={boot.events} userId={boot.user.id} lang={lang} locale={locale} t={t} time={time}
               onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite} onProfile={openProfile}
-              onCreateEvent={()=>openEvent()} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
+              onCreateEvent={()=>openEvent()} onSaveList={saveSharedList} onUpdateList={updateSharedList} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
               showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch} chatQuery={chatQuery} setChatQuery={setChatQuery}
               chatFilter={chatFilter} setChatFilter={setChatFilter} pinnedMessages={pinnedMessages} chatScroll={chatScroll}
               canLoadOlder={!!room&&(filtering?filterMore:!!hasMore[room.id])} onLoadOlder={filtering?loadFiltered:loadOlder} busy={busy}
