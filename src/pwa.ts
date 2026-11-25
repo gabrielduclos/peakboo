@@ -53,3 +53,11 @@ export async function updatePreview(userId:string,lang:string,preview:boolean){
  const reg=await pushRegistration(),sub=await reg.pushManager.getSubscription();if(!sub)throw Error("PUSH_UNAVAILABLE");
  await saveSubscription(sub,userId,lang,preview);
 }
+
+// Close only message notifications for rooms confirmed read by the API.
+export async function closeReadRoomPush(roomIds:readonly string[]){
+ if(!roomIds.length||!("serviceWorker" in navigator))return;
+ const reg=await navigator.serviceWorker.getRegistration();if(!reg?.getNotifications)return;
+ const tags=new Set(roomIds.map(id=>"peakboo-"+id));
+ for(const notification of await reg.getNotifications())if(tags.has(notification.tag))notification.close();
+}
