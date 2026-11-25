@@ -139,3 +139,7 @@ API responses use `Cache-Control: private, no-store`, including authentication a
 Sender and participant names open a read-only profile (name, avatar, cover and bio). Authenticated `GET /api/profiles/:user` requires the viewer's own account or a shared private group; it never exposes email, session or contact data. There is no internet-public directory, username or direct chat. The demo uses local data only. Photos and covers stop showing skeletons on network or decode failure; avatars retain initials and covers retain their background. Profile loading offers a retry.
 
 Migration from bearer tokens to HttpOnly cookies should be separate: the Cloudflare frontend and Render API use different origins and sites. Evaluate a same-origin API proxy, Secure/HttpOnly/SameSite cookies, CSRF, SSE, uploads and Web Push before removing bearer support. Do not change session lifetime or invalidate existing accounts without a transition plan.
+
+## Email verification (Resend)
+
+Verify a sending domain in Resend and create a sending-only API key. Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (a sender on the verified domain) and, after testing delivery, `EMAIL_VERIFICATION_REQUIRED=true` in Render only. Verification defaults to off for development and staged rollout. Once enabled, signups and subsequent sign-ins require verified email; existing sessions are not automatically revoked. Links expire after one hour and return to the trusted app origin for sign-in. Test signup, resend, expiration, and sign-in before production activation. Never commit the key.
