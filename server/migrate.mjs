@@ -49,6 +49,11 @@ export async function migrate() {
       await c.query(await readFile(new URL("./migrations/011_shared_lists.sql",import.meta.url),"utf8"));
       await c.query("INSERT INTO peakboo_migrations(version) VALUES('011_shared_lists')");
     }
+    const selfReactions=await c.query("SELECT 1 FROM peakboo_migrations WHERE version='012_no_self_reactions'");
+    if(!selfReactions.rowCount){
+      await c.query(await readFile(new URL("./migrations/012_no_self_reactions.sql",import.meta.url),"utf8"));
+      await c.query("INSERT INTO peakboo_migrations(version) VALUES('012_no_self_reactions')");
+    }
     await c.query("COMMIT");
   } catch (e) {
     await c.query("ROLLBACK");
