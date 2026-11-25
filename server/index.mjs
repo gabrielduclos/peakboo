@@ -39,6 +39,8 @@ app.use(
     exposedHeaders: ["set-auth-token"],
   }),
 );
+// Prevent browser and intermediary storage of authenticated data and auth responses.
+app.use("/api", (_req,res,next)=>{res.set("Cache-Control","private, no-store");next()});
 app.get("/api/health", (_, res) => res.json({ status: "ok", app: "peakboo" }));
 app.all("/api/auth/{*splat}", toNodeHandler(auth));
 app.use(express.json({ limit: "32kb" }));
@@ -74,6 +76,7 @@ app.use("/api", (_, res) => jsonError(res, 404, "NOT_FOUND"));
 // The API stays available to Cloudflare; the Render HTML is a local-only portfolio.
 const dist = fileURLToPath(new URL("../dist-portfolio", import.meta.url));
 if (existsSync(dist)) {
+  app.use((_req,res,next)=>{res.set("Content-Security-Policy","script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'");next()});
   app.use(express.static(dist));
   app.get("/{*splat}", (_, res) => res.sendFile(path.join(dist, "index.html")));
 }

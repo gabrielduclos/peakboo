@@ -1,3 +1,8 @@
+/*
+  Content-Security-Policy: script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
 /
   Cache-Control: no-cache, max-age=0, must-revalidate
 /index.html
