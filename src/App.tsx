@@ -1,3 +1,4 @@
+import {roomPreview} from "./roomPreview";
 import {useAppNavigation,useMobileViewport} from "./appNavigation";
 import {ReplyReference,replySnapshot} from "./ReplyReference";
 import {ProfileEditor} from "./Social";
@@ -367,11 +368,11 @@ export default function App() {
   useEffect(() => {
     if(!getToken()||!boot.user.id)return;
     let stopped=false,controller:AbortController|null=null,reconnect:ReturnType<typeof setTimeout>|null=null;
-    let delay=1000,full=false,dirty=new Set<string>(),running=false;
+    let delay=1000,full=false,previewDirty=false,dirty=new Set<string>(),running=false;
     const flush=async()=>{
       refreshTimer.current=null;
       if(stopped||document.hidden||running)return;
-      running=true;const all=full,changed=dirty;full=false;dirty=new Set();
+      running=true;const all=full,changed=dirty;full=false;previewDirty=false;dirty=new Set();
       try{
         await refresh();
         const id=selectedRef.current;
@@ -382,13 +383,13 @@ export default function App() {
           }
         }
       }catch{full=true}
-      finally{running=false;if(!stopped&&!document.hidden&&(full||dirty.size)&&!refreshTimer.current)refreshTimer.current=setTimeout(flush,1000);}
+      finally{running=false;if(!stopped&&!document.hidden&&(full||previewDirty||dirty.size)&&!refreshTimer.current)refreshTimer.current=setTimeout(flush,1000);}
     };
     const sync=(event?:LiveChange)=>{
       if(stopped)return;
       if(event?.deletedRoomId)removeRoomLocally(event.deletedRoomId);
-      if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);return;}
-      if(event?.roomId)dirty.add(event.roomId);else full=true;
+      if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
+      else if(event?.roomId)dirty.add(event.roomId);else full=true;
       if(event?.profileChanged)full=true;
       if(!refreshTimer.current&&!running&&!document.hidden)refreshTimer.current=setTimeout(flush,180);
     };
@@ -1497,9 +1498,7 @@ export default function App() {
                             </span>
                             <span>
                               <p>
-                                {r.lastText ||
-                                  r.description ||
-                                  t("conversationStarted")}
+                                {roomPreview(r,boot.user.id,lang==="pt",t("conversationStarted"))}
                               </p>
                               {r.unread > 0 && <b>{r.unread}</b>}
                             </span>

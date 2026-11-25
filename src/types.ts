@@ -13,6 +13,7 @@ export type Room = {
   inviteCode?: string;
   joinedAt?: string;
   memberCount: number;
+  preview?: RoomPreview | null;
   lastText?: string;
   lastAt?: string;
   unread: number;
@@ -58,4 +59,8 @@ export type Message = {
   reactions: { userId: string; emoji: string }[];
 };
 export type EventActivity = {id:string;eventId:string;roomId:string;eventTitle:string;roomName:string;action:"created"|"updated"|"cancelled";createdAt:string};
-export type Boot = { user: User; rooms: Room[]; events: Plan[]; activity?: EventActivity[] };
+export type RoomPreview =
+  | {kind:"message";senderId:string;senderName:string;text:string;mime?:string|null;deleted?:boolean;eventId?:string|null}
+  | {kind:"reaction";actorName:string;emoji:string;text:string;mime?:string|null};
+export type ReactionNotice={id:string;messageId:string;roomId:string;roomName:string;actorName:string;emoji:string;text:string;mime?:string|null;createdAt:string};
+export type Boot = { user: User; rooms: Room[]; events: Plan[]; activity?: EventActivity[]; reactionNotices?: ReactionNotice[] };
