@@ -281,4 +281,16 @@ try{
  localStorage.removeItem('peakboo-demo-v1');let calls=0;globalThis.fetch=async()=>{calls++;throw Error('Unexpected network')};const root=await mount('src/portfolio/PortfolioApp.tsx');
  try{const sender=document.querySelector('button.sender-name');assert.ok(sender);const name=sender.textContent;await act(async()=>sender.click());const profile=document.querySelector('[role=dialog] .profile-editor');assert.ok(profile);assert.ok(profile.textContent.includes(name));assert.equal(profile.querySelector('form'),null);assert.equal(calls,0);await act(async()=>document.querySelector('[role=dialog] [aria-label=Fechar]').click());assert.equal(document.querySelector('[role=dialog]'),null)}finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1')}
  });
+
+ await test('camera JPEG dimensions are parsed before a bounded resize and canvas is released',async()=>{
+ const out=dir+'/camera-prepare.mjs';await build({entryPoints:['src/imageCompression.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {jpegDimensions,prepareCameraPhoto}=await import(pathToFileURL(out));
+ const jpeg=new File([new Uint8Array([255,216,255,192,0,11,8,15,160,23,112,1,1,17,0,255,217])],'camera.jpg',{type:'image/jpeg'});
+ assert.deepEqual(await jpegDimensions(jpeg),{width:6000,height:4000});
+ const oldBitmap=globalThis.createImageBitmap,oldContext=window.HTMLCanvasElement.prototype.getContext,oldBlob=window.HTMLCanvasElement.prototype.toBlob;let options,closed=0,canvas;
+ globalThis.createImageBitmap=async(_file,opts)=>{options=opts;return {width:1067,height:711,close(){closed++}}};
+ window.HTMLCanvasElement.prototype.getContext=function(){canvas=this;return {drawImage(){}}};
+ window.HTMLCanvasElement.prototype.toBlob=function(cb){assert.equal(closed,1);cb(new Blob(['photo'],{type:'image/jpeg'}))};
+ try{const result=await prepareCameraPhoto(jpeg);assert.equal(options.resizeWidth,1067);assert.equal(result.type,'image/jpeg');assert.equal(closed,1);assert.equal(canvas.width,0);assert.equal(canvas.height,0);await assert.rejects(prepareCameraPhoto(new File(['bad'],'bad.jpg',{type:'image/jpeg'})),/CAMERA_PHOTO_UNSUPPORTED/)}
+ finally{globalThis.createImageBitmap=oldBitmap;window.HTMLCanvasElement.prototype.getContext=oldContext;window.HTMLCanvasElement.prototype.toBlob=oldBlob}
+ });
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}
