@@ -174,6 +174,8 @@ export default function App() {
   const [deleteError,setDeleteError]=useState("");
   const deletingGroupRef=useRef(false);
   const [toast, setToast] = useState("");
+  const [inviteCopyFeedback,setInviteCopyFeedback]=useState("");
+  useEffect(()=>{if(!inviteCopyFeedback)return;const timer=setTimeout(()=>setInviteCopyFeedback(""),2500);return()=>clearTimeout(timer)},[inviteCopyFeedback]);
   const [newTab, setNewTab] = useState("create");
   const [newColor, setNewColor] = useState<Color>("purple");
   const [activeEvent, setActiveEvent] = useState<Plan | null>(null);
@@ -839,13 +841,15 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
   async function invite() {
+    setInviteCopyFeedback("");
     openModal("invite");
   }
   async function copyInvite(token=false) {
     if (!room?.inviteCode) return;
+    setInviteCopyFeedback("");
     try {
       await navigator.clipboard.writeText(token?room.inviteCode:inviteLink(room.inviteCode));
-      notify(t("copied"));
+      setInviteCopyFeedback(token?(lang==="pt"?"Código de convite copiado!":"Invitation code copied!"):(lang==="pt"?"Link copiado!":"Link copied!"));
     } catch {
       setFormError(t("error"));
     }
@@ -1423,6 +1427,7 @@ export default function App() {
         </Button>
         <div className="invite-code invite-token"><KeyRound size={17}/><input readOnly aria-label={t("inviteToken")} value={room?.inviteCode||""}/></div>
         <Button className="full-width" variant="outline" onClick={()=>copyInvite(true)}><Copy size={16}/>{t("copyToken")}</Button>
+        {inviteCopyFeedback&&<p role="status" className="text-center text-sm font-medium text-primary">{inviteCopyFeedback}</p>}
         {modal==='invite'&&room?.inviteCode&&<InvitationTools url={inviteLink(room.inviteCode)} name={room.name} lang={lang}/>}
         {room&&room.ownerId===boot.user.id&&<Button variant="ghost" className="full-width text-danger delete-group-entry" onClick={()=>{setDeleteError('');setDeleteTarget({id:room.id,name:room.name});setModal(null)}}><Trash2 size={16}/>{t('deleteGroup')}</Button>}
 
