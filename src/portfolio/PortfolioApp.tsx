@@ -648,7 +648,7 @@ export default function App() {
   }
   async function react(m:Message,emoji:string){
     setReactionOpen(null);
-    if(!selected||m.pendingStatus||m.deleted)return;
+    if(!selected||m.pendingStatus||m.deleted||m.senderId===boot.user.id)return;
     const roomId=selected,userId=boot.user.id,key=m.id;
     if(pendingReactionRef.current[key])return;
     const change={messageId:m.id,userId,emoji,active:!m.reactions.some(r=>r.userId===userId&&r.emoji===emoji)};
