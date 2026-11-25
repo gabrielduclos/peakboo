@@ -8,8 +8,12 @@ function write(key:string,value:string){try{localStorage.setItem(key,value)}catc
 export function localDay(now=new Date()){return [now.getFullYear(),now.getMonth()+1,now.getDate()].join("-")}
 export function shouldInviteInstall(installed:boolean,lastDay:string,today:string,installable:boolean){return !installed&&lastDay!==today&&installable}
 export function markInstallInvite(){memoryDay=localDay();write(DAY,memoryDay)}
+// Installation remembered in storage is not proof that this window was launched as an app.
+export function isPwaWindow(){
+ return window.matchMedia?.("(display-mode: standalone)").matches===true||window.matchMedia?.("(display-mode: fullscreen)").matches===true||(navigator as Navigator&{standalone?:boolean}).standalone===true;
+}
 export function installedPwa(){
- return installedHere||window.matchMedia?.("(display-mode: standalone)").matches===true||window.matchMedia?.("(display-mode: fullscreen)").matches===true|| (navigator as Navigator&{standalone?:boolean}).standalone===true||read(INSTALLED)==="1";
+ return installedHere||isPwaWindow()||read(INSTALLED)==="1";
 }
 export function installationState(){return {installed:installedPwa(),native:!!promptEvent,lastDay:read(DAY)||memoryDay}}
 export function watchInstallation(fn:()=>void){listeners.add(fn);return()=>{listeners.delete(fn)}}

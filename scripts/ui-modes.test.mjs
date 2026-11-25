@@ -16,6 +16,20 @@ try{
  window.dispatchEvent(event);assert.ok(event.defaultPrevented);assert.equal(pwa.installationState().native,true);
  assert.equal(await pwa.installNative(),'dismissed');assert.equal(calls,1);assert.equal(await pwa.installNative(),'unavailable');
  pwa.markInstallInvite();assert.equal(pwa.installationState().lastDay,pwa.localDay());localStorage.removeItem('peakboo-install-invite-day');
+ localStorage.setItem('peakboo-pwa-installed','1');
+ assert.equal(pwa.installedPwa(),true);assert.equal(pwa.isPwaWindow(),false);
+ const originalMatch=window.matchMedia;window.matchMedia=q=>({matches:q==='(display-mode: standalone)'});
+ try{assert.equal(pwa.isPwaWindow(),true)}finally{window.matchMedia=originalMatch;localStorage.removeItem('peakboo-pwa-installed')}
+
+ });
+ await test('reaction replacement is idempotent and preserves other users',async()=>{
+ const out=dir+'/reaction.mjs';await build({entryPoints:['src/realtime.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {applyReaction}=await import(pathToFileURL(out));
+ const message={id:'m',reactions:[{userId:'me',emoji:'👍'},{userId:'other',emoji:'❤️'}]};
+ const change={messageId:'m',userId:'me',emoji:'🔥',active:true};
+ const changed=applyReaction(message,change);assert.deepEqual(changed.reactions,[{userId:'other',emoji:'❤️'},{userId:'me',emoji:'🔥'}]);
+ assert.equal(applyReaction(changed,change),changed);
+ assert.equal(applyReaction(changed,{...change,emoji:'👍',active:false}),changed);
+ assert.deepEqual(applyReaction(changed,{...change,active:false}).reactions,[{userId:'other',emoji:'❤️'}]);
  });
  await test('reply reference shows author, media fallback and redacts deleted sources',async()=>{
  const out=dir+'/reply-reference.mjs';await build({entryPoints:['src/ReplyReference.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic'});const {ReplyReference,replySnapshot}=await import(pathToFileURL(out));

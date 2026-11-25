@@ -1,3 +1,4 @@
+import {useAppNavigation,useMobileViewport} from "../appNavigation";
 import {ReplyReference,replySnapshot} from "../ReplyReference";
 import {ProfileEditor} from "../Social";
 import {InvitationTools} from "../InvitationTools";
@@ -188,6 +189,8 @@ export default function App() {
   const demoRef = useRef(demo);
   demoRef.current = demo;
   const room = boot.rooms.find((r) => r.id === selected);
+  useMobileViewport();
+  useAppNavigation(boot.user.id,view,mobileChat&&!!room,selected,boot.rooms.map(r=>r.id),setView,setMobileChat,setSelected);
   const events = boot.events
     .filter((e) => !e.cancelled)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -423,7 +426,7 @@ export default function App() {
           setMobileChat(true);
           notify(t("joined"));
           setPendingInvite("");
-          history.replaceState(null, "", location.pathname);
+          history.replaceState(history.state, "", location.pathname);
         })
         .catch((e) => {
           notify(errorText(e));
@@ -622,7 +625,7 @@ export default function App() {
   async function react(m:Message,emoji:string){
     setReactionOpen(null);
     if(!selected||m.pendingStatus||m.deleted)return;
-    const roomId=selected,userId=boot.user.id,key=m.id+":"+emoji;
+    const roomId=selected,userId=boot.user.id,key=m.id;
     if(pendingReactionRef.current[key])return;
     const change={messageId:m.id,userId,emoji,active:!m.reactions.some(r=>r.userId===userId&&r.emoji===emoji)};
     if(demo){commitReaction(roomId,change);return;}
@@ -1822,7 +1825,7 @@ export default function App() {
                                               ? "mine"
                                               : ""
                                           }
-                                          disabled={!!pendingReactions[m.id+":"+emoji]}
+                                          disabled={!!pendingReactions[m.id]}
                                           onClick={() => react(m, emoji)}
                                         >
                                           <span className="reaction-emoji" key={emoji+":"+m.reactions.filter(r=>r.emoji===emoji).length+":"+m.reactions.some(r=>r.emoji===emoji&&r.userId===boot.user.id)}>{emoji}</span>

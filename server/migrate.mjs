@@ -29,6 +29,11 @@ export async function migrate() {
     await c.query("INSERT INTO peakboo_migrations(version) VALUES('006_r2_media') ON CONFLICT DO NOTHING");
     await c.query(await readFile(new URL("./migrations/007_push.sql",import.meta.url),"utf8"));
     await c.query("INSERT INTO peakboo_migrations(version) VALUES('007_push') ON CONFLICT DO NOTHING");
+    const singleReaction=await c.query("SELECT 1 FROM peakboo_migrations WHERE version='008_single_reaction'");
+    if(!singleReaction.rowCount){
+      await c.query(await readFile(new URL("./migrations/008_single_reaction.sql",import.meta.url),"utf8"));
+      await c.query("INSERT INTO peakboo_migrations(version) VALUES('008_single_reaction')");
+    }
     await c.query("COMMIT");
   } catch (e) {
     await c.query("ROLLBACK");
