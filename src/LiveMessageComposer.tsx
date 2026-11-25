@@ -6,7 +6,7 @@ import { ChatAudioPlayer,mediaLabel } from './Media';
 import { ChatImageEditor } from './ChatImageEditor';
 import { cn } from './components';
 import { optimizeVideoAttachment } from './videoCompression';
-import { optimizeImageAttachment } from './imageCompression';
+import { optimizeImageAttachment, prepareCameraPhoto } from './imageCompression';
 
 const EMOJI_GROUPS = [
   { pt: 'Expressões', en: 'Expressions', symbols: ['😀','😃','😁','😂','🤣','😊','😍','🥰','😘','😎','🥹','😢','😭','😡','🤔','😴','🤩','😮'] },
@@ -155,6 +155,25 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     const urls=photoUrls.map((url,i)=>i===index?next:url);
     photoLocalUrls.current=urls;setPhotoUrls(urls);
     setEditorOpen(false);setEditingPhotoIndex(null);
+  }
+  async function stageCameraPhoto(file:File) {
+    if(optimizingRef.current||editing)return;
+    const controller=new AbortController();
+    optimizationController.current=controller;optimizingRef.current=true;
+    setOptimizing(true);setOptimizationKind('image');setOptimizationProgress(0);
+    setOptimizingFile({name:file.name,size:file.size});setError('');
+    try{
+      const prepared=await prepareCameraPhoto(file,controller.signal);
+      if(controller.signal.aborted||!mounted.current)return;
+      optimizingRef.current=false;
+      stagePhotos([prepared]);
+    }catch{
+      if(mounted.current&&!controller.signal.aborted)setError(pt?'Não foi possível preparar a foto da câmera. Tente uma resolução menor ou use a galeria.':'Could not prepare the camera photo. Try a lower resolution or use Gallery.');
+    }finally{
+      if(optimizationController.current===controller)optimizationController.current=null;
+      optimizingRef.current=false;
+      if(mounted.current){setOptimizing(false);setOptimizingFile(null)}
+    }
   }
   function stageFile(file:File) {
     setPendingLocation(null);
@@ -479,7 +498,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     <input ref={galleryRef} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" className="sr-only"
       onChange={e => { const files=Array.from(e.target.files??[]); e.target.value=''; selectGallery(files); }} />
     <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only"
-      onChange={e => { const file=e.target.files?.[0]; e.target.value=''; if(file?.type.startsWith('image/'))stagePhotos([file]);else chosenFile(file); }} />
+      onChange={e => { const file=e.target.files?.[0]; e.target.value=''; if(file?.type.startsWith('image/'))void stageCameraPhoto(file);else chosenFile(file); }} />
     <input ref={fileRef} type="file" accept={'.pdf,.txt,.zip,.mp3,.m4a,.ogg,.webm,.wav,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,application/octet-stream'+(allowOffice?',.doc,.docx,.xls,.xlsx,.ppt,.pptx':'')} className="sr-only"
       onChange={e => { const file=e.target.files?.[0]; e.target.value=''; chosenFile(file); }} />
     <textarea ref={textareaRef} rows={1} value={value} disabled={recording!=='idle'}
