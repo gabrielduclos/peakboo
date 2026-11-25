@@ -55,7 +55,7 @@
   }
 }
 
-/* Reuse the installed app icon beside the header wordmark. */
+/* Show the original mascot without its PWA icon background in the header. */
 .topbar .mobile-brand::before,
 .topbar .breadcrumb::before {
   content: "";
@@ -64,7 +64,8 @@
   height: 24px;
   flex: 0 0 24px;
   background: url("/peakboo-192-v2.png") center / contain no-repeat;
-  border-radius: 5px;
+  -webkit-mask: url("/peakboo-header-mask.svg") center / contain no-repeat;
+  mask: url("/peakboo-header-mask.svg") center / contain no-repeat;
 }
 .topbar .mobile-brand {
   gap: 8px;
@@ -73,5 +74,4 @@
   width: 30px;
   height: 30px;
   flex-basis: 30px;
-  border-radius: 7px;
 }
