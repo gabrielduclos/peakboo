@@ -1,0 +1,19 @@
+/* In-app notifications and invitation token */
+.notification-count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:999px;background:#b42318;color:#fff;font-size:11px;font-weight:650;padding:0 5px;line-height:1;flex-shrink:0;font-variant-numeric:tabular-nums}
+.nav-item>.notification-count{margin-left:auto}
+.notification-icon{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.notification-icon>.notification-count{position:absolute;top:-7px;right:-12px;border:1px solid var(--surface);pointer-events:none}
+.notification-center{display:flex;flex-direction:column;gap:8px;max-height:min(65vh,560px);overflow:auto}
+.notification-row{display:flex;align-items:flex-start;gap:12px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;min-height:52px;width:100%;color:inherit}
+.notification-row>svg{flex-shrink:0;margin-top:3px;color:var(--primary)}
+.notification-row>span:not(.notification-unread-dot){flex:1;min-width:0;display:grid;gap:3px;overflow-wrap:anywhere}
+.notification-row strong{font-size:14px;font-weight:600}
+.notification-row small{font-size:12px;color:var(--muted)}
+.notification-unread{background:var(--surface-2)}
+.notification-unread-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:8px}
+.notification-empty{display:grid;justify-items:center;gap:12px;text-align:center;color:var(--muted);padding:32px 12px}
+.invite-token{margin-top:12px}
+.invite-token input{font-family:ui-monospace,monospace;font-size:16px}
+@media(max-width:700px){.mobile-nav{gap:4px;padding-inline:8px}.mobile-nav>button{min-width:0;flex:1;min-height:44px;font-size:10px}}
+@media(min-width:701px) and (max-width:1000px){.sidebar .nav-item{position:relative}.sidebar .nav-item>.notification-count{display:inline-flex;position:absolute;top:2px;right:0}}
+
