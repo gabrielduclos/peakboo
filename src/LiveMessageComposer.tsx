@@ -309,7 +309,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     const allowed=new Set(['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif',
       'video/mp4','video/webm','video/quicktime','application/pdf','text/plain','application/zip','application/octet-stream',
       'audio/webm','audio/mp4','audio/ogg','audio/mpeg','audio/wav','audio/x-m4a','audio/aac']);
-    if(!file.size || file.size>10*1024*1024){setError(pt?'O arquivo deve ter até 10 MB.':'Maximum file size is 10 MB.');return;}
+    if(!file.size || file.size>(mime.startsWith('video/')?30:10)*1024*1024){setError(mime.startsWith('video/')?(pt?'O vídeo deve ter até 30 MB.':'Maximum video size is 30 MB.'):(pt?'O arquivo deve ter até 10 MB.':'Maximum file size is 10 MB.'));return;}
     if(allowOffice)['application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation'].forEach(type=>allowed.add(type));
     if(!allowed.has(mime)){setError(pt?'Formato de arquivo não suportado.':'Unsupported file format.');return;}
     if(!file.name || file.name.length>180 || /[\\/\r\n\u0000-\u001f]/.test(file.name)){setError(pt?'Nome do arquivo inválido.':'Invalid filename.');return;}
@@ -333,9 +333,9 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         if(mounted.current)setOptimizationProgress(percent);
       });
       if(controller.signal.aborted||!mounted.current)return;
-      if(result.file.size>10*1024*1024){
-        setError(pt?'Não foi possível reduzir o vídeo para até 10 MB neste navegador.':
-          'This browser could not reduce the video to 10 MB or less.');return;
+      if(result.file.size>30*1024*1024){
+        setError(pt?'Não foi possível reduzir o vídeo para até 30 MB neste navegador.':
+          'This browser could not reduce the video to 30 MB or less.');return;
       }
       stageFile(result.file);
       setVideoNotice(result.compressed
@@ -488,6 +488,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   }
   async function sendSelected(){
     if(!canSend)return;
+    if(emojiOpen)textareaRef.current?.blur();
     setEmojiOpen(false);emojiCaret.current=null;
     try{
       if(pendingPhotos.length){await sendPhotos();}
@@ -660,7 +661,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
           </div>
         </div>}
         <p className="px-2 pt-2 text-[11px] text-muted-foreground">
-          {pt ? 'Anexos até 10 MB após compactação. Vídeos originais até 300 MB.' : 'Attachments up to 10 MB after compression. Videos up to 300 MB before compression.'}
+          {pt ? 'Anexos até 10 MB; vídeos até 30 MB após compactação (originais até 300 MB).' : 'Attachments up to 10 MB; videos up to 30 MB after compression (originals up to 300 MB).'}
         </p>
       </div>}
     </div>
@@ -697,7 +698,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       <button type="button" aria-label={pt ? 'Abrir lista de emojis' : 'Open emoji picker'}
         aria-expanded={emojiOpen} aria-haspopup="dialog"
         onPointerDown={event => event.preventDefault()}
-        onClick={() => { setEmojiOpen(v => !v); setAttachmentsOpen(false); }}
+        onClick={() => { textareaRef.current?.blur();setEmojiOpen(v => !v); setAttachmentsOpen(false); }}
         className="grid size-11 lg:size-12 place-items-center text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
         <Smile className="size-5"/>
       </button>
