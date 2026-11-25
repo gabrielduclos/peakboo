@@ -171,6 +171,7 @@ try {
     headers: { Authorization: "Bearer " + bob.token },
     signal: streamController.signal,
   });
+  check("authenticated SSE is private and not cacheable",()=>{assert.equal(stream.status,200);assert.match(stream.headers.get("cache-control"),/private/);assert.match(stream.headers.get("cache-control"),/no-store/)});
   const reader = stream.body.getReader();
   await reader.read();
   const messageId = randomUUID(),
