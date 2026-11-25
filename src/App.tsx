@@ -1017,7 +1017,7 @@ export default function App() {
           calendarContent()
         ) : (
           <div className={cn("messenger", mobileChat && "show-mobile-chat")}>
-            <GroupsPanel rooms={boot.rooms} userId={boot.user.id} lang={lang} selected={selected}
+            <GroupsPanel messageUnread={notificationCenter.messageUnread} rooms={boot.rooms} userId={boot.user.id} lang={lang} selected={selected}
               loading={loading} query={query} filter={filter} t={t} time={time}
               onQueryChange={setQuery} onFilterChange={setFilter} onSelect={selectRoom}
               onCreate={()=>{setNewTab("create");openModal("new")}}

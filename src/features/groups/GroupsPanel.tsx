@@ -5,6 +5,7 @@ import {roomPreview} from "../../roomPreview";
 
 type GroupsPanelProps = {
   rooms: Room[];
+  messageUnread: number;
   userId: string;
   lang: string;
   selected: string | null;
@@ -21,7 +22,7 @@ type GroupsPanelProps = {
   decorateWeekend?: boolean;
 };
 
-export function GroupsPanel({rooms,userId,lang,selected,loading,query,filter,t,time,onQueryChange,onFilterChange,onSelect,onCreate,onJoin,decorateWeekend=false}: GroupsPanelProps) {
+export function GroupsPanel({rooms,messageUnread,userId,lang,selected,loading,query,filter,t,time,onQueryChange,onFilterChange,onSelect,onCreate,onJoin,decorateWeekend=false}: GroupsPanelProps) {
   return (
     <section className="conversation-panel">
       <div className="conversation-title">
@@ -62,7 +63,7 @@ export function GroupsPanel({rooms,userId,lang,selected,loading,query,filter,t,t
           onClick={() => onFilterChange("all")}
         >
           {t("all")}
-          <span>{rooms.length}</span>
+          {messageUnread > 0 && <span aria-label={String(messageUnread)}>{messageUnread > 99 ? "99+" : messageUnread}</span>}
         </button>
         <button
           className={filter === "unread" ? "active" : ""}
