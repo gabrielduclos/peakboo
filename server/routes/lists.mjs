@@ -36,7 +36,7 @@ export function registerLists(app,{pool,member,jsonError,publish,push}){
      if(!old.rowCount)return jsonError(res,409,"CONFLICT");
      return res.json({id:req.params.message,checklist:old.rows[0].checklist});
    }
-   await publish(req.params.room,{listChange:{messageId:req.params.message,checklist:list}});
+   await publish(req.params.room,{listChange:{messageId:req.params.message,checklist:list,previewChanged:true}});
    res.json({id:req.params.message,checklist:list});
  });
  app.put(root+"/messages/:message/list",member,async(req,res)=>{
@@ -50,7 +50,7 @@ export function registerLists(app,{pool,member,jsonError,publish,push}){
      if(list.version!==r.rows[0].checklist.version)await db.query("UPDATE messages SET checklist=$1::jsonb WHERE id=$2",[JSON.stringify(list),req.params.message]);
      await db.query("COMMIT");
    }catch(e){await db.query("ROLLBACK");throw e}finally{db.release()}
-   await publish(req.params.room,{listChange:{messageId:req.params.message,checklist:list}});
+   await publish(req.params.room,{listChange:{messageId:req.params.message,checklist:list,previewChanged:data.data.kind==="rename"}});
    res.json({id:req.params.message,checklist:list});
  });
  // Refresh only already-visible older lists after reconnect. No periodic queries.
