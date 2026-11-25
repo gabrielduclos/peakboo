@@ -317,7 +317,7 @@
   }
   .conversation-item {
     padding: 17px 11px;
-    margin-bottom: 4px;
+    margin-bottom: 0;
     gap: 13px;
   }
   .conversation-item.selected {

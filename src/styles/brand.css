@@ -55,3 +55,23 @@
   }
 }
 
+/* Reuse the installed app icon beside the header wordmark. */
+.topbar .mobile-brand::before,
+.topbar .breadcrumb::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  background: url("/peakboo-192-v2.png") center / contain no-repeat;
+  border-radius: 5px;
+}
+.topbar .mobile-brand {
+  gap: 8px;
+}
+.topbar .mobile-brand::before {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+  border-radius: 7px;
+}
