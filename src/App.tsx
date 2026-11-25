@@ -107,6 +107,7 @@ export default function App() {
   const [chatQuery, setChatQuery] = useState("");
   const [chatFilter,setChatFilter]=useState<ChatFilter>(emptyFilter);
   const [filtered,setFiltered]=useState<Message[]>([]);
+  const [filterRevision,setFilterRevision]=useState(0);
   const [filterMore,setFilterMore]=useState(false);
   const [filterLoading,setFilterLoading]=useState(false);
   const [replying,setReplying]=useState<Message|null>(null);
@@ -114,7 +115,7 @@ export default function App() {
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [galleryId,setGalleryId]=useState<string|null>(null);
   const [pinnedRevision,setPinnedRevision]=useState(0);
-  const pinnedMessages=usePinnedMessages(boot.user.id,selected,pinnedRevision);
+  const pinnedMessages=usePinnedMessages(boot.user.id,selected,pinnedRevision,boot.rooms.find(r=>r.id===selected)?.joinedAt);
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [reactionOpen,setReactionOpen]=useState<string|null>(null);
@@ -233,7 +234,7 @@ export default function App() {
   };
   useLayoutEffect(()=>{setMediaAccount(boot.user.id||'');return()=>setMediaAccount('')},[boot.user.id]);
   useEffect(()=>{setChatFilter(emptyFilter);setChatQuery('');setShowChatSearch(false);setGalleryId(null);setReplying(null);setEditing(null)},[selected]);
-  useEffect(()=>{if(!selected||!filtering)return;let active=true;setFiltered([]);setFilterLoading(true);const timer=setTimeout(()=>{request('/api/rooms/'+selected+'/messages?'+filterParams(chatFilter,chatQuery)).then(data=>{if(active){setFiltered(data.messages);setFilterMore(data.hasMore)}}).catch(()=>{if(active)notify(t('error'))}).finally(()=>{if(active)setFilterLoading(false)})},250);return()=>{active=false;clearTimeout(timer)}},[selected,chatQuery,chatFilter,messages]);
+  useEffect(()=>{if(!selected||!filtering)return;let active=true;setFiltered([]);setFilterLoading(true);const timer=setTimeout(()=>{request('/api/rooms/'+selected+'/messages?'+filterParams(chatFilter,chatQuery)).then(data=>{if(active){setFiltered(data.messages);setFilterMore(data.hasMore)}}).catch(()=>{if(active)notify(t('error'))}).finally(()=>{if(active)setFilterLoading(false)})},250);return()=>{active=false;clearTimeout(timer)}},[selected,chatQuery,chatFilter,filterRevision]);
   async function loadFiltered(){chatScroll.preserveOlder();if(!selected||!filtered.length)return;setFilterLoading(true);try{const data=await request('/api/rooms/'+selected+'/messages?'+filterParams(chatFilter,chatQuery)+'&before='+encodeURIComponent(filtered[0].createdAt));setFiltered(old=>[...data.messages,...old]);setFilterMore(data.hasMore)}catch(e){notify(errorText(e))}finally{setFilterLoading(false)}}
   const openModal = (m: typeof modal) => {
     setFormError("");
@@ -339,7 +340,7 @@ export default function App() {
         await refresh();
         const id=selectedRef.current;
         if(id&&chatVisibleRef.current&&(all||changed.has(id))){
-          setPinnedRevision(v=>v+1);await fetchMessages(id);
+          setPinnedRevision(v=>v+1);setFilterRevision(v=>v+1);await fetchMessages(id);
           if(!stopped&&!document.hidden&&chatVisibleRef.current&&selectedRef.current===id){
             await request("/api/rooms/"+id+"/read","POST");setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r)}));
           }
@@ -557,7 +558,7 @@ export default function App() {
       await request('/api/rooms/'+target+'/messages','POST',{id:crypto.randomUUID(),text:m.text,attachmentId});await fetchMessages(target);await refresh();return;
     }
     await request('/api/rooms/'+selected+'/messages/'+m.id+(action==='pin'?'/pin':action==='report'?'/report':''),action==='edit-save'?'PUT':action==='delete'?'DELETE':'POST',action==='edit-save'?{text:target}:{});
-    setPinnedRevision(value=>value+1);
+    setPinnedRevision(value=>value+1);setFilterRevision(value=>value+1);
     await fetchMessages(selected);await refresh();
     if(action==='report')notify(lang==='pt'?'Denúncia registrada.':'Report recorded.');
   }
@@ -1671,7 +1672,7 @@ export default function App() {
                                           disabled={!!pendingReactions[m.id+":"+emoji]}
                                           onClick={() => react(m, emoji)}
                                         >
-                                          {emoji}
+                                          <span className="reaction-emoji" key={emoji+":"+m.reactions.filter(r=>r.emoji===emoji).length+":"+m.reactions.some(r=>r.emoji===emoji&&r.userId===boot.user.id)}>{emoji}</span>
                                           <small>
                                             {
                                               m.reactions.filter(

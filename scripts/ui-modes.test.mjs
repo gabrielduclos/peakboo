@@ -52,6 +52,18 @@ try{
  await act(async()=>{document.querySelector('.pending-message button').click();await new Promise(r=>setTimeout(r,10))});assert.equal(posted.length,2);assert.equal(posted[0].id,posted[1].id);assert.equal(document.querySelectorAll('.message').length,1);assert.equal(document.querySelector('.pending-message'),null);
  }finally{await act(async()=>root.unmount());sessionStorage.removeItem('peakboo-session')}
  });
+ await test('reaction appears before API confirmation and rolls back on failure',async()=>{
+ sessionStorage.setItem('peakboo-session','reaction-test');const roomId='12345678-1234-1234-1234-123456789abc',messageId='12345678-1234-1234-1234-123456789abd';
+ let rejectReaction,posted=[];const original={id:messageId,senderId:'peer',senderName:'Peer',text:'Hello',createdAt:new Date().toISOString(),reactions:[]};
+ const response=data=>({ok:true,headers:{get:()=>null},json:async()=>data});
+ globalThis.fetch=async(url,options={})=>{const path=String(url);if(path.endsWith('/api/bootstrap'))return response({user:{id:'me',name:'Tester',email:'test@example.invalid'},rooms:[{id:roomId,name:'Reaction room',ownerId:'me',color:'purple',description:'',memberCount:2,unread:0}],events:[]});if(path.endsWith('/reaction')){posted.push(JSON.parse(options.body));return new Promise((_,reject)=>{rejectReaction=reject})}if(path.includes('/messages'))return response({messages:[original],hasMore:false});if(path.endsWith('/api/live'))throw Error('offline');return response({ok:true})};
+ const root=await mount('src/App.tsx');try{
+ await act(async()=>new Promise(r=>setTimeout(r,10)));await act(async()=>document.querySelector('.message-actions [aria-haspopup=menu]').click());
+ await act(async()=>document.querySelector('.reaction-grid [aria-label="👍"]').click());
+ assert.equal(posted.length,1);assert.equal(posted[0].active,true);assert.ok(document.querySelector('.reactions .mine'));
+ await act(async()=>{rejectReaction(Error('Offline'));await new Promise(r=>setTimeout(r,0))});assert.equal(document.querySelector('.reactions .mine'),null);
+ }finally{await act(async()=>root.unmount());sessionStorage.removeItem('peakboo-session')}
+ });
  await test('chat scroll follows latest on open, preserves reading and counts incoming messages',async()=>{
  const fixture=dir+'/scroll-fixture.tsx';await writeFile(fixture,`import {useState} from 'react';import {useChatScroll} from '../src/useChatScroll';export default function Fixture(){const [messages,setMessages]=useState(()=>Array.from({length:5},(_,i)=>({id:String(i+1),createdAt:new Date(2026,10,24,12,i+1).toISOString(),senderId:'peer',senderName:'Peer',text:'message',reactions:[]})));const scroll=useChatScroll('room',messages,false,false,'me');return <><div className="scroll-fixture" ref={scroll.historyRef} onScroll={scroll.onScroll}>{messages.map(m=><span key={m.id}>{m.id}</span>)}</div><button id="incoming" onClick={()=>setMessages(old=>[...old,{...old.at(-1)!,id:'incoming',createdAt:new Date(2026,10,24,13).toISOString()}])}>incoming</button><button id="older" onClick={()=>{scroll.preserveOlder();setMessages(old=>[{...old[0],id:'older',createdAt:new Date(2026,10,24,11).toISOString()},...old])}}>older</button><button id="jump" onClick={scroll.jump}>jump</button><output>{scroll.away?'away':'bottom'}:{scroll.newCount}</output></>}`);
  const proto=dom.window.HTMLElement.prototype,oldHeight=Object.getOwnPropertyDescriptor(proto,'scrollHeight'),oldClient=Object.getOwnPropertyDescriptor(proto,'clientHeight');Object.defineProperty(proto,'scrollHeight',{configurable:true,get(){return this.className==='scroll-fixture'?this.children.length*200:0}});Object.defineProperty(proto,'clientHeight',{configurable:true,get(){return this.className==='scroll-fixture'?200:0}});
@@ -76,11 +88,11 @@ try{
  await act(async()=>document.getElementById('switch-room').click());assert.equal(document.querySelector('output').textContent,'Pinned A');assert.equal(calls,2);
  await act(async()=>document.getElementById('refresh-pins').click());assert.equal(document.querySelector('output').textContent,'Pinned A');assert.equal(calls,3);
  await act(async()=>resolvePending(new Response(JSON.stringify({messages:[]}))));assert.equal(document.querySelector('output').textContent,'');
- await act(async()=>document.getElementById('logout-pins').click());assert.deepEqual(Object.keys(localStorage).filter(k=>k.startsWith('peakboo-pins-v1:pin-user:')),[]);
+ await act(async()=>document.getElementById('logout-pins').click());assert.deepEqual(Object.keys(localStorage).filter(k=>k.startsWith('peakboo-pins-v2:pin-user:')),[]);
  }finally{await act(async()=>root.unmount())}
  // A separate authenticated mount reads durable data without a loading flash or request.
- localStorage.setItem('peakboo-pins-v1:pin-user:a',JSON.stringify({at:Date.now(),messages:[{id:'saved',text:'Durable pin',pinned:true}]}));
- const remounted=await mount(fixture);try{assert.equal(document.querySelector('output').textContent,'Durable pin');assert.equal(calls,3)}finally{await act(async()=>remounted.unmount());localStorage.removeItem('peakboo-pins-v1:pin-user:a')}
+ localStorage.setItem('peakboo-pins-v2:pin-user:a',JSON.stringify({at:Date.now(),messages:[{id:'saved',text:'Durable pin',pinned:true}]}));
+ const remounted=await mount(fixture);try{assert.equal(document.querySelector('output').textContent,'Durable pin');assert.equal(calls,3)}finally{await act(async()=>remounted.unmount());localStorage.removeItem('peakboo-pins-v2:pin-user:a')}
  });
 
  await test('swipe reply requires a deliberate right drag and ignores scrolling, controls and cancellation',async()=>{

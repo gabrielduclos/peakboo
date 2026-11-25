@@ -3,7 +3,6 @@ export type User = { id: string; name: string; email: string; image?: string | n
 export type Room = {
   kind?: "group" | "direct";
   peerId?: string;
-  peerHandle?: string;
   canMessage?: boolean;
   id: string;
   name: string;

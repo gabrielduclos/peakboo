@@ -1825,7 +1825,7 @@ export default function App() {
                                           disabled={!!pendingReactions[m.id+":"+emoji]}
                                           onClick={() => react(m, emoji)}
                                         >
-                                          {emoji}
+                                          <span className="reaction-emoji" key={emoji+":"+m.reactions.filter(r=>r.emoji===emoji).length+":"+m.reactions.some(r=>r.emoji===emoji&&r.userId===boot.user.id)}>{emoji}</span>
                                           <small>
                                             {
                                               m.reactions.filter(

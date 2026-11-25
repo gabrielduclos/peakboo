@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { request } from './api';
 import type { Message } from './types';
 
-const PREFIX = 'peakboo-pins-v1:';
+const PREFIX = 'peakboo-pins-v2:';
 const FRESH = 60_000;
 const RETAIN = 7 * 24 * 60 * 60_000;
 type Entry = { at: number; messages: Message[] };
@@ -37,7 +37,7 @@ function write(user: string, room: string, entry: Entry) {
   } catch {} // Storage restrictions must never block the chat.
 }
 
-export function usePinnedMessages(user: string, room: string | null, revision: number) {
+export function usePinnedMessages(user: string, room: string | null, revision: number, joinedAt?:string) {
   const [result, setResult] = useState<{ user: string; room: string; entry: Entry } | null>(null);
   const previousUser = useRef(user);
   const previousRevision = useRef(revision);
@@ -62,5 +62,6 @@ export function usePinnedMessages(user: string, room: string | null, revision: n
     return () => { active = false; };
   }, [user, room, revision]);
   if (!user || !room) return [];
-  return result?.user === user && result.room === room ? result.entry.messages : read(user, room)?.messages || [];
+  const messages=result?.user === user && result.room === room ? result.entry.messages : read(user, room)?.messages || [];
+  return joinedAt?messages.filter(m=>Date.parse(m.createdAt)>=Date.parse(joinedAt)):messages;
 }
