@@ -5,6 +5,18 @@ for(const key of ['window','document','navigator','HTMLElement','Element','Node'
 const {createElement,act}=await import('react');const {createRoot}=await import('react-dom/client');const dir=await mkdtemp(process.cwd()+'/.ui-test-');
 async function mount(entry){const out=dir+'/'+entry.split('/').at(-1)+'.mjs';await build({entryPoints:[entry],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});const {default:App}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));await act(async()=>{root.render(createElement(App));await new Promise(r=>setTimeout(r,0))});return root;}
 try{
+ await test('PWA install invite is limited to one local day and skips installed apps',async()=>{
+ const out=dir+'/pwa-install.mjs';await build({entryPoints:['src/pwaInstall.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});
+ const pwa=await import(pathToFileURL(out));const day=pwa.localDay(new Date(2026,10,25,7));assert.equal(day,'2026-11-25');
+ assert.equal(pwa.shouldInviteInstall(false,'2026-11-24',day,true),true);
+ assert.equal(pwa.shouldInviteInstall(false,day,day,true),false);
+ assert.equal(pwa.shouldInviteInstall(true,'',day,true),false);
+ assert.equal(pwa.shouldInviteInstall(false,'',day,false),false);
+ const event=new Event('beforeinstallprompt',{cancelable:true});let calls=0;Object.defineProperties(event,{prompt:{value:async()=>{calls++}},userChoice:{value:Promise.resolve({outcome:'dismissed'})}});
+ window.dispatchEvent(event);assert.ok(event.defaultPrevented);assert.equal(pwa.installationState().native,true);
+ assert.equal(await pwa.installNative(),'dismissed');assert.equal(calls,1);assert.equal(await pwa.installNative(),'unavailable');
+ pwa.markInstallInvite();assert.equal(pwa.installationState().lastDay,pwa.localDay());localStorage.removeItem('peakboo-install-invite-day');
+ });
  await test('reply reference shows author, media fallback and redacts deleted sources',async()=>{
  const out=dir+'/reply-reference.mjs';await build({entryPoints:['src/ReplyReference.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic'});const {ReplyReference,replySnapshot}=await import(pathToFileURL(out));
  const source={id:'original',text:'Full original text',senderId:'peer',senderName:'Maria',createdAt:'2026-11-24',reactions:[]};let jumped=0,cancelled=0;const root=createRoot(document.getElementById('root'));

@@ -29,14 +29,15 @@ export async function enablePush(userId:string,lang:string,publicKey:string,prev
  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
  try{await saveSubscription(sub,userId,lang,preview)}catch(e){await sub.unsubscribe().catch(()=>false);throw e}
 }
-export async function syncPush(userId:string,lang:string){
- if(!supported())return;
+export async function syncPush(userId:string,lang:string):Promise<boolean>{
+ if(!supported())return false;
  const consent=pushConsent(userId);let owner:string|null=null;try{owner=localStorage.getItem(OWNER)}catch{}
- if(owner&&owner!==userId){const reg=await pushRegistration(),old=await reg.pushManager.getSubscription();if(old)await old.unsubscribe();saveConsent(owner,null);try{localStorage.removeItem(OWNER)}catch{};return}
- if(!consent||Notification.permission!=="granted")return;
- const reg=await pushRegistration(),sub=await reg.pushManager.getSubscription();if(!sub)return;
+ if(owner&&owner!==userId){const reg=await pushRegistration(),old=await reg.pushManager.getSubscription();if(old)await old.unsubscribe();saveConsent(owner,null);try{localStorage.removeItem(OWNER)}catch{};return false}
+ if(!consent||Notification.permission!=="granted")return false;
+ const reg=await pushRegistration(),sub=await reg.pushManager.getSubscription();if(!sub)return false;
  const status=await request("/api/push/status","POST",{endpoint:sub.endpoint});
  if(!status.active||status.locale!==lang||status.preview!==consent.preview)await saveSubscription(sub,userId,lang,consent.preview);
+ return true;
 }
 export async function disablePush(userId:string){
  saveConsent(userId,null);try{if(localStorage.getItem(OWNER)===userId)localStorage.removeItem(OWNER)}catch{}

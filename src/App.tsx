@@ -1,7 +1,8 @@
 import {ReplyReference,replySnapshot} from "./ReplyReference";
 import {ProfileEditor} from "./Social";
 import {PushSettings} from "./PushSettings";
-import {disablePush,syncPush} from "./pwa";
+import {disablePush} from "./pwa";
+import {PwaInvites} from "./PwaInvites";
 import {InvitationTools} from "./InvitationTools";
 import {inviteLink} from "./links";
 import {useInternalNotifications,NotificationBadge,NotificationCenter} from "./InternalNotifications";
@@ -1251,7 +1252,6 @@ export default function App() {
       </section>
     );
   }
-  useEffect(()=>{if(boot.user.id)void syncPush(boot.user.id,lang).catch(()=>{})},[boot.user.id,lang]);
   const [pushTarget,setPushTarget]=useState(()=>new URLSearchParams(location.hash.slice(1)));
   useEffect(()=>{
     const onHash=()=>setPushTarget(new URLSearchParams(location.hash.slice(1)));
@@ -2487,6 +2487,7 @@ export default function App() {
           </p>
         )}
       </Modal>
+      <PwaInvites userId={boot.user.id} lang={lang} blocked={loading||!!modal||!!deleteTarget}/>
       {toast && (
         <div className="toast" role="status">
           <Check size={17} />
