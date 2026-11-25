@@ -15,7 +15,7 @@ export function createPush(pool){
   const pt=row.locale==="pt",preview=row.preview;
   const labels={message:pt?"Nova mensagem":"New message",reaction:pt?"Nova reação":"New reaction",created:pt?"Novo compromisso":"New event",updated:pt?"Compromisso atualizado":"Event updated",cancelled:pt?"Compromisso cancelado":"Event cancelled",reminder:pt?"Lembrete da agenda":"Calendar reminder"};
   const label=labels[notice.kind];
-  const payload={title:preview?String(row.room_name).slice(0,100):"Peakboo",body:preview&&notice.body?String(notice.body).slice(0,220):notice.kind==="reminder"?(pt?"Compromisso em até "+notice.minutes+" minutos.":"Event in up to "+notice.minutes+" minutes."):label,roomId:row.room_id,eventId:notice.eventId||null,tag:"peakboo-"+(notice.eventId||row.room_id)};
+  const payload={title:preview?String(row.room_name).slice(0,100):"Peakboo",body:preview&&notice.body?String(notice.kind==="reaction"?notice.body+(pt?" reagiu à sua mensagem":" reacted to your message"):notice.body).slice(0,220):notice.kind==="reminder"?(pt?"Compromisso em até "+notice.minutes+" minutos.":"Event in up to "+notice.minutes+" minutes."):label,roomId:row.room_id,eventId:notice.eventId||null,tag:"peakboo-"+(notice.eventId||row.room_id)};
   try{
    const status=await sendWebPush(keys,{endpoint:row.endpoint,keys:{p256dh:row.p256dh,auth:row.auth_key}},payload);
    if(status===404||status===410){await pool.query("DELETE FROM push_subscriptions WHERE id=$1 AND endpoint=$2",[row.id,row.endpoint]);return true}
