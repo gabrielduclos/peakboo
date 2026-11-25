@@ -4,7 +4,7 @@ export default {
   const response=await env.ASSETS.fetch(request);
   const headers=new Headers(response.headers);
   // Asset-first requests use _headers; also protect responses served through this Worker.
-  if(!headers.has("Content-Security-Policy"))headers.set("Content-Security-Policy","script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'");
+  if(!headers.has("Content-Security-Policy"))headers.set("Content-Security-Policy","script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'; default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; font-src 'self' data:; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; connect-src 'self' https://peakboo-api.onrender.com");
   headers.set("X-Content-Type-Options","nosniff");
   headers.set("Referrer-Policy","no-referrer");
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
