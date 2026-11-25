@@ -1,6 +1,8 @@
 import {displayName} from "../../shared/display-name.mjs";
 import {AuthDialog,SettingsDialog} from "../features/account/AccountDialogs";
 import {ChatPanel} from "../features/chat/ChatPanel";
+import {GroupInviteDialog,GroupMembersDialog,NewGroupDialog} from "../features/groups/GroupDialogs";
+import {EventDetailDialog} from "../features/calendar/EventDetailDialog";
 import {EventFormDialog} from "../features/calendar/EventFormDialog";
 import {CalendarPage,EventCard,MiniCalendar} from "../features/calendar/CalendarViews";
 import {demoRoomPreview} from "../roomPreview";
@@ -1198,225 +1200,13 @@ export default function App() {
       <Modal open={modal==="notifications"} onOpenChange={v=>!v&&setModal(null)} title={t("notifications")} closeLabel={t("close")} className="notification-modal">
         <NotificationCenter boot={boot} center={notificationCenter} lang={lang} onRoom={r=>{setModal(null);selectRoom(r)}} onEvent={p=>{if(p)openDetail(p);else{setModal(null);setView("calendar");setMobileChat(false)}}}/>
       </Modal>
-      <Modal
-        open={modal === "new"}
-        onOpenChange={(v) => !v && setModal(null)}
-        title={t("newConversation")}
-        closeLabel={t("close")}
-      >
-        <Tabs.Root value={newTab} onValueChange={setNewTab}>
-          <Tabs.List className="dialog-tabs">
-            <Tabs.Trigger value="create">{t("create")}</Tabs.Trigger>
-            <Tabs.Trigger value="join">{t("join")}</Tabs.Trigger>
-          </Tabs.List>
-          <form onSubmit={createRoom} className="form">
-            <Tabs.Content value="create">
-              <label>
-                {t("groupName")}
-                <input
-                  name="name"
-                  placeholder={t("groupPlaceholder")}
-                  minLength={2}
-                  maxLength={80}
-                  required={newTab === "create"}
-                />
-              </label>
-              <label>
-                {t("description")}{" "}
-                <span className="muted">({t("optional")})</span>
-                <textarea name="description" maxLength={240} rows={2} />
-              </label>
-              <fieldset>
-                <legend>{t("color")}</legend>
-                <div className="color-options">
-                  {COLORS.map((color) => (
-                    <button
-                      type="button"
-                      key={color}
-                      aria-label={color}
-                      aria-pressed={newColor === color}
-                      className={cn("color-dot", color)}
-                      onClick={() => setNewColor(color)}
-                    >
-                      {newColor === color && <Check size={16} />}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            </Tabs.Content>
-            <Tabs.Content value="join">
-              <label>
-                {t("inviteToken")}
-                <input
-                  name="code"
-                  placeholder={t("tokenPlaceholder")}
-                  autoCapitalize="none" autoComplete="off" spellCheck={false} maxLength={100}
-                  required={newTab === "join"}
-                />
-              </label>
-            </Tabs.Content>
-            {formError && (
-              <p className="form-error" role="alert">
-                {formError}
-              </p>
-            )}
-            <div className="form-footer">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setModal(null)}
-              >
-                {t("cancel")}
-              </Button>
-              <Button busy={busy === "new"}>
-                {newTab === "create" ? t("create") : t("joinGroup")}
-              </Button>
-            </div>
-          </form>
-        </Tabs.Root>
-      </Modal>
+      <NewGroupDialog open={modal==="new"} onClose={()=>setModal(null)} t={t} busy={busy} formError={formError} newTab={newTab} setNewTab={setNewTab} newColor={newColor} setNewColor={setNewColor} createRoom={createRoom}/>
 
       <EventFormDialog open={modal==="event"} onClose={()=>setModal(null)} t={t} editPlan={editPlan} selected={selected} rooms={boot.rooms} eventTitle={eventTitle} setEventTitle={setEventTitle} eventDay={eventDay} setEventDay={setEventDay} eventColor={eventColor} setEventColor={setEventColor} formError={formError} busy={busy} saveEvent={saveEvent}/>
 
-      <Modal
-        open={modal === "detail"}
-        onOpenChange={(v) => !v && setModal(null)}
-        title={t("eventDetails")}
-        closeLabel={t("close")}
-      >
-        {detail && (
-          <div className="event-details">
-            {eventCard(detail)}
-            {detail.description && (
-              <p className="detail-description">{detail.description}</p>
-            )}
-            <div className="detail-room">
-              <Users size={16} />
-              {detail.roomName ||
-                boot.rooms.find((r) => r.id === detail.roomId)?.name}
-            </div>
-            {!detail.cancelled && (
-              <>
-                <h4>{t("confirmLabel")}</h4>
-                <div className="rsvp-options">
-                  {(["yes", "maybe", "no"] as const).map((status, i) => (
-                    <Button
-                      key={status}
-                      variant={
-                        detail.rsvps.find((r) => r.userId === boot.user.id)
-                          ?.status === status
-                          ? "default"
-                          : "outline"
-                      }
-                      disabled={busy === "rsvp-" + detail.id}
-                      onClick={() => rsvp(detail, status)}
-                    >
-                      {t(["going", "maybe", "notGoing"][i])}
-                    </Button>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className="member-list">
-              {detail.rsvps.map((r) => (
-                <div key={r.userId}>
-                  <Avatar name={displayName(r.name)} small />
-                  <span>{displayName(r.name)}</span>
-                  <span className={cn("rsvp-status", r.status)}>
-                    {t(
-                      r.status === "yes"
-                        ? "going"
-                        : r.status === "maybe"
-                          ? "maybe"
-                          : "notGoing",
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="detail-actions">
-              <Button variant="outline" onClick={() => exportEvent(detail)}>
-                <Download size={16} />
-                {t("exportCalendar")}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  const r = boot.rooms.find((x) => x.id === detail.roomId);
-                  if (r) selectRoom(r);
-                  setModal(null);
-                }}
-              >
-                <MessageCircle size={16} />
-                {t("goToConversation")}
-              </Button>
-            </div>
-            {detail.creatorId === boot.user.id && !detail.cancelled && (
-              <div className="owner-actions">
-                <Button
-                  variant="ghost"
-                  onClick={() => openEvent(undefined, detail)}
-                >
-                  <Pencil size={15} />
-                  {t("editEvent")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="text-danger"
-                  busy={busy === "cancel"}
-                  onClick={() => cancelEvent(detail)}
-                >
-                  <Trash2 size={15} />
-                  {t("cancelEvent")}
-                </Button>
-              </div>
-            )}
-            {formError && (
-              <p role="alert" className="form-error">
-                {formError}
-              </p>
-            )}
-          </div>
-        )}
-      </Modal>
+      <EventDetailDialog open={modal==="detail"} onClose={()=>setModal(null)} t={t} detail={detail} rooms={boot.rooms} userId={boot.user.id} busy={busy} formError={formError} eventCard={eventCard} rsvp={rsvp} exportEvent={exportEvent} selectRoom={selectRoom} onEdit={p=>openEvent(undefined,p)} cancelEvent={cancelEvent}/>
 
-      <Modal
-        open={modal === "invite"}
-        onOpenChange={(v) => !v && setModal(null)}
-        title={t("invited")}
-        description={t("inviteDescription")}
-        closeLabel={t("close")}
-      >
-        <div className="invite-preview">
-          <Avatar image={room?.image} name={room?.name || ""} color={room?.color} />{room&&room.ownerId===boot.user.id&&<label className="button outline photo-picker room-photo-picker">{lang==="pt"?"Foto do grupo":"Group photo"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy==="photo"} onChange={e=>{void changePhoto(e.target.files?.[0],true);e.target.value=""}}/></label>}
-          <h3>{room?.name}</h3>
-          <p>
-            {room?.memberCount} {t("members")}
-          </p>
-        </div>
-        <div className="invite-code">
-          <Link size={17} />
-          <input
-            readOnly
-            aria-label={t("inviteLink")}
-            value={room?.inviteCode?inviteLink(room.inviteCode):""}
-          />
-        </div>
-        <Button className="full-width" onClick={()=>copyInvite()}>
-          <Copy size={16} />
-          {t("copyInvite")}
-        </Button>
-        <div className="invite-code invite-token"><KeyRound size={17}/><input readOnly aria-label={t("inviteToken")} value={room?.inviteCode||""}/></div>
-        <Button className="full-width" variant="outline" onClick={()=>copyInvite(true)}><Copy size={16}/>{t("copyToken")}</Button>
-        {modal==='invite'&&room?.inviteCode&&<InvitationTools url={inviteLink(room.inviteCode)} name={room.name} lang={lang}/>}
-        {room&&room.ownerId===boot.user.id&&<Button variant="ghost" className="full-width text-danger delete-group-entry" onClick={()=>{setDeleteError('');setDeleteTarget({id:room.id,name:room.name});setModal(null)}}><Trash2 size={16}/>{t('deleteGroup')}</Button>}
-
-        {formError && (
-          <p role="alert" className="form-error">
-            {formError}
-          </p>
-        )}
-      </Modal>
+      <GroupInviteDialog open={modal==="invite"} onClose={()=>setModal(null)} t={t} busy={busy} formError={formError} room={room} userId={boot.user.id} lang={lang} changePhoto={changePhoto} copyInvite={copyInvite} onDelete={r=>{setDeleteError('');setDeleteTarget({id:r.id,name:r.name});setModal(null)}}/>
 
       <Modal open={!!deleteTarget} onOpenChange={open=>{if(!open&&busy!=='delete-group')setDeleteTarget(null)}} title={t('deleteGroupTitle')} description={deleteTarget?.name} closeLabel={t('close')}>
         <p className="delete-group-warning">{t('deleteGroupWarning')}</p>
@@ -1427,38 +1217,7 @@ export default function App() {
         </div>
       </Modal>
 
-      <Modal
-        open={modal === "members"}
-        onOpenChange={(v) => !v && setModal(null)}
-        title={t("memberTitle")}
-        description={room?.name}
-        closeLabel={t("close")}
-      >
-        <div className="member-list">
-          {busy === "members" ? (
-            <LoaderCircle className="spin" />
-          ) : (
-            members.map((m, i) => (
-              <div key={m.id}>
-                <Avatar image={m.image} name={displayName(m.name)} color={COLORS[i % 5]} />
-                <button type="button" className="profile-name-link" onClick={()=>openProfile(m)}>
-                  {displayName(m.name)}
-                  {m.id === boot.user.id && <small> · {t("me")}</small>}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-        <Button className="full-width" variant="outline" onClick={invite}>
-          <Plus size={16} />
-          {t("invite")}
-        </Button>
-        {formError && (
-          <p role="alert" className="form-error">
-            {formError}
-          </p>
-        )}
-      </Modal>
+      <GroupMembersDialog open={modal==="members"} onClose={()=>setModal(null)} t={t} busy={busy} formError={formError} room={room} userId={boot.user.id} members={members} openProfile={openProfile} invite={invite}/>
 
       {modal==="profile"&&profileTarget&&<ProfileDialog key={profileTarget.id} target={profileTarget} lang={lang} load={async()=>profileTarget.id===boot.user.id?social.me():{...profileTarget,bio:""}} onClose={()=>setModal(null)}/>}
       <AuthDialog open={modal==="auth"} onClose={()=>setModal(null)}
