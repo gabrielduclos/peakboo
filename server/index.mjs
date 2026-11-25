@@ -72,7 +72,8 @@ app.use("/api", async (req, res, next) => {
     req.session = s.session;
     next();
   } catch {
-    jsonError(res, 401, "UNAUTHORIZED");
+    // An unavailable authentication database is not an invalid session.
+    jsonError(res, 503, "SERVICE_UNAVAILABLE");
   }
 });
 privateSocial(app,pool,notifyUsers);
