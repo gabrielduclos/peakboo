@@ -95,3 +95,9 @@ Peakboo focuses on private groups, including two-person groups. Create a group o
 Settings → Profile allows editing the name, @username, bio, avatar and cover. Public profiles are accessible by link without exposing private group data. The API verifies group membership before serving messages and attachments. The portfolio demo remains isolated from the real API.
 
 Legacy contact and direct conversation data remains stored but is not listed or accessible through group endpoints. No data deletion or destructive migration is introduced.
+
+### Tokens, history privacy and in-app notifications
+
+The token is the same secret used by the invitation link; copy it separately and enter it in **Join with token**. Existing links and QR codes stay valid. The server restricts messages, previews, searches, reply references, actions and attachments to each member's join time. Reusing a token does not reset that time.
+
+The calendar stays shared. New events, changes and cancellations by other participants are recorded on the server and refreshed through SSE. Badges show unread messages and calendar notices; the in-app center includes 60- and 15-minute reminders. Calendar notice read state is stored per account in this browser, and reminders are computed locally while the app is open or on return. No push, email or additional periodic database queries are used.

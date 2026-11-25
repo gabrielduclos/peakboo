@@ -95,3 +95,9 @@ O Peakboo é focado em grupos privados, inclusive grupos de duas pessoas. Crie u
 Em Configurações → Perfil, é possível editar nome, @usuário, biografia, foto e capa. Perfis públicos podem ser consultados pelo link, sem expor dados privados de grupos. A API verifica a participação nos grupos antes de entregar mensagens e anexos. A demo continua isolada da API real.
 
 Os dados legados de contatos e conversas individuais permanecem armazenados, mas não são listados nem acessíveis pelos endpoints de grupos. Nenhuma exclusão de dados ou migração destrutiva foi introduzida.
+
+### Tokens, privacidade e notificações internas
+
+O token é o segredo já usado no link de convite; pode ser copiado separadamente e inserido em **Entrar com token**. Links e QR Codes existentes continuam válidos. O servidor restringe mensagens, prévias, buscas, respostas, ações e anexos à data de entrada de cada participante. Reutilizar um token não altera essa data.
+
+A agenda permanece compartilhada. Novos compromissos, alterações e cancelamentos de outros participantes são registrados no servidor e atualizados pelo SSE. Badges mostram mensagens não lidas e avisos da agenda; a central interna inclui lembretes de 60 e 15 minutos. A leitura dos avisos da agenda é armazenada por conta neste navegador, e os lembretes são calculados localmente enquanto o aplicativo está aberto ou ao retornar. Não há push, e-mail nem consultas periódicas adicionais ao banco.

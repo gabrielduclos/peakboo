@@ -422,6 +422,46 @@ try {
   check("repeated group deletion returns not found",()=>assert.equal(repeated.status,404));
   const kept=await call(`/api/rooms/${keptRoom.data.id}/messages`,alice.token);
   check("deletion preserves other groups and their messages",()=>assert.ok(kept.data.messages.some(m=>m.id===keptMessage)));
+  const privacyRoom=await call('/api/rooms',alice.token,'POST',{name:'Privacy test',description:'',color:'blue'});
+  const privacyId=privacyRoom.data.id;
+  const privacyCode=(await call('/api/bootstrap',alice.token)).data.rooms.find(r=>r.id===privacyId).inviteCode;
+  const oldId=randomUUID();
+  const oldUpload=await binary('/api/rooms/'+privacyId+'/files?name=old.txt',alice.token,'text/plain',Buffer.from('old private bytes'));
+  assert.equal(oldUpload.status,201);const oldFile=await oldUpload.json();
+  await call('/api/rooms/'+privacyId+'/messages',alice.token,'POST',{id:oldId,text:'Before membership secret',attachmentId:oldFile.id});
+  await call('/api/rooms/'+privacyId+'/messages/'+oldId+'/pin',alice.token,'POST',{});
+  await call('/api/join',charlie.token,'POST',{code:privacyCode});
+  const newcomer=(await call('/api/bootstrap',charlie.token)).data.rooms.find(r=>r.id===privacyId);
+  check('new members cannot see old previews or unread counts',()=>{assert.equal(newcomer.lastText,null);assert.equal(newcomer.lastAt,null);assert.equal(newcomer.unread,0)});
+  for(const query of ['', '?q=secret','?kind=pinned','?kind=files','?around='+oldId]){
+    const hidden=await call('/api/rooms/'+privacyId+'/messages'+query,charlie.token);
+    check('pre-join history is hidden '+query,()=>assert.equal(hidden.data.messages.length,0));
+  }
+  const hiddenMedia=await call('/api/media/'+oldFile.id,charlie.token);
+  check('pre-join attachment cannot be fetched by ID',()=>assert.equal(hiddenMedia.status,404));
+  const hiddenPin=await call('/api/rooms/'+privacyId+'/messages/'+oldId+'/pin',charlie.token,'POST',{});
+  check('new members cannot interact with pre-join messages',()=>assert.equal(hiddenPin.status,404));
+  const hiddenReply=await call('/api/rooms/'+privacyId+'/messages',charlie.token,'POST',{id:randomUUID(),text:'Attempt',replyTo:oldId});
+  check('new members cannot reply to a hidden message',()=>assert.equal(hiddenReply.status,400));
+  const newId=randomUUID();
+  await call('/api/rooms/'+privacyId+'/messages',alice.token,'POST',{id:newId,text:'After membership',replyTo:oldId});
+  const visible=await call('/api/rooms/'+privacyId+'/messages',charlie.token);
+  check('post-join replies do not reveal the hidden original',()=>{assert.equal(visible.data.messages.length,1);const m=visible.data.messages[0];assert.equal(m.id,newId);assert.equal(m.replyTo,null);assert.equal(m.replyText,null);assert.equal(m.replySenderName,null)});
+  await call('/api/join',charlie.token,'POST',{code:privacyCode});
+  const repeatHistory=await call('/api/rooms/'+privacyId+'/messages',charlie.token);
+  check('reusing an invitation does not reset membership history',()=>assert.ok(repeatHistory.data.messages.some(m=>m.id===newId)));
+  const noticeEvent=await call('/api/rooms/'+privacyId+'/events',alice.token,'POST',{title:'Reminder test',startsAt:new Date(Date.now()+1800000).toISOString(),endsAt:new Date(Date.now()+3600000).toISOString(),color:'blue'});
+  assert.equal(noticeEvent.status,201);
+  const notices=(await call('/api/bootstrap',charlie.token)).data.activity;
+  check('event activity is scoped to other current group members',()=>assert.ok(notices.some(a=>a.eventId===noticeEvent.data.id&&a.action==='created')));
+  const editedNotice=await call('/api/rooms/'+privacyId+'/events/'+noticeEvent.data.id,alice.token,'PUT',{title:'Updated reminder test',startsAt:new Date(Date.now()+1800000).toISOString(),endsAt:new Date(Date.now()+3600000).toISOString(),color:'blue'});
+  assert.equal(editedNotice.status,200);
+  const cancelledNotice=await call('/api/rooms/'+privacyId+'/events/'+noticeEvent.data.id,alice.token,'DELETE');
+  assert.equal(cancelledNotice.status,200);
+  const noticeActions=(await call('/api/bootstrap',charlie.token)).data.activity.filter(a=>a.eventId===noticeEvent.data.id).map(a=>a.action);
+  check('event updates and cancellations produce durable internal notices',()=>assert.deepEqual(new Set(noticeActions),new Set(['created','updated','cancelled'])));
+  const outsiderNotices=(await call('/api/bootstrap',bob.token)).data.activity;
+  check('event activity is not exposed to outsiders',()=>assert.ok(!outsiderNotices.some(a=>a.eventId===noticeEvent.data.id)));
   const keptProfile=await call('/api/bootstrap',alice.token);
   check("deletion preserves user accounts and profile photos",()=>assert.ok(keptProfile.data.user.image));
 
