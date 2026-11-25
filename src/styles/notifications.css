@@ -17,3 +17,5 @@
 @media(max-width:700px){.mobile-nav{gap:4px;padding-inline:8px}.mobile-nav>button{min-width:0;flex:1;min-height:44px;font-size:10px}}
 @media(min-width:701px) and (max-width:1000px){.sidebar .nav-item{position:relative}.sidebar .nav-item>.notification-count{display:inline-flex;position:absolute;top:2px;right:0}}
 
+
+.notification-modal .notification-mark-read{border:0;box-shadow:none;background:transparent;color:var(--primary)}.notification-entry{display:flex;align-items:center;gap:4px;min-width:0}.notification-entry .notification-row{flex:1;min-width:0}.notification-delete{display:grid;place-items:center;flex:0 0 40px;min-height:44px;color:var(--muted);border:0;border-radius:8px;background:transparent}.notification-delete:hover{color:#b42318;background:var(--surface-2)}.notification-delete:focus-visible{outline:2px solid var(--primary)}

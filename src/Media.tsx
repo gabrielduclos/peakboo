@@ -1,6 +1,7 @@
 import {ChatAudioPlayer} from './ChatAudioPlayer';
 export {ChatAudioPlayer} from './ChatAudioPlayer';
 import {useEffect,useState} from 'react';
+import {MapPin,ExternalLink} from 'lucide-react';
 import {API,getToken} from './api';
 export async function uploadMedia(path:string,file:File){
  const dimensions=await mediaDimensions(file);
@@ -62,13 +63,32 @@ export function MessageMedia({attachment,lang='pt',onOpen}:{attachment?:{id:stri
  const visual=/^(image|video)\//.test(attachment.mime),audio=attachment.mime.startsWith('audio/');
  const label=mediaLabel(attachment.mime,lang==='pt');
  const ratio=attachment.width&&attachment.height?attachment.width/attachment.height:4/3;
- return <div className="message-media">
- {(visual||audio)&&<div className="media-frame" style={visual?{aspectRatio:String(ratio),width:Math.min(360,attachment.width||360),maxWidth:'100%'}:{height:54}}>
+ return <div className={audio?"message-media message-audio":"message-media"}>
+ {(visual||audio)&&<div className="media-frame" style={visual?{aspectRatio:String(ratio),width:Math.min(360,attachment.width||360),maxWidth:'100%'}:{width:280,height:54}}>
  {!ready&&!media.error&&<div className="media-skeleton" role="status" aria-label={lang==='pt'?'Carregando mídia':'Loading media'}/>}
- {media.url&&(attachment.mime.startsWith('image/')?<button type="button" className="open-chat-photo" onClick={onOpen} aria-label={lang==='pt'?'Abrir foto na galeria':'Open photo gallery'}><img src={media.url} alt={label} onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/></button>:attachment.mime.startsWith('video/')?<video controls preload="metadata" src={media.url} onLoadedData={()=>setReady(true)}/>:<ChatAudioPlayer src={media.url} lang={lang} onReady={()=>setReady(true)}/>)}
+ {media.url&&(attachment.mime.startsWith('image/')?<button type="button" className="open-chat-photo" onClick={onOpen} aria-label={lang==='pt'?'Abrir foto na galeria':'Open photo gallery'}><img src={media.url} alt={label} onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/></button>:attachment.mime.startsWith('video/')?<video controls preload="metadata" src={media.url} onLoadedData={()=>setReady(true)}/>:<div style={{visibility:ready?"visible":"hidden"}}><ChatAudioPlayer src={media.url} lang={lang} onReady={()=>setReady(true)}/></div>)}
  </div>}
  {media.error?<button type="button" onClick={media.retry}>{lang==='pt'?'Tentar carregar novamente':'Retry loading'}</button>:media.url?(!visual&&!audio?<a className="document-open" href={media.url} target="_blank" rel="noreferrer">{label}</a>:null):!visual&&!audio?<span className="media-skeleton file-skeleton" role="status" aria-label={lang==='pt'?'Carregando documento':'Loading document'}/>:null}
  </div>;
 }
 
-export function MessageText({text}:{text:string}){return <>{text.split(/(https?:\/\/[^\s]+)/g).map((part,i)=>/^https?:\/\//.test(part)?<a key={i} href={part} target="_blank" rel="noopener noreferrer" className="message-link">{part}</a>:part)}</>;}
+export function mapCoordinates(part:string):{lat:number;lon:number}|null {
+ try{
+  const url=new URL(part);if(url.protocol!=='https:'||url.username||url.password||url.port)return null;
+  let coordinates:string[]=[];
+  if(url.hostname==='www.google.com'&&url.pathname==='/maps/search/'&&url.searchParams.get('api')==='1')coordinates=(url.searchParams.get('query')||'').split(',');
+  else if(url.hostname==='www.openstreetmap.org'&&url.pathname==='/')coordinates=[url.searchParams.get('mlat')||'',url.searchParams.get('mlon')||''];
+  if(coordinates.length!==2||coordinates.some(v=>!/^[-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?$/i.test(v)))return null;
+  const [lat,lon]=coordinates.map(Number);return Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180?{lat,lon}:null;
+ }catch{return null}
+}
+function LocationCard({lat,lon,lang}:{lat:number;lon:number;lang:string}){
+ const pt=lang==='pt',coords=`${lat},${lon}`;
+ const href='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(coords);
+ const preview='https://www.google.com/maps?q='+encodeURIComponent(coords)+'&z=15&output=embed';
+ return <a className="location-card" href={href} target="_blank" rel="noopener noreferrer" aria-label={pt?'Abrir localização no Google Maps':'Open location in Google Maps'}>
+  <span className="location-preview"><span className="location-fallback"><MapPin size={32}/></span><iframe src={preview} title={pt?'Prévia do mapa':'Map preview'} loading="lazy" referrerPolicy="no-referrer" tabIndex={-1} aria-hidden="true" sandbox="allow-scripts allow-same-origin"/></span>
+  <span className="location-card-label"><MapPin size={17}/><span>{pt?'Localização':'Location'}<small>Google Maps</small></span><ExternalLink size={15}/></span>
+ </a>;
+}
+export function MessageText({text,lang='pt'}:{text:string;lang?:string}){return <>{text.split(/(https?:\/\/[^\s]+)/g).map((part,i)=>{if(!/^https?:\/\//.test(part))return part;const coords=mapCoordinates(part);return coords?<LocationCard key={i} {...coords} lang={lang}/>:<a key={i} href={part} target="_blank" rel="noopener noreferrer" className="message-link">{part}</a>})}</>;}

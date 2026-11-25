@@ -314,4 +314,29 @@ try{
  await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(saved.get('roomId'),'r');await act(async()=>form.querySelector('.form-footer button').click());assert.equal(closed,1);
  }finally{await act(async()=>root.unmount())}
  });
+
+ await test('location cards preserve captions, validate coordinates and link to Google Maps',async()=>{
+ const out=dir+'/location-media.mjs';await build({entryPoints:['src/Media.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});
+ const {MessageText,mapCoordinates,MessageMedia}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));
+ try{
+ assert.deepEqual(mapCoordinates('https://www.google.com/maps/search/?api=1&query=-23.5,-46.6'),{lat:-23.5,lon:-46.6});
+ assert.deepEqual(mapCoordinates('https://www.openstreetmap.org/?mlat=0&mlon=0#map=16/0/0'),{lat:0,lon:0});
+ assert.equal(mapCoordinates('https://www.google.com/maps/search/?api=1&query=91,0'),null);
+ assert.equal(mapCoordinates('https://example.com/maps/search/?api=1&query=1,2'),null);
+ await act(async()=>root.render(createElement(MessageText,{text:'Meeting point\nhttps://www.google.com/maps/search/?api=1&query=-23.5,-46.6',lang:'en'})));
+ const card=document.querySelector('.location-card');assert.ok(card);assert.equal(card.hostname,'www.google.com');assert.equal(card.querySelector('iframe').loading||card.querySelector('iframe').getAttribute('loading'),'lazy');assert.ok(document.getElementById('root').textContent.includes('Meeting point'));
+ await act(async()=>root.render(createElement(MessageMedia,{attachment:{id:'voice',name:'voice.webm',mime:'audio/webm',size:32,url:'data:audio/webm;base64,YQ=='},lang:'en'})));
+ const frame=document.querySelector('.message-audio .media-frame');assert.ok(frame);assert.equal(frame.style.width,'280px');assert.equal(frame.style.height,'54px');assert.ok(frame.querySelector('.media-skeleton'));
+ }finally{await act(async()=>root.unmount())}
+ });
+ await test('dismissed notifications persist across remount and preserve unread chat count',async()=>{
+ const out=dir+'/internal-notifications.mjs';await build({entryPoints:['src/InternalNotifications.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});
+ const {useInternalNotifications,NotificationCenter}=await import(pathToFileURL(out));
+ const key='peakboo-notifications-v1:dismiss-test:dismissed';localStorage.removeItem(key);
+ const room={id:'r',name:'Group',description:'',color:'blue',ownerId:'dismiss-test',memberCount:1,unread:2,lastAt:'2026-11-25T12:00:00Z'};
+ const boot={user:{id:'dismiss-test',name:'Test',email:'test@example.invalid'},rooms:[room],events:[],activity:[{id:'notice',roomId:'r',eventId:'event',eventTitle:'Meeting',roomName:'Group',action:'created',createdAt:'2026-11-25T12:00:00Z'}]};
+ let center;function Fixture(){center=useInternalNotifications(boot);return createElement(NotificationCenter,{boot,center,lang:'en',onRoom:()=>{},onEvent:()=>{}})}
+ let root=createRoot(document.getElementById('root'));
+ try{await act(async()=>root.render(createElement(Fixture)));assert.equal(center.total,3);assert.ok(document.querySelector('.notification-mark-read.ghost'));await act(async()=>document.querySelectorAll('.notification-delete')[1].click());assert.equal(center.total,2);assert.equal(center.notices.length,0);await act(async()=>document.querySelector('.notification-delete').click());assert.equal(center.total,0);assert.equal(center.messageUnread,2);await act(async()=>root.unmount());root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Fixture)));assert.equal(center.total,0);assert.ok(document.querySelector('.notification-empty'));}finally{await act(async()=>root.unmount());localStorage.removeItem(key)}
+ });
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}

@@ -589,7 +589,7 @@ export default function App() {
     setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m,file);setText('');setReplying(null);void deliverPending(m);
   }
   async function sendLocation(lat:number,lon:number,caption:string){
-    const content=[caption,`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`].filter(Boolean).join("\n");
+    const content=[caption,`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`].filter(Boolean).join("\n");
     await sendMessage({id:crypto.randomUUID(),text:content,roomId:selected!});
   }
   async function changePhoto(file:File|undefined,roomPhoto=false){
