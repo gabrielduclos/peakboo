@@ -34,3 +34,6 @@
   .app-shell.chat-open .peakboo-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
 }
 
+
+/* Profile entry points retain the existing sender typography and keyboard focus. */
+.profile-name-link{padding:0;text-align:left;max-width:100%;overflow-wrap:anywhere}.profile-name-link:hover{text-decoration:underline;color:var(--primary)}.member-list .profile-name-link{font:inherit}

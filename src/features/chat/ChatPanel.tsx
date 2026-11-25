@@ -20,6 +20,7 @@ type FailedMessage={id:string;text:string;roomId:string};
 type ChatPanelProps={
  room:Room|undefined;rooms:Room[];events:Plan[];userId:string;lang:string;locale:string;
  t:(key:string)=>string;time:(date:string)=>string;onBack:()=>void;onRoomPhoto:()=>void;
+ onProfile?:(user:{id:string;name:string;image?:string|null})=>void;
  showMembers:()=>void;invite:()=>void;onCreateEvent:()=>void;onCreateRoom:()=>void;
  showChatSearch:boolean;setShowChatSearch:(value:boolean)=>void;chatQuery:string;setChatQuery:(value:string)=>void;
  chatFilter:ChatFilter;setChatFilter:(value:ChatFilter)=>void;pinnedMessages:Message[];
@@ -34,7 +35,7 @@ type ChatPanelProps={
  selected:string|null;text:string;setText:(text:string)=>void;sendAttachment:(file:File,caption:string)=>Promise<void>;
  sendLocation:(lat:number,lon:number,caption:string)=>Promise<void>;composerRef:RefObject<HTMLTextAreaElement|null>;
 };
-export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,onRoomPhoto,showMembers,invite,onCreateEvent,onCreateRoom,showChatSearch,setShowChatSearch,chatQuery,setChatQuery,chatFilter,setChatFilter,pinnedMessages,chatScroll,canLoadOlder,onLoadOlder,busy,filtering,historyLoading,loadingMessages,filterLoading,currentMessages,rawMessages,bottomRef,eventCard,openDetail,messageAction,jumpToReply,setGalleryId,galleryId,deliverPending,pendingReactions,react,failed,sendMessage,replying,editing,setReplying,setEditing,selected,text,setText,sendAttachment,sendLocation,composerRef}:ChatPanelProps){
+export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,onRoomPhoto,onProfile,showMembers,invite,onCreateEvent,onCreateRoom,showChatSearch,setShowChatSearch,chatQuery,setChatQuery,chatFilter,setChatFilter,pinnedMessages,chatScroll,canLoadOlder,onLoadOlder,busy,filtering,historyLoading,loadingMessages,filterLoading,currentMessages,rawMessages,bottomRef,eventCard,openDetail,messageAction,jumpToReply,setGalleryId,galleryId,deliverPending,pendingReactions,react,failed,sendMessage,replying,editing,setReplying,setEditing,selected,text,setText,sendAttachment,sendLocation,composerRef}:ChatPanelProps){
  return (
   <section className="chat-panel">
     {room ? (
@@ -178,9 +179,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                     )}
                     <div className="message-body">
                       {!own && !grouped && (
-                        <span className="sender-name">
-                          {m.senderName}
-                        </span>
+                        <button type="button" className="sender-name profile-name-link" onClick={()=>onProfile?.({id:m.senderId,name:m.senderName,image:m.senderImage})} disabled={!onProfile}>{m.senderName}</button>
                       )}
                       {p ? (
                         eventCard(p)

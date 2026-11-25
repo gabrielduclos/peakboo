@@ -1,8 +1,8 @@
 // Profile presentation adapted from Uorqui.
 import { useEffect, useRef, useState } from "react";
 import { Camera } from "lucide-react";
-import { Avatar, Button } from "./components";
-import { useMedia } from "./Media";
+import { Avatar, Button, Modal } from "./components";
+import { MediaImage, useMedia } from "./Media";
 import { ProfilePhotoCropper } from "./ProfilePhotoCropper";
 import type { Profile, SocialAPI } from "./socialApi";
 const words = {
@@ -33,11 +33,11 @@ const words = {
 };
 export const socialWords = (lang: string) => words[lang === "pt" ? "pt" : "en"];
 function Cover({ src }: { src?: string | null }) {
-  const { url } = useMedia(src);
+  const { url, error } = useMedia(src);
   return (
     <div className="profile-cover">
-      {src && !url && <span className="media-skeleton" />}
-      {url && <img src={url} alt="" />}
+      {src && !url && !error && <span className="media-skeleton" />}
+      {url && <MediaImage key={url} url={url}/>}
     </div>
   );
 }
@@ -53,6 +53,7 @@ export function ProfileEditor({
   const t = socialWords(lang),
     [profile, setProfile] = useState<Profile | null>(null),
     [error, setError] = useState(""),
+    [attempt, setAttempt] = useState(0),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [crop, setCrop] = useState<{ file: File; kind: "avatar" | "cover" } | null>(
@@ -61,6 +62,7 @@ export function ProfileEditor({
   const lock = useRef(false);
   useEffect(() => {
     let live = true;
+    const timer=setTimeout(()=>{if(live){live=false;setError(t.error)}},25000);
     api
       .me()
       .then((p) => {
@@ -68,11 +70,12 @@ export function ProfileEditor({
       })
       .catch(() => {
         if (live) setError(t.error);
-      });
+      }).finally(()=>clearTimeout(timer));
     return () => {
+      clearTimeout(timer);
       live = false;
     };
-  }, [api]);
+  }, [api, attempt]);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!profile || lock.current) return;
@@ -111,7 +114,7 @@ export function ProfileEditor({
         </p>
       )}
       {!profile ? (
-        <div className="social-skeleton" role="status" aria-label={t.loading} />
+        error ? <Button variant="outline" onClick={()=>{setError("");setAttempt(x=>x+1)}}>{lang==="pt"?"Tentar novamente":"Retry"}</Button> : <div className="social-skeleton" role="status" aria-label={t.loading} />
       ) : (
         <>
           <Cover src={profile.cover} />
@@ -189,4 +192,14 @@ export function ProfileEditor({
       )}
     </div>
   );
+}
+
+export type ProfileTarget={id:string;name:string;image?:string|null};
+export function ProfileDialog({target,load,lang,onClose}:{target:ProfileTarget;load:()=>Promise<Profile>;lang:string;onClose:()=>void}){
+ const t=socialWords(lang);
+ const [profile,setProfile]=useState<Profile|null>(null),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
+ useEffect(()=>{let active=true;const timer=setTimeout(()=>{if(active){active=false;setFailed(true)}},25000);load().then(p=>{if(active)setProfile(p)}).catch(()=>{if(active)setFailed(true)}).finally(()=>clearTimeout(timer));return()=>{active=false;clearTimeout(timer)}},[attempt]);
+ return <Modal open onOpenChange={v=>{if(!v)onClose()}} title={lang==="pt"?"Perfil":"Profile"} closeLabel={t.close}>
+ {profile?<div className="profile-editor"><Cover src={profile.cover}/><div className="profile-identity"><Avatar name={profile.name} image={profile.image}/><strong>{profile.name}</strong></div>{profile.bio&&<p className="profile-bio">{profile.bio}</p>}</div>:failed?<><p role="alert" className="form-error">{t.error}</p><Button variant="outline" onClick={()=>{setFailed(false);setAttempt(x=>x+1)}}>{lang==="pt"?"Tentar novamente":"Retry"}</Button></>:<div className="profile-editor"><div className="profile-identity"><Avatar name={target.name}/><strong>{target.name}</strong></div><div className="social-skeleton" role="status" aria-label={t.loading}/></div>}
+ </Modal>;
 }

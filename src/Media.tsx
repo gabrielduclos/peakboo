@@ -31,17 +31,24 @@ export async function cachedMedia(src:string){
  const current=pending.get(key);if(current)return current;
  const g=generation;
  const task=(async()=>{
- const b=src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/(?:media|public-media)\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');return r.blob()})();
+ const b=src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/(?:media|public-media)\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);try{const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');return await r.blob()}finally{clearTimeout(timer)}})();
  if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
  const old=cache.get(key);if(old){old.checked=Date.now();old.used=Date.now();return old.url;}const url=URL.createObjectURL(b);cache.set(key,{url,size:b.size,checked:Date.now(),used:Date.now()});trimCache();return url;
  })().finally(()=>{if(pending.get(key)===task)pending.delete(key)});pending.set(key,task);return task;
 }
 export function useMedia(src?:string|null){
- const [state,setState]=useState({url:'',error:false});const [retry,setRetry]=useState(0);
- useEffect(()=>{let live=true;const key=account+':'+(getToken()||'')+':'+src;active.set(key,(active.get(key)||0)+1);setState({url:'',error:false});if(src)cachedMedia(src).then(url=>{if(live)setState({url,error:false})}).catch(()=>{if(live)setState({url:'',error:true})});return()=>{live=false;active.set(key,Math.max(0,(active.get(key)||1)-1));trimCache()}},[src,retry]);
- return {...state,retry:()=>setRetry(x=>x+1)};
+ const [state,setState]=useState<{src?:string|null;url:string;error:boolean}>({src,url:'',error:false});const [retry,setRetry]=useState(0);
+ useEffect(()=>{let live=true;const key=account+':'+(getToken()||'')+':'+src;active.set(key,(active.get(key)||0)+1);setState({src,url:'',error:false});const timer=setTimeout(()=>{if(live){live=false;setState({src,url:'',error:true})}},25000);if(src)cachedMedia(src).then(url=>{if(live)setState({src,url,error:false})}).catch(()=>{if(live)setState({src,url:'',error:true})}).finally(()=>clearTimeout(timer));else clearTimeout(timer);return()=>{clearTimeout(timer);live=false;const count=(active.get(key)||1)-1;if(count>0)active.set(key,count);else active.delete(key);trimCache()}},[src,retry]);
+ return {...(state.src===src?state:{url:'',error:false}),retry:()=>setRetry(x=>x+1)};
 }
-export function AvatarPhoto({src}:{src:string}){const {url,error}=useMedia(src);const [ready,setReady]=useState(false);useEffect(()=>setReady(false),[url]);return <>{!ready&&!error&&<span className="media-skeleton avatar-photo" aria-hidden="true"/>}{url&&<img src={url} alt="" className="avatar-photo" onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/>}</>;}
+// Track decode state by URL, not a resetting effect that can race a cached load.
+export function MediaImage({url,className}:{url:string;className?:string}){
+ const [state,setState]=useState<'loading'|'ready'|'failed'>('loading');
+ useEffect(()=>{if(state!=='loading')return;const timer=setTimeout(()=>setState('failed'),12000);return()=>clearTimeout(timer)},[state]);
+ if(state==='failed')return null;
+ return <>{state==='loading'&&<span className="media-skeleton avatar-photo" aria-hidden="true"/>}<img src={url} alt="" className={className} ref={node=>{if(node?.complete)setState(node.naturalWidth?'ready':'failed')}} onLoad={()=>setState('ready')} onError={()=>setState('failed')} style={{opacity:state==='ready'?1:0}}/></>;
+}
+export function AvatarPhoto({src}:{src:string}){const {url,error}=useMedia(src);return url?<MediaImage key={url} url={url} className="avatar-photo"/>:error?null:<span className="media-skeleton avatar-photo" aria-hidden="true"/>;}
 export async function mediaDimensions(file:File):Promise<{width:number;height:number}|undefined>{
  if(file.type.startsWith('image/')){try{const b=await createImageBitmap(file);const d={width:b.width,height:b.height};b.close();return d}catch{return}}
  if(file.type.startsWith('video/'))return new Promise(resolve=>{const v=document.createElement('video'),url=URL.createObjectURL(file);let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);const d=v.videoWidth&&v.videoHeight?{width:v.videoWidth,height:v.videoHeight}:undefined;v.removeAttribute('src');v.load();URL.revokeObjectURL(url);resolve(d)};const timer=setTimeout(finish,5000);v.onloadedmetadata=finish;v.onerror=finish;v.preload='metadata';v.src=url;});

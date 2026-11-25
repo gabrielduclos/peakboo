@@ -268,4 +268,17 @@ try{
  }finally{await act(async()=>root.unmount())}
  });
 
+
+ await test('avatar falls back to initials after failed media and failed image decode',async()=>{
+ const fixture=dir+'/avatar-failure.tsx';await writeFile(fixture,`import {useState} from 'react';import {Avatar} from '../src/components';export default function Fixture(){const [src,setSrc]=useState('/api/media/12345678-1234-1234-1234-123456789abc');return <><Avatar name="Ana Silva" image={src}/><button id="bad-decode" onClick={()=>setSrc('data:image/png;base64,broken')}/><button id="good" onClick={()=>setSrc('data:image/png;base64,valid')}/></>}`);
+ globalThis.fetch=async()=>new Response('{}',{status:404});const root=await mount(fixture);
+ try{await act(async()=>new Promise(r=>setTimeout(r,0)));assert.equal(document.querySelector('.avatar').textContent,'AS');assert.equal(document.querySelector('.avatar .media-skeleton'),null);
+ await act(async()=>document.querySelector('#bad-decode').click());const img=document.querySelector('.avatar img');assert.ok(img);await act(async()=>img.dispatchEvent(new Event('error')));assert.equal(document.querySelector('.avatar img'),null);assert.equal(document.querySelector('.avatar .media-skeleton'),null);
+ await act(async()=>document.querySelector('#good').click());const good=document.querySelector('.avatar img');assert.ok(good);await act(async()=>good.dispatchEvent(new Event('load')));assert.equal(good.style.opacity,'1');assert.equal(document.querySelector('.avatar .media-skeleton'),null)
+ }finally{await act(async()=>root.unmount())}
+ });
+ await test('portfolio sender names open a local read-only profile without network',async()=>{
+ localStorage.removeItem('peakboo-demo-v1');let calls=0;globalThis.fetch=async()=>{calls++;throw Error('Unexpected network')};const root=await mount('src/portfolio/PortfolioApp.tsx');
+ try{const sender=document.querySelector('button.sender-name');assert.ok(sender);const name=sender.textContent;await act(async()=>sender.click());const profile=document.querySelector('[role=dialog] .profile-editor');assert.ok(profile);assert.ok(profile.textContent.includes(name));assert.equal(profile.querySelector('form'),null);assert.equal(calls,0);await act(async()=>document.querySelector('[role=dialog] [aria-label=Fechar]').click());assert.equal(document.querySelector('[role=dialog]'),null)}finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1')}
+ });
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}

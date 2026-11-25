@@ -4,7 +4,7 @@ import {CalendarPage,EventCard,MiniCalendar} from "./features/calendar/CalendarV
 import {GroupsPanel} from "./features/groups/GroupsPanel";
 import {useAppNavigation,useMobileViewport} from "./appNavigation";
 import {ReplyReference,replySnapshot} from "./ReplyReference";
-import {ProfileEditor} from "./Social";
+import {ProfileEditor,ProfileDialog,type ProfileTarget} from "./Social";
 import {PushSettings} from "./PushSettings";
 import {disablePush} from "./pwa";
 import {PwaInvites} from "./PwaInvites";
@@ -103,6 +103,8 @@ export default function App() {
 
   const [boot, setBoot] = useState<Boot>(() => emptyBoot);
   const social=socialAPI;
+  const [profileTarget,setProfileTarget]=useState<ProfileTarget|null>(null);
+  function openProfile(target:ProfileTarget){setProfileTarget(target);openModal("profile");}
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [selected, setSelected] = useState<string | null>(() => null);
   const [view, setView] = useState<"chats" | "calendar">("chats");
@@ -143,6 +145,7 @@ export default function App() {
     | "new"
     | "invite"
     | "members"
+    | "profile"
     | "notifications"
     | "settings"
     | "auth"
@@ -977,7 +980,7 @@ export default function App() {
               onCreate={()=>{setNewTab("create");openModal("new")}}
               onJoin={()=>{setNewTab("join");openModal("new")}}/>
             <ChatPanel room={room} rooms={boot.rooms} events={boot.events} userId={boot.user.id} lang={lang} locale={locale} t={t} time={time}
-              onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite}
+              onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite} onProfile={openProfile}
               onCreateEvent={()=>openEvent()} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
               showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch} chatQuery={chatQuery} setChatQuery={setChatQuery}
               chatFilter={chatFilter} setChatFilter={setChatFilter} pinnedMessages={pinnedMessages} chatScroll={chatScroll}
@@ -1473,10 +1476,10 @@ export default function App() {
             members.map((m, i) => (
               <div key={m.id}>
                 <Avatar image={m.image} name={m.name} color={COLORS[i % 5]} />
-                <span>
+                <button type="button" className="profile-name-link" onClick={()=>openProfile(m)}>
                   {m.name}
                   {m.id === boot.user.id && <small> · {t("me")}</small>}
-                </span>
+                </button>
               </div>
             ))
           )}
@@ -1492,6 +1495,7 @@ export default function App() {
         )}
       </Modal>
 
+      {modal==="profile"&&boot.user.id&&profileTarget&&<ProfileDialog key={boot.user.id+":"+profileTarget.id} target={profileTarget} lang={lang} load={async()=> (await request("/api/profiles/"+encodeURIComponent(profileTarget.id))).profile} onClose={()=>setModal(null)}/>}
       <AuthDialog open={modal==="auth"||!getToken()} required={!getToken()} preventAutoFocus onClose={()=>setModal(null)}
         authMode={authMode} setAuthMode={setAuthMode} setFormError={setFormError} pendingInvite={!!pendingInvite} authenticate={authenticate}
         t={t} showPassword={showPassword} setShowPassword={setShowPassword} busy={busy} formError={formError}/>
