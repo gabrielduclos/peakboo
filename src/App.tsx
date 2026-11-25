@@ -198,6 +198,16 @@ export default function App() {
       minute: "2-digit",
     });
   const notify = (message: string) => setToast(message);
+  const noticeSnapshot=useRef<{user:string;ids:Set<string>}|null>(null);
+  useEffect(()=>{
+    if(loading||!boot.user.id){noticeSnapshot.current=null;return;}
+    const current=new Set(notificationCenter.notices.map(n=>n.id));
+    const previous=noticeSnapshot.current;
+    noticeSnapshot.current={user:boot.user.id,ids:current};
+    if(!previous||previous.user!==boot.user.id||document.hidden)return;
+    const fresh=notificationCenter.notices.find(n=>!previous.ids.has(n.id)&&!notificationCenter.read.has(n.id));
+    if(fresh)setToast((fresh.action==="reminder"?(lang==="pt"?"Lembrete: ":"Reminder: "):(lang==="pt"?"Atualização na agenda: ":"Calendar update: "))+fresh.title);
+  },[boot.user.id,loading,notificationCenter.notices,lang]);
   const errorText = (e: unknown) => {
     const k = e instanceof Error ? e.message : "";
     if(k==="STORAGE_FULL")return lang==="pt"?"Seu espaço para arquivos está cheio.":"Your file storage is full.";
@@ -302,7 +312,7 @@ export default function App() {
     };
   }, [refresh]);
   useEffect(() => {
-    if (!selected || !chatVisibleRef.current || document.hidden) return;
+    if (!selected) return;
     let alive = true;
     setLoadingMessages(!messages[selected]);
     fetchMessages(selected).then(async()=>{
@@ -406,10 +416,6 @@ export default function App() {
     setChatQuery("");
     setFailed(null);
     setText("");
-    setBoot((b) => ({
-      ...b,
-      rooms: b.rooms.map((x) => (x.id === r.id ? { ...x, unread: 0 } : x)),
-    }));
   }
   function openEvent(initial?: string, edit?: Plan) {
     setEditPlan(edit || null);

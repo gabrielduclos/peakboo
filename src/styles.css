@@ -3862,7 +3862,7 @@ button.reply-reference-line:hover{text-decoration:underline}
 .notification-icon{position:relative;display:inline-flex;align-items:center;justify-content:center}
 .notification-icon>.notification-count{position:absolute;top:-7px;right:-12px;border:1px solid var(--surface);pointer-events:none}
 .notification-center{display:flex;flex-direction:column;gap:8px;max-height:min(65vh,560px);overflow:auto}
-.notification-row{display:flex;align-items:flex-start;gap:12px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;min-height:52px;width:100%;color:var(--text)}
+.notification-row{display:flex;align-items:flex-start;gap:12px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;min-height:52px;width:100%;color:inherit}
 .notification-row>svg{flex-shrink:0;margin-top:3px;color:var(--primary)}
 .notification-row>span:not(.notification-unread-dot){flex:1;min-width:0;display:grid;gap:3px;overflow-wrap:anywhere}
 .notification-row strong{font-size:14px;font-weight:600}

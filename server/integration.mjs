@@ -454,6 +454,12 @@ try {
   assert.equal(noticeEvent.status,201);
   const notices=(await call('/api/bootstrap',charlie.token)).data.activity;
   check('event activity is scoped to other current group members',()=>assert.ok(notices.some(a=>a.eventId===noticeEvent.data.id&&a.action==='created')));
+  const editedNotice=await call('/api/rooms/'+privacyId+'/events/'+noticeEvent.data.id,alice.token,'PUT',{title:'Updated reminder test',startsAt:new Date(Date.now()+1800000).toISOString(),endsAt:new Date(Date.now()+3600000).toISOString(),color:'blue'});
+  assert.equal(editedNotice.status,200);
+  const cancelledNotice=await call('/api/rooms/'+privacyId+'/events/'+noticeEvent.data.id,alice.token,'DELETE');
+  assert.equal(cancelledNotice.status,200);
+  const noticeActions=(await call('/api/bootstrap',charlie.token)).data.activity.filter(a=>a.eventId===noticeEvent.data.id).map(a=>a.action);
+  check('event updates and cancellations produce durable internal notices',()=>assert.deepEqual(new Set(noticeActions),new Set(['created','updated','cancelled'])));
   const outsiderNotices=(await call('/api/bootstrap',bob.token)).data.activity;
   check('event activity is not exposed to outsiders',()=>assert.ok(!outsiderNotices.some(a=>a.eventId===noticeEvent.data.id)));
   const keptProfile=await call('/api/bootstrap',alice.token);
