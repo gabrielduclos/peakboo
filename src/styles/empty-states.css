@@ -1,0 +1,61 @@
+.empty-state {
+  padding: 45px 25px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  gap: 12px;
+}
+.empty-state > svg {
+  color: var(--primary);
+  background: var(--primary-soft);
+  box-sizing: content-box;
+  padding: 16px;
+  border-radius: 18px;
+}
+.empty-state h3 {
+  font-size: 16px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.empty-state p {
+  font-size: 13px;
+  max-width: 300px;
+  line-height: 1.8;
+}
+.empty-state.small-empty {
+  padding: 40px 10px;
+}
+.small-empty h3 {
+  font-size: 13px;
+}
+.small-empty p {
+  font-size: 11px;
+}
+.chat-empty {
+  flex: 1;
+}
+.chat-empty .brand-mark {
+  width: 66px;
+  height: 66px;
+  border-radius: 22px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 30px #087f7524;
+}
+.chat-empty .brand-mark > svg {
+  width: 55px;
+  height: 55px;
+}
+.chat-empty h2 {
+  font-size: 24px;
+  max-width: 300px;
+  line-height: 1.4;
+  color: var(--ink);
+  font-weight: 650;
+  letter-spacing: -0.7px;
+}
+.chat-empty .button {
+  margin-top: 10px;
+}

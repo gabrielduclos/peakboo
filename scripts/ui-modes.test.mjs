@@ -226,7 +226,9 @@ try{
 
 
  await test('chat header search is never hidden by the mobile first-button rule',async()=>{
- const css=await readFile('src/styles.css','utf8');
+ const entry=await readFile('src/styles.css','utf8');
+ const imports=[...entry.matchAll(/@import "\.\/(styles\/[^"]+\.css)";/g)].map(m=>m[1]);
+ assert.ok(imports.length>1);const css=(await Promise.all(imports.map(path=>readFile('src/'+path,'utf8')))).join('\n');
  assert.ok(!css.includes('.chat-header-actions > .icon-button:first-child'));
  });
 

@@ -1,0 +1,177 @@
+.conversation-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.conversation-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 21px 10px;
+}
+.conversation-title h1 {
+  font-size: 23px;
+  letter-spacing: -0.8px;
+  font-weight: 650;
+}
+.new-chat {
+  background: var(--primary-soft);
+  color: var(--primary);
+  height: 31px;
+  width: 31px;
+  min-width: 31px;
+}
+.search-field {
+  margin: 0 20px 19px;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  border-radius: 9px;
+  height: 40px;
+  color: var(--muted);
+}
+.search-field input {
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+  background: none;
+  border: 0;
+  outline: 0;
+  height: 100%;
+}
+.conversation-tabs {
+  display: flex;
+  gap: 19px;
+  border-bottom: 1px solid var(--line);
+  padding: 0 21px;
+}
+.conversation-tabs > button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 1px 12px;
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: -1px;
+}
+.conversation-tabs > button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+.conversation-tabs > button > span {
+  font-size: 10px;
+  background: var(--primary-soft);
+  padding: 0 5px;
+  border-radius: 5px;
+  line-height: 17px;
+}
+.conversation-list {
+  padding: 11px 10px;
+  overflow: auto;
+  flex: 1;
+}
+.conversation-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-radius: 11px;
+  padding: 15px 11px;
+  text-align: left;
+  margin-bottom: 3px;
+}
+.conversation-item:hover {
+  background: var(--surface-2);
+}
+.conversation-item.selected {
+  background: var(--primary-soft);
+}
+.conversation-summary {
+  flex: 1;
+  min-width: 0;
+}
+.conversation-summary > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: space-between;
+}
+.conversation-summary strong {
+  font-size: 12px;
+  letter-spacing: -0.1px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.conversation-summary small {
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.conversation-summary p {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.conversation-summary b {
+  font-size: 10px;
+  background: var(--primary);
+  color: white;
+  min-width: 17px;
+  height: 17px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 6px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+.room-avatar-wrap {
+  position: relative;
+}
+.room-avatar-wrap .avatar {
+  height: 43px;
+  width: 43px;
+  border-radius: 15px;
+}
+.avatar-decoration {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  background: var(--surface);
+  color: var(--coral);
+  border-radius: 7px;
+  width: 17px;
+  height: 17px;
+  font-size: 11px;
+  text-align: center;
+  border: 2px solid var(--surface);
+}
+.join-shortcut {
+  border-top: 1px solid var(--line);
+  padding: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+.join-shortcut > svg:last-child {
+  margin-left: auto;
+}
+.join-shortcut:hover {
+  color: var(--primary);
+}

@@ -1,0 +1,57 @@
+/* PeakBoo wordmark: the reference colors are reserved for branding. */
+:root {
+  --brand-teal: #00c49a;
+  --brand-blue: #477bb5;
+}
+[data-theme="dark"] {
+  --brand-teal: #23d6ae;
+  --brand-blue: #84afe1;
+}
+.brand {
+  gap: 0;
+  letter-spacing: -1.2px;
+  font-weight: 750;
+  font-size: 30px;
+  white-space: nowrap;
+}
+.brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+}
+.brand-peak {
+  color: var(--brand-teal);
+}
+.brand-boo {
+  color: var(--brand-blue);
+}
+.brand-compact {
+  font-size: 36px;
+  margin-bottom: 18px;
+}
+.about-app .brand {
+  font-size: 25px;
+}
+.chat-empty .brand {
+  margin-bottom: 18px;
+}
+@media (max-width: 950px) and (min-width: 701px) {
+  .sidebar .brand {
+    font-size: 18px;
+    letter-spacing: -0.6px;
+  }
+  .sidebar .brand > .brand-wordmark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+  }
+}
+@media (max-width: 950px) and (min-width: 701px) {
+  .sidebar .brand > .brand-wordmark:last-child {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+  }
+}
+

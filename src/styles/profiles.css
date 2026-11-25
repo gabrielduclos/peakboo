@@ -1,0 +1,36 @@
+/* Profiles, using the shared PeakBoo theme. */
+.profile-editor { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.profile-cover { position:relative; width:100%; aspect-ratio:3; background:linear-gradient(120deg,var(--primary-soft),var(--blue-soft)); overflow:hidden; border-radius:12px; }
+.profile-cover img { width:100%; height:100%; object-fit:cover; }
+.profile-identity { display:flex; align-items:center; gap:16px; margin:16px 0; }
+.profile-identity>.avatar,.public-avatar { width:80px; height:80px; border-radius:50%; font-size:24px; flex-shrink:0; }
+.profile-identity h1 { font-size:24px; }
+.profile-identity p { color:var(--muted); }
+.profile-bio { white-space:pre-wrap; overflow-wrap:anywhere; margin:16px 0; }
+.profile-photo-actions,.invite-options { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.profile-editor .form { margin:0; }
+.profile-editor .form textarea { resize:vertical; width:100%; font-size:16px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px; }
+.profile-editor .muted { font-size:13px; }
+.social-empty { text-align:center; padding:32px 12px; color:var(--muted); }
+.social-skeleton { position:relative; height:180px; border-radius:12px; background:var(--surface-2); }
+.public-avatar { display:grid; place-items:center; overflow:hidden; background:var(--primary-soft); color:var(--primary); }
+.public-avatar img { width:100%; height:100%; object-fit:cover; }
+.invite-options .button { flex:1; min-height:44px; }
+.invite-qr { display:flex; align-items:center; flex-direction:column; gap:16px; text-align:center; }
+.invite-qr img { max-width:100%; height:auto; background:white; border-radius:8px; }
+.invite-qr a { font-size:12px; overflow-wrap:anywhere; }
+.message-link { text-decoration:underline; text-underline-offset:3px; }
+.crop-modal { width:min(620px,calc(100vw - 24px)); }
+.crop-modal canvas { touch-action:none; }
+.swipe-reply.swiping .message-bubble { user-select:none; -webkit-user-select:none; }
+@media(max-width:700px) {
+ .profile-photo-actions>.button { flex:1; font-size:13px; }
+ .invite-options { flex-direction:column; }
+}
+
+@media (max-width:700px) {
+  .app-shell.chat-open .mobile-nav { display:none; }
+  .app-shell.chat-open .main-area { padding-bottom:0; }
+  .app-shell.chat-open .peakboo-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+}
+

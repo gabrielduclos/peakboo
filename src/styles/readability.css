@@ -1,0 +1,345 @@
+/* Readable navigation and calendar labels in both themes. */
+.conversation-summary strong {
+  font-size: 14px;
+}
+.conversation-summary p {
+  font-size: 12px;
+}
+.conversation-tabs > button {
+  font-size: 14px;
+}
+.search-field input {
+  font-size: 14px;
+}
+.chat-header-title h2 {
+  font-size: 16px;
+}
+.chat-header-title > button {
+  font-size: 12px;
+}
+.sender-name {
+  font-size: 12px;
+}
+.message-footer {
+  font-size: 11px;
+}
+.event-tag {
+  font-size: 10px;
+}
+.event-meta {
+  font-size: 13px;
+}
+.attendees {
+  font-size: 11px;
+}
+.rsvp-button.button {
+  font-size: 12px;
+}
+.plans-heading h3 {
+  font-size: 14px;
+}
+.plans-heading small {
+  font-size: 12px;
+}
+.mini-calendar-title > strong {
+  font-size: 14px;
+}
+.mini-day {
+  font-size: 12px;
+}
+.upcoming-item strong {
+  font-size: 14px;
+}
+.upcoming-item small {
+  font-size: 12px;
+}
+.upcoming-room {
+  font-size: 11px;
+}
+.calendar-link.button {
+  font-size: 14px;
+}
+.join-shortcut {
+  font-size: 14px;
+}
+.month-weekday {
+  font-size: 12px;
+}
+.calendar-event {
+  font-size: 12px;
+}
+.calendar-event > span {
+  font-size: 10px;
+}
+.your-calendars > label {
+  font-size: 13px;
+}
+.sidebar-note {
+  background: var(--primary);
+  color: #fff;
+}
+.sidebar-note p {
+  color: #e5f6f2;
+}
+.sidebar-note > button {
+  color: #fff;
+  border-top-color: #ffffff2b;
+}
+.note-art {
+  color: white;
+}
+.note-art > svg:first-child {
+  fill: white;
+  stroke: var(--primary);
+}
+.sparkle.two {
+  color: #a4efe1;
+}
+.sidebar-note .sparkle.one {
+  color: #90b8e7;
+}
+.demo-banner > span {
+  font-size: 12px;
+}
+.demo-banner > button {
+  font-size: 12px;
+}
+.month-cell {
+  height: 112px;
+}
+.calendar-event > strong {
+  font-size: 11px;
+}
+.timezone {
+  font-size: 12px;
+}
+.upcoming-room > i {
+  min-width: 5px;
+}
+[data-theme="dark"] .sidebar-note {
+  background: #087f75;
+}
+[data-theme="dark"] .note-art > svg:first-child {
+  stroke: #087f75;
+}
+@media (max-width: 700px) {
+  .conversation-summary strong {
+    font-size: 15px;
+  }
+  .conversation-summary p {
+    font-size: 13px;
+  }
+  .search-field input {
+    font-size: 16px;
+  }
+  .chat-header-title h2 {
+    font-size: 14px;
+  }
+  .chat-header-title > button {
+    font-size: 11px;
+  }
+  .sender-name {
+    font-size: 11px;
+  }
+  .message-footer {
+    font-size: 10px;
+  }
+  .event-tag {
+    font-size: 9px;
+  }
+  .event-meta {
+    font-size: 12px;
+  }
+  .attendees {
+    font-size: 10px;
+  }
+  .rsvp-button.button {
+    font-size: 11px;
+  }
+  .demo-banner > span,
+  .demo-banner > button {
+    font-size: 10px;
+  }
+  .month-cell {
+    height: 83px;
+  }
+  .calendar-event > strong {
+    font-size: 8px;
+  }
+  .calendar-event {
+    font-size: 8px;
+  }
+  .month-weekday {
+    font-size: 10px;
+  }
+}
+
+.preview-explanation {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 17px;
+  padding: 10px 0 6px;
+}
+.preview-explanation > svg {
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 17px;
+  box-sizing: content-box;
+  border-radius: 20px;
+}
+.preview-explanation h3 {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.preview-explanation p {
+  font-size: 14px;
+  color: var(--subtle);
+  line-height: 1.8;
+}
+.preview-explanation .button {
+  margin-top: 6px;
+}
+
+:root .coral {
+  --accent-ink: #a33d2c;
+}
+:root .green {
+  --accent-ink: #2b7451;
+}
+:root .blue {
+  --accent-ink: #2c5d9f;
+}
+:root .yellow {
+  --accent-ink: #80600d;
+}
+.avatar,
+.event-tag,
+.event-date,
+.calendar-event,
+.agenda-date,
+.upcoming-icon,
+.week-event {
+  color: var(--accent-ink, var(--accent));
+}
+[data-theme="dark"] .coral,
+[data-theme="dark"] .green,
+[data-theme="dark"] .blue,
+[data-theme="dark"] .yellow {
+  --accent-ink: var(--accent);
+}
+
+.calendar-mobile-filter {
+  display: none;
+}
+@media (max-width: 950px) {
+  .calendar-mobile-filter {
+    display: block;
+    width: calc(100% - 28px);
+    margin: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--subtle);
+    padding: 10px;
+    font-size: 14px;
+  }
+}
+@media (max-width: 700px) {
+  .calendar-mobile-filter {
+    font-size: 16px;
+  }
+}
+
+[data-theme="dark"] .rsvp-button.confirmed-button {
+  color: var(--green);
+}
+@media (max-width: 700px) {
+  .chat-header-title > button > span {
+    display: inline;
+    margin: 0 4px;
+  }
+}
+
+.auth-required .modal-heading > .icon-button {
+  display: none;
+}
+
+.chat-events-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 12px 24px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+  flex-shrink: 0;
+}
+.chat-events-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chat-events-items {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  min-width: 0;
+  scrollbar-width: thin;
+  padding: 2px;
+}
+.chat-events-items > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 135px;
+  max-width: 230px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  text-align: left;
+}
+.chat-events-items > button:hover {
+  background: var(--primary-soft);
+  border-color: var(--ring);
+}
+.chat-events-items strong {
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-events-items time {
+  font-size: 12px;
+  color: var(--subtle);
+}
+@media (max-width: 700px) {
+  .chat-events-bar {
+    margin: 10px 12px 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    padding: 9px 10px;
+  }
+  .chat-events-label {
+    font-size: 13px;
+  }
+  .chat-events-items > button {
+    min-width: 160px;
+    max-width: 220px;
+  }
+}
+
