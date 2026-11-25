@@ -342,13 +342,40 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   function selectGallery(files:File[]){
     if(!files.length||optimizingRef.current)return;
     const hasVideo=files.some(file=>file.type.startsWith('video/'));
-    if(!hasVideo){stagePhotos(files);return;}
+    if(!hasVideo){void prepareGalleryPhotos(files);return;}
     if(files.length!==1){
       setError(pt?'Selecione apenas um vídeo por vez na galeria. Fotos podem ser enviadas em lote.':
         'Select one video at a time from Gallery. Photos can be sent in batches.');
       return;
     }
     void stageVideo(files[0]);
+  }
+
+  // Process gallery photos serially before any preview URLs are created.
+  async function prepareGalleryPhotos(files:File[]){
+    if(editing||optimizingRef.current)return;
+    if(files.length+pendingPhotos.length+(pending?.type.startsWith('image/')?1:0)>10){setError(pt?'Selecione no máximo 10 fotos por envio.':'Select up to 10 photos per batch.');return;}
+    const controller=new AbortController();
+    optimizationController.current=controller;optimizingRef.current=true;
+    setOptimizing(true);setOptimizationKind('image');setOptimizationProgress(0);setError('');
+    try{
+      const prepared:File[]=[];
+      for(const file of files){
+        if(controller.signal.aborted||!mounted.current)return;
+        setOptimizingFile({name:file.name,size:file.size});
+        const result=file.type==='image/jpeg'?await prepareCameraPhoto(file,controller.signal):await optimizeImageAttachment(file,controller.signal);
+        if(controller.signal.aborted||!mounted.current)return;
+        prepared.push(result);readyPhotos.current.add(result);
+        setOptimizationProgress(Math.round(prepared.length/files.length*100));
+      }
+      optimizingRef.current=false;stagePhotos(prepared);
+    }catch{
+      if(mounted.current&&!controller.signal.aborted)setError(pt?'Não foi possível preparar as fotos da galeria.':'Could not prepare gallery photos.');
+    }finally{
+      if(optimizationController.current===controller)optimizationController.current=null;
+      optimizingRef.current=false;
+      if(mounted.current){setOptimizing(false);setOptimizingFile(null);}
+    }
   }
 
   async function toggleRecording() {
