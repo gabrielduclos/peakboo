@@ -293,4 +293,13 @@ try{
  try{const result=await prepareCameraPhoto(jpeg);assert.equal(options.resizeWidth,1067);assert.equal(result.type,'image/jpeg');assert.equal(closed,1);assert.equal(canvas.width,0);assert.equal(canvas.height,0);await assert.rejects(prepareCameraPhoto(new File(['bad'],'bad.jpg',{type:'image/jpeg'})),/CAMERA_PHOTO_UNSUPPORTED/)}
  finally{globalThis.createImageBitmap=oldBitmap;window.HTMLCanvasElement.prototype.getContext=oldContext;window.HTMLCanvasElement.prototype.toBlob=oldBlob}
  });
+
+ await test('shared event form preserves room choice, local date and submit callback',async()=>{
+ const out=dir+'/event-form.mjs';await build({entryPoints:['src/features/calendar/EventFormDialog.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});const {EventFormDialog}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));let saved,closed=0;
+ const room={id:'r',name:'Group',description:'',color:'blue',ownerId:'me',memberCount:1,unread:0};
+ try{await act(async()=>root.render(createElement(EventFormDialog,{open:true,onClose:()=>closed++,t:k=>k,editPlan:null,selected:'r',rooms:[room],eventTitle:'Meeting',setEventTitle:()=>{},eventDay:'2026-12-01',setEventDay:()=>{},eventColor:'blue',setEventColor:()=>{},formError:'',busy:null,saveEvent:e=>{e.preventDefault();saved=new window.FormData(e.currentTarget)}})));
+ const form=document.querySelector('[role=dialog] form');assert.equal(form.querySelector('select').value,'r');assert.equal(form.querySelector('[name=date]').value,'2026-12-01');assert.equal(form.querySelector('[name=start]').value,'16:00');assert.ok(form.querySelector('[aria-label=blue][aria-pressed=true]'));
+ await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(saved.get('roomId'),'r');await act(async()=>form.querySelector('.form-footer button').click());assert.equal(closed,1);
+ }finally{await act(async()=>root.unmount())}
+ });
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}
