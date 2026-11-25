@@ -121,3 +121,5 @@ The group list shows the sender, text or media type of the latest message. If so
 ### Modular UI organization
 
 Shared presentation components live in `src/features/<domain>/`. The group list (`groups/GroupsPanel.tsx`) and calendar views (`calendar/CalendarViews.tsx`) and the chat panel (`chat/ChatPanel.tsx`) receive data and callbacks through props. Production and portfolio retain independent data sources and operations; shared components do not import the API or demo storage. New extractions should preserve behavior and include regression tests.
+
+Shared account dialogs (`account/AccountDialogs.tsx`) receive authentication and password-change callbacks and profile and notification content from the owning app. Presentation does not decide session validity or directly access the API; the portfolio retains its restrictions and isolated data.

@@ -1,3 +1,4 @@
+import {AuthDialog,SettingsDialog} from "./features/account/AccountDialogs";
 import {ChatPanel} from "./features/chat/ChatPanel";
 import {CalendarPage,EventCard,MiniCalendar} from "./features/calendar/CalendarViews";
 import {GroupsPanel} from "./features/groups/GroupsPanel";
@@ -1491,159 +1492,14 @@ export default function App() {
         )}
       </Modal>
 
-      <Modal
-        open={modal === "auth" || !getToken()}
-        onOpenChange={(v) => !v && setModal(null)}
-        title={t(authMode === "signup" ? "signupTitle" : "welcome")}
-        description={pendingInvite ? t("joinAfterAuth") : t("authDesc")}
-        closeLabel={t("close")}
-        className={!getToken() ? "auth-modal auth-required" : "auth-modal"}
-        preventAutoFocus
-      >
-        <div className="auth-brand">
-          <Logo />
-        </div>
-        <div className="segmented auth-tabs">
-          <button
-            onClick={() => {
-              setAuthMode("signup");
-              setFormError("");
-            }}
-            className={authMode === "signup" ? "active" : ""}
-          >
-            {t("signUp")}
-          </button>
-          <button
-            onClick={() => {
-              setAuthMode("login");
-              setFormError("");
-            }}
-            className={authMode === "login" ? "active" : ""}
-          >
-            {t("signIn")}
-          </button>
-        </div>
-        {
-          <form className="form" onSubmit={authenticate}>
-            {authMode === "signup" && (
-              <label>
-                {t("yourName")}
-                <input
-                  name="name"
-                  autoComplete="name"
-                  required
-                  minLength={2}
-                  maxLength={80}
-                />
-              </label>
-            )}
-            <label>
-              {t("email")}
-              <input type="email" name="email" autoComplete="email" required />
-            </label>
-            <label>
-              {t("password")}
-              <div className="password-input">
-                <input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={
-                    authMode === "signup" ? "new-password" : "current-password"
-                  }
-                  required
-                  minLength={8}
-                  maxLength={128}
-                />
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={t(showPassword ? "hidePassword" : "showPassword")}
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
-              </div>
-              <small className="field-hint">{t("passwordHelp")}</small>
-            </label>
-            {formError && (
-              <p className="form-error" role="alert">
-                {formError}
-              </p>
-            )}
-            <Button className="full-width" busy={busy === "auth"}>
-              {t(authMode === "signup" ? "signUp" : "signIn")}
-            </Button>
-          </form>
-        }
-      </Modal>
-
-      <Modal
-        open={modal === "settings"}
-        onOpenChange={(v) => !v && setModal(null)}
-        title={t("settings")}
-        closeLabel={t("close")}
-      >
-        <Tabs.Root defaultValue="appearance">
-          <Tabs.List className="dialog-tabs">
-            {["profile", "security", "appearance", "notifications"].map((tab) => (
-              <Tabs.Trigger key={tab} value={tab}>
-                {t(tab)}
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
-          <Tabs.Content value="notifications" className="settings-tab">{boot.user.id&&<PushSettings userId={boot.user.id} lang={lang} rooms={boot.rooms}/>}</Tabs.Content>
-          <Tabs.Content forceMount value="appearance" className="settings-tab">
-            <label>{t("theme")}</label>
-            <div className="theme-options">
-              <button
-                className={cn(theme === "light" && "selected")}
-                onClick={() => setTheme("light")}
-              >
-                <span className="theme-preview light-preview">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <Sun size={16} />
-                {t("light")}
-                {theme === "light" && <Check size={15} />}
-              </button>
-              <button
-                className={cn(theme === "dark" && "selected")}
-                onClick={() => setTheme("dark")}
-              >
-                <span className="theme-preview dark-preview">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <Moon size={16} />
-                {t("dark")}
-                {theme === "dark" && <Check size={15} />}
-              </button>
-            </div>
-            <label className="language-label">
-              {t("language")}
-              <select value={lang} onChange={(e) => setLang(e.target.value)}>
-                <option value="pt">Português (Brasil)</option>
-                <option value="en">English</option>
-              </select>
-            </label>
-            <div className="about-app">
-              <Logo />
-              <p>{t("aboutText")}</p>
-              <small>v0.1 · MIT · Gabriel Duclos</small>
-            </div>
-          </Tabs.Content>
-          <Tabs.Content forceMount value="profile" className="settings-tab">
-            {boot.user.id&&<ProfileEditor api={social} lang={lang} onSaved={()=>{void syncSocialProfile().catch(()=>notify(t("error")))}}/>}
-            <Button variant="ghost" className="signout-button" busy={busy==='signout'} onClick={signOut}><LogOut size={16}/>{t('signOut')}</Button>
-          </Tabs.Content>
-          <Tabs.Content forceMount value="security" className="settings-tab">
-            {
-              <form
-                className="form"
-                onSubmit={async (e) => {
+      <AuthDialog open={modal==="auth"||!getToken()} required={!getToken()} preventAutoFocus onClose={()=>setModal(null)}
+        authMode={authMode} setAuthMode={setAuthMode} setFormError={setFormError} pendingInvite={!!pendingInvite} authenticate={authenticate}
+        t={t} showPassword={showPassword} setShowPassword={setShowPassword} busy={busy} formError={formError}/>
+      <SettingsDialog open={modal==="settings"} onClose={()=>setModal(null)} lang={lang} setLang={setLang} theme={theme} setTheme={setTheme}
+        t={t} showPassword={showPassword} setShowPassword={setShowPassword} busy={busy} formError={formError}
+        profile={boot.user.id&&<ProfileEditor api={social} lang={lang} onSaved={()=>{void syncSocialProfile().catch(()=>notify(t("error")))}}/>}
+        notifications={boot.user.id&&<PushSettings userId={boot.user.id} lang={lang} rooms={boot.rooms}/>}
+        signOut={signOut} onChangePassword={async (e) => {
                   e.preventDefault();
                   const form = e.currentTarget,
                     d = new FormData(form);
@@ -1662,54 +1518,7 @@ export default function App() {
                   } finally {
                     setBusy(null);
                   }
-                }}
-              >
-                {["currentPassword", "newPassword"].map((key) => (
-                  <label key={key}>
-                    {t(key)}
-                    <div className="password-input">
-                      <input
-                        name={key}
-                        type={showPassword ? "text" : "password"}
-                        required
-                        minLength={8}
-                        autoComplete={
-                          key === "newPassword"
-                            ? "new-password"
-                            : "current-password"
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="icon-button"
-                        aria-label={t(
-                          showPassword ? "hidePassword" : "showPassword",
-                        )}
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff size={17} />
-                        ) : (
-                          <Eye size={17} />
-                        )}
-                      </button>
-                    </div>
-                  </label>
-                ))}
-                <span className="field-hint">{t("passwordHelp")}</span>
-                <Button busy={busy === "password"}>
-                  {t("changePassword")}
-                </Button>
-              </form>
-            }
-          </Tabs.Content>
-        </Tabs.Root>
-        {formError && (
-          <p className="form-error" role="alert">
-            {formError}
-          </p>
-        )}
-      </Modal>
+                }}/>
       <PwaInvites userId={boot.user.id} lang={lang} blocked={loading||!!modal||!!deleteTarget}/>
       {toast && (
         <div className="toast" role="status">
