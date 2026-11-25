@@ -570,7 +570,7 @@ export default function App() {
   }
   async function sendAttachment(file:File,caption:string){
     if(!selected)return;
-    if(!file.size||file.size>10*1024*1024)throw Error('INVALID_INPUT');
+    if(!file.size||file.size>(file.type.startsWith('video/')?30:10)*1024*1024)throw Error('INVALID_INPUT');
     const id=crypto.randomUUID(),dimensions=await mediaDimensions(file);
     const m:PendingMessage={id,roomId:selected,text:caption,...replySnapshot(replying),senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending',attachment:{id,name:file.name,mime:file.type||'application/octet-stream',size:file.size,...dimensions,url:URL.createObjectURL(file)}};
     setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m,file);setText('');setReplying(null);void deliverPending(m);
@@ -590,7 +590,7 @@ export default function App() {
     if(!content||!roomId)return;
     if(editing){try{await messageAction('edit-save',editing,content);setEditing(null);setText('')}catch(e){notify(errorText(e))}return;}
     const m:PendingMessage={id:retry?.id||crypto.randomUUID(),roomId,text:content,...replySnapshot(replying),senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pendingStatus:'sending'};
-    setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m);setText('');setReplying(null);setFailed(null);setEmojiOpen(false);composerRef.current?.focus();void deliverPending(m);
+    setChatFilter(emptyFilter);setChatQuery('');optimistic.add(m);setText('');setReplying(null);setFailed(null);setEmojiOpen(false);void deliverPending(m);
   }
   function removeRoomLocally(id:string) {
     clearRoomPins(boot.user.id,id);
