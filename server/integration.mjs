@@ -286,12 +286,24 @@ try {
     ),
   );
   const setReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
+  const firstNotice=(await call("/api/bootstrap",alice.token)).data.reactionNotices.find(n=>n.messageId===messageId);
+  assert.ok(firstNotice?.id);
   const repeatReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
+  const repeatNotice=(await call("/api/bootstrap",alice.token)).data.reactionNotices.filter(n=>n.messageId===messageId);
+  check("reaction notification is unique and belongs to the author",()=>{assert.equal(repeatNotice.length,1);assert.equal(repeatNotice[0].id,firstNotice.id)});
+  const bobNotices=(await call("/api/bootstrap",bob.token)).data.reactionNotices;
+  check("reactor does not receive their own reaction notice",()=>assert.equal(bobNotices.some(n=>n.messageId===messageId),false));
   check('reaction desired-state retries are idempotent',()=>{assert.equal(setReaction.data.reaction.active,true);assert.equal(repeatReaction.data.reaction.active,true)});
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,alice.token,'POST',{emoji:'❤️',active:true});
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'🔥',active:true});
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:false});
   const replaced=await call(`/api/rooms/${id}/messages`,alice.token);
+  const reactionBoot=(await call("/api/bootstrap",alice.token)).data;
+  check("reaction replacement updates preview and notification",()=>{const n=reactionBoot.reactionNotices.filter(n=>n.messageId===messageId);assert.equal(n.length,1);assert.equal(n[0].emoji,"🔥");assert.notEqual(n[0].id,firstNotice.id);assert.equal(reactionBoot.rooms.find(r=>r.id===id).preview.emoji,"🔥")});
+  await call("/api/push/muted/"+id,alice.token,"PUT",{muted:true});
+  const mutedNotices=(await call("/api/bootstrap",alice.token)).data.reactionNotices;
+  check("muted groups suppress internal reaction alerts",()=>assert.equal(mutedNotices.some(n=>n.messageId===messageId),false));
+  await call("/api/push/muted/"+id,alice.token,"PUT",{muted:false});
   check('changing reaction replaces only the actor emoji; stale removal is harmless',()=>{
     const reactions=replaced.data.messages.find(m=>m.id===messageId).reactions;
     assert.equal(reactions.length,2);
@@ -299,6 +311,8 @@ try {
   });
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'🔥',active:false}); 
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,alice.token,'POST',{emoji:'❤️',active:false});
+  const afterRemoval=(await call("/api/bootstrap",alice.token)).data;
+  check("removed reactions disappear from notices and group preview",()=>{assert.equal(afterRemoval.reactionNotices.some(n=>n.messageId===messageId),false);assert.equal(afterRemoval.rooms.find(r=>r.id===id).preview.kind,"message")});
   client = postgres.getPgClient();
   await client.connect();
   for (let i = 0; i < 85; i++)
