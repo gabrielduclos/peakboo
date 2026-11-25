@@ -8,7 +8,7 @@ self.addEventListener("push",event=>{
  const target=new URL("/",self.location.origin);
  if(roomId)target.hash=new URLSearchParams({pushRoom:roomId,...(eventId?{pushEvent:eventId}:{})}).toString();
  event.waitUntil(self.registration.showNotification(String(n.title||"Peakboo").slice(0,100),{
-  body:String(n.body||"Peakboo").slice(0,240),icon:"/icon-192.png",badge:"/icon-192.png",tag:roomId?"peakboo-"+(eventId||roomId):"peakboo",data:{url:target.href},renotify:true
+  body:String(n.body||"Peakboo").slice(0,240),icon:"/icon-192.png",badge:"/notification-badge.png",tag:roomId?"peakboo-"+(eventId||roomId):"peakboo",data:{url:target.href},renotify:true
  }));
 });
 self.addEventListener("notificationclick",event=>{
