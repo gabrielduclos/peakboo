@@ -129,3 +129,7 @@ Os estilos ficam em `src/styles/`, importados em ordem explícita por `src/style
 ### Organização do backend
 
 O ponto de entrada `server/index.mjs` coordena a inicialização e a ordem de registro de middleware e rotas. Os módulos de `server/routes/` separam bootstrap, grupos, mensagens, eventos e mídia; `server/middleware/access.mjs` concentra sessão e autorização por grupo, e `server/realtime.mjs` concentra SSE. Os módulos recebem dependências explicitamente. A extração preserva contratos HTTP, consultas SQL, transações, regras de acesso e ordem de registro; não altera o schema. Os testes de registro e integração devem passar antes de integrar mudanças.
+
+### Proteção de scripts e cache privado
+
+As respostas da API usam `Cache-Control: private, no-store`, inclusive autenticação e SSE. O frontend aplica uma CSP inicial que limita scripts à própria origem, bloqueia manipuladores de eventos JavaScript inline, objetos incorporados e bases de URL externas. Estilos inline existentes e mídias blob continuam compatíveis; esta não é uma CSP completa. O Worker e `_headers` protegem os assets, e o Render aplica a política à demonstração. O bearer persistente ainda fica no armazenamento local: a CSP reduz a superfície de injeção, mas não elimina o risco de XSS. Uma eventual migração para cookies HttpOnly exige projeto separado com CSRF, CORS, sessões PWA e testes reais. Validar cabeçalhos publicados e fluxos de mídia e login em navegadores antes de declarar a proteção em produção.
