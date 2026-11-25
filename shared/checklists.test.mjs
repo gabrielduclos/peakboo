@@ -1,13 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {suggestChecklist,applyChecklistOperation} from "./checklists.mjs";
-test("recognizes bullets, numbered and short multiline lists without changing ordinary messages",()=>{
+test("recognizes marked and unmarked multiline lists without automatically converting messages",()=>{
  assert.deepEqual(suggestChecklist("Compras:\n- Arroz\n- Leite"),{title:"Compras",items:["Arroz","Leite"]});
  assert.deepEqual(suggestChecklist("1. Rice\n2. Milk"),{title:"",items:["Rice","Milk"]});
  assert.deepEqual(suggestChecklist("Arroz\nLeite\nCafé"),{title:"",items:["Arroz","Leite","Café"]});
- assert.equal(suggestChecklist("Olá!\nTudo bem?\nAté amanhã."),null);
+ assert.deepEqual(suggestChecklist("Olá!\nTudo bem?\nAté amanhã."),{title:"",items:["Olá!","Tudo bem?","Até amanhã."]});
+ assert.deepEqual(suggestChecklist("Arroz\n\nFeijão"),{title:"",items:["Arroz","Feijão"]});
+ assert.deepEqual(suggestChecklist("Tarefas:\nComprar leite\nBuscar Pedro."),{title:"Tarefas",items:["Comprar leite","Buscar Pedro."]});
+ assert.deepEqual(suggestChecklist("- Arroz\r\nComprar todos os ingredientes necessários para preparar o jantar de amanhã"),{title:"",items:["Arroz","Comprar todos os ingredientes necessários para preparar o jantar de amanhã"]});
+ assert.equal(suggestChecklist("Arroz\n\n"),null);
+ assert.equal(suggestChecklist("Compras:\nArroz"),null);
+ assert.equal(suggestChecklist("Arroz\n"+ "x".repeat(201)),null);
  assert.equal(suggestChecklist("One ordinary message"),null);
- assert.equal(suggestChecklist("https://example.com\nRice\nMilk"),null);
+ assert.deepEqual(suggestChecklist("https://example.com\nRice\nMilk"),{title:"",items:["https://example.com","Rice","Milk"]});
  assert.equal(suggestChecklist(Array(51).fill("- Item").join("\n")),null);
 });
 test("item operations are explicit and idempotent; independent edits are preserved",()=>{
