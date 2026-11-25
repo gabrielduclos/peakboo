@@ -4,10 +4,10 @@ app.get("/api/bootstrap", async (req, res) => {
     await pool.query(
       `SELECT r.id,r.kind,r.name,r.description,r.color,r.image,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",m.joined_at AS "joinedAt",
        (SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",
-       lm.text AS "lastText",greatest(lm.created_at,lr.changed_at) AS "lastAt",
+       COALESCE(lm.checklist->>'title',lm.text) AS "lastText",greatest(lm.created_at,lr.changed_at) AS "lastAt",
        CASE WHEN lr.changed_at IS NOT NULL AND (lm.created_at IS NULL OR lr.changed_at>=lm.created_at)
          THEN json_build_object('kind','reaction','actorName',lr.actor_name,'emoji',lr.emoji,'text',lr.text,'mime',lr.mime)
-         WHEN lm.id IS NOT NULL THEN json_build_object('kind','message','senderId',lm.sender_id,'senderName',lm.sender_name,'text',lm.text,'mime',lm.mime,'deleted',lm.deleted,'eventId',lm.event_id)
+         WHEN lm.id IS NOT NULL THEN json_build_object('kind','message','senderId',lm.sender_id,'senderName',lm.sender_name,'text',COALESCE(lm.checklist->>'title',lm.text),'mime',lm.mime,'deleted',lm.deleted,'eventId',lm.event_id)
        END AS preview,
        (SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND created_at>=m.joined_at AND sender_id<>$1) AS unread
        FROM rooms r JOIN members m ON m.room_id=r.id
