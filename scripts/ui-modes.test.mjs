@@ -302,4 +302,15 @@ try{
  await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(saved.get('roomId'),'r');await act(async()=>form.querySelector('.form-footer button').click());assert.equal(closed,1);
  }finally{await act(async()=>root.unmount())}
  });
+
+ await test('shared member and event detail dialogs retain names and domain callbacks',async()=>{
+ const groupOut=dir+'/group-dialogs.mjs',eventOut=dir+'/event-detail.mjs';
+ for(const [entry,out] of [['src/features/groups/GroupDialogs.tsx',groupOut],['src/features/calendar/EventDetailDialog.tsx',eventOut]])await build({entryPoints:[entry],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});
+ const {GroupMembersDialog}=await import(pathToFileURL(groupOut));const {EventDetailDialog}=await import(pathToFileURL(eventOut));const root=createRoot(document.getElementById('root'));let profile,invited=0,status;
+ const room={id:'r',name:'Group',description:'',color:'blue',ownerId:'me',memberCount:2,unread:0},member={id:'peer',name:'Ana Maria Silva'},base={open:true,onClose:()=>{},t:k=>k,busy:null,formError:''};
+ try{await act(async()=>root.render(createElement(GroupMembersDialog,{...base,room,userId:'me',members:[member],openProfile:m=>profile=m.id,invite:()=>invited++})));const name=document.querySelector('.member-list button');assert.equal(name.textContent,'Ana Silva');await act(async()=>name.click());assert.equal(profile,'peer');await act(async()=>document.querySelector('[role=dialog] .full-width').click());assert.equal(invited,1);
+ const plan={id:'e',roomId:'r',creatorId:'me',title:'Meeting',description:'',location:'',startsAt:'2026-12-01T18:00:00Z',endsAt:'2026-12-01T19:00:00Z',color:'blue',cancelled:false,rsvps:[{userId:'peer',name:member.name,status:'yes'}]};
+ await act(async()=>root.render(createElement(EventDetailDialog,{...base,detail:plan,rooms:[room],userId:'me',eventCard:()=>null,rsvp:(_,s)=>status=s,exportEvent:()=>{},selectRoom:()=>{},onEdit:()=>{},cancelEvent:()=>{}})));assert.ok(document.querySelector('.member-list').textContent.includes('Ana Silva'));assert.ok(!document.querySelector('.member-list').textContent.includes('Maria'));await act(async()=>document.querySelector('.rsvp-options button').click());assert.equal(status,'yes');
+ }finally{await act(async()=>root.unmount())}
+ });
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}
