@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { SwitchCamera, Zap, ZapOff, Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Square, Video, X } from 'lucide-react';
+import { CalendarPlus, ListChecks, SwitchCamera, Zap, ZapOff, Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Square, Video, X } from 'lucide-react';
 import { attachmentLabel } from './chatAttachmentLabels';
 import { createPortal } from 'react-dom';
 import { ChatAudioPlayer,mediaLabel } from './Media';
 import { ChatImageEditor } from './ChatImageEditor';
-import { cn } from './components';
+import { Modal, cn } from './components';
 import { optimizeVideoAttachment } from './videoCompression';
 import { optimizeImageAttachment, prepareCameraPhoto } from './imageCompression';
 
@@ -133,7 +133,7 @@ function PhotoCameraModal({pt,onClose,onAccept}:{pt:boolean;onClose:()=>void;onA
   </Dialog.Root>;
 }
 
-export function LiveMessageComposer({ value, onChange, onSelectionChange, serializeValue, onSubmit, onAttach, onShareLocation, sending, locale, textareaRef, editing = false, onGif, gifOpen = false, allowOffice = false }: {
+export function LiveMessageComposer({ value, onChange, onSelectionChange, serializeValue, onSubmit, onAttach, onShareLocation, sending, locale, textareaRef, editing = false, onGif, gifOpen = false, allowOffice = false, onCreateEvent, onCreateList }: {
   value: string; onChange: (text: string) => void;
   onSelectionChange?: (text:string,start:number,end:number)=>void;
   /** Channel mentions show names in textarea but send canonical @handles. */
@@ -142,7 +142,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   onAttach: (file: File, caption: string) => Promise<void>;
   onShareLocation: (latitude:number,longitude:number,caption:string) => Promise<void>;
   sending: boolean; locale: string; textareaRef: RefObject<HTMLTextAreaElement | null>; editing?: boolean;
-  onGif?:()=>void;gifOpen?:boolean;allowOffice?:boolean;
+  onGif?:()=>void;gifOpen?:boolean;allowOffice?:boolean;onCreateEvent?:()=>void;onCreateList?:()=>void;
 }) {
   const pt = locale === 'pt-BR';
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
@@ -483,24 +483,22 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   }, [value, textareaRef]);
 
   useEffect(() => {
-    if (!emojiOpen && !attachmentsOpen) return;
+    if (!emojiOpen) return;
     const outside = (event: PointerEvent) => {
       if (!controls.current?.contains(event.target as Node)) {
         setEmojiOpen(false);
-        setAttachmentsOpen(false);
       }
     };
     const escape = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
         setEmojiOpen(false);
-        setAttachmentsOpen(false);
       }
     };
     document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', escape, true);
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape, true); };
-  }, [emojiOpen, attachmentsOpen]);
+  }, [emojiOpen]);
 
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -594,15 +592,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         className="grid size-11 lg:size-12 place-items-center text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
         <Plus className={cn('size-6 transition-transform',attachmentsOpen && 'rotate-45')} />
       </button>
-      {attachmentsOpen && <div role="dialog" aria-label={pt ? 'Adicionar à conversa' : 'Add to chat'}
-        className="absolute bottom-full left-0 z-40 mb-2 w-[min(510px,calc(100vw-24px))] max-w-[calc(100vw-24px)] border border-border bg-popover p-2 text-popover-foreground shadow-xl">
-        <div className="flex items-center justify-between px-2 py-1">
-          <span className="text-xs font-semibold">{pt ? 'Adicionar à conversa · até 10 MB' : 'Add to conversation · up to 10 MB'}</span>
-          <button type="button" onClick={() => setAttachmentsOpen(false)}
-            aria-label={pt ? 'Fechar anexos' : 'Close attachments'} className="grid size-7 place-items-center hover:bg-accent">
-            <X className="size-4"/>
-          </button>
-        </div>
+      <Modal open={attachmentsOpen} onOpenChange={v=>{setAttachmentsOpen(v);if(!v)setCameraOptions(false)}} title={pt?'Adicionar à conversa':'Add to chat'} closeLabel={pt?'Fechar':'Close'} className="attachment-dialog">
         {cameraOptions ? <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={()=>{setPhotoCameraOpen(true);setCameraOptions(false);setAttachmentsOpen(false);}}
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Camera className="size-5"/>{pt?'Tirar foto':'Take photo'}</button>
@@ -610,7 +600,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Video className="size-5"/>{pt?'Gravar vídeo':'Record video'}</button>
           <button type="button" onClick={()=>setCameraOptions(false)} className="col-span-2 text-xs hover:bg-accent">{pt?'Voltar':'Back'}</button>
         </div> : <div>
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-2 gap-2">
           {ATTACHMENTS.map(({icon: Icon,pt:labelPt,en},index) => <button key={en} type="button"
             disabled={sending || sendingPhotos || editing || optimizing || recording!=='idle'}
             onClick={() => {
@@ -620,16 +610,18 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
               setAttachmentsOpen(false);
             }}
             title={index===3 ? (pt ? 'Compartilhar localização atual' : 'Share current location') : undefined}
-            className="flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 border border-border/70 px-0.5 text-[10px] hover:bg-accent disabled:opacity-40"
+            className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 px-2 text-sm hover:bg-accent disabled:opacity-40"
             aria-label={pt ? labelPt : en}>
-            <Icon className="size-5 text-primary"/><span className="truncate">{pt ? labelPt : en}</span>
+            <Icon className="size-5 text-primary"/><span className="break-words text-center">{pt ? labelPt : en}</span>
           </button>)}
+          {onCreateEvent&&<button type="button" disabled={editing||sending||sendingPhotos||optimizing||recording!=='idle'} onClick={()=>{setAttachmentsOpen(false);onCreateEvent()}} className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 px-2 text-sm hover:bg-accent disabled:opacity-40"><CalendarPlus className="size-5 text-primary"/>{pt?'Criar compromisso':'Create event'}</button>}
+          {onCreateList&&<button type="button" disabled={editing||sending||sendingPhotos||optimizing||recording!=='idle'} onClick={()=>{setAttachmentsOpen(false);onCreateList()}} className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 px-2 text-sm hover:bg-accent disabled:opacity-40"><ListChecks className="size-5 text-primary"/>{pt?'Criar lista':'Create list'}</button>}
           </div>
         </div>}
         <p className="px-2 pt-2 text-[11px] text-muted-foreground">
           {pt ? 'Anexos até 10 MB após compactação. Vídeos originais até 300 MB.' : 'Attachments up to 10 MB after compression. Videos up to 300 MB before compression.'}
         </p>
-      </div>}
+      </Modal>
     </div>
     <input ref={galleryRef} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" className="sr-only"
       onChange={e => { const files=Array.from(e.target.files??[]); e.target.value=''; selectGallery(files); }} />
