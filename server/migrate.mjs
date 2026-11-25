@@ -27,6 +27,8 @@ export async function migrate() {
     await c.query("INSERT INTO peakboo_migrations(version) VALUES('005_event_activity') ON CONFLICT DO NOTHING");
     await c.query(await readFile(new URL("./migrations/006_r2_media.sql", import.meta.url),"utf8"));
     await c.query("INSERT INTO peakboo_migrations(version) VALUES('006_r2_media') ON CONFLICT DO NOTHING");
+    await c.query(await readFile(new URL("./migrations/007_push.sql",import.meta.url),"utf8"));
+    await c.query("INSERT INTO peakboo_migrations(version) VALUES('007_push') ON CONFLICT DO NOTHING");
     await c.query("COMMIT");
   } catch (e) {
     await c.query("ROLLBACK");
