@@ -1,0 +1,12 @@
+/* Compact Uorqui reply context, shared by the app and portfolio. */
+.reply-reference{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;margin-bottom:4px;font-size:12px;line-height:1.5;color:inherit;opacity:.85}
+.reply-reference>svg{flex:none}
+.reply-reference-line{display:flex;align-items:baseline;gap:4px;min-width:0;flex:1;text-align:left;color:inherit;background:none;border:0;padding:0;font:inherit}
+.reply-reference-line strong{flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reply-reference-line>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button.reply-reference-line:hover{text-decoration:underline}
+.reply-reference button:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
+.reply-draft{padding:7px 12px;margin:0;background:var(--surface-2);color:var(--ink);opacity:1}
+.reply-cancel{display:grid;place-items:center;flex:none;width:32px;height:32px;color:inherit}
+.reply-highlight .message-bubble{outline:2px solid var(--primary);outline-offset:3px}
+
