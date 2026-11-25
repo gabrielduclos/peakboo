@@ -594,7 +594,7 @@ try {
   const listHistory=await call(listRoot+"/messages",bob.token);
   const sharedList=listHistory.data.messages.find(m=>m.id===listId).checklist;
   check("concurrent edits to different items are retained",()=>{assert.equal(sharedList.items[0].done,true);assert.equal(sharedList.items[1].text,"Coffee")});
-  const sourceId=randomUUID(),sourceText="- Bread\\n- Eggs".replace("\\\\n","\\n");
+  const sourceId=randomUUID(),sourceText="- Bread\n- Eggs";
   await call(listRoot+"/messages",alice.token,"POST",{id:sourceId,text:sourceText});
   const convertPath=listRoot+"/messages/"+sourceId+"/list",convertBody={title:"Breakfast",items:["Bread","Eggs"],originalText:sourceText};
   const deniedConversion=await call(convertPath,bob.token,"POST",convertBody);
