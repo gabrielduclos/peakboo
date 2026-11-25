@@ -21,6 +21,7 @@ export async function optimizeImageAttachment(file: File, signal?: AbortSignal):
       typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;
 
   let bitmap: ImageBitmap | undefined;
+  let canvas: HTMLCanvasElement | undefined;
   try {
     bitmap = await createImageBitmap(file);
     assertNotAborted(signal);
@@ -29,7 +30,7 @@ export async function optimizeImageAttachment(file: File, signal?: AbortSignal):
     const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = document.createElement('canvas');
+    canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d');
@@ -38,8 +39,9 @@ export async function optimizeImageAttachment(file: File, signal?: AbortSignal):
     context.imageSmoothingQuality = 'high';
     context.drawImage(bitmap, 0, 0, width, height);
     assertNotAborted(signal);
+    bitmap.close();bitmap=undefined;
     const optimized = await new Promise<Blob | null>(resolve =>
-      canvas.toBlob(resolve, 'image/webp', WEBP_QUALITY));
+      canvas!.toBlob(resolve, 'image/webp', WEBP_QUALITY));
     assertNotAborted(signal);
     // WebP is not always supported by the canvas encoder (notably older browsers).
     // Keep the source whenever conversion would save too little or add bytes.
@@ -58,6 +60,7 @@ export async function optimizeImageAttachment(file: File, signal?: AbortSignal):
     return file;
   } finally {
     bitmap?.close();
+    if(canvas){canvas.width=0;canvas.height=0}
   }
 }
 
