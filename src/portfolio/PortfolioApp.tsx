@@ -1,3 +1,4 @@
+import {ChatPanel} from "../features/chat/ChatPanel";
 import {CalendarPage,EventCard,MiniCalendar} from "../features/calendar/CalendarViews";
 import {demoRoomPreview} from "../roomPreview";
 import {GroupsPanel} from "../features/groups/GroupsPanel";
@@ -65,7 +66,6 @@ import {
   Trash2,
   LoaderCircle,
   WifiOff,
-  Inbox,
   Heart,
   LayoutGrid,
   List,
@@ -1068,258 +1068,18 @@ export default function App() {
               onQueryChange={setQuery} onFilterChange={setFilter} onSelect={selectRoom}
               onCreate={()=>{setNewTab("create");openModal("new")}}
               onJoin={()=>{setNewTab("join");openModal("new")}} decorateWeekend={demo}/>
-            <section className="chat-panel">
-              {room ? (
-                <>
-                  <div className="chat-header">
-                    <button
-                      className="icon-button mobile-back"
-                      aria-label={t("back")}
-                      onClick={() => setMobileChat(false)}
-                    >
-                      <ArrowLeft size={21} />
-                    </button>
-                    <button type="button" className="chat-photo-button" aria-label={lang==="pt"?"Foto do grupo":"Group photo"} onClick={()=>openModal("invite")}><Avatar image={room.image} name={room.name} color={room.color} /></button>
-                    <div className="chat-header-title">
-                      <h2>{room.name}</h2>
-                      <button onClick={showMembers}>
-                        <Users size={12} />
-                        {room.memberCount}{" "}
-                        {t(room.memberCount === 1 ? "member" : "members")}
-
-                      </button>
-                    </div>
-                    <div className="chat-header-actions">
-                      <button
-                        className="icon-button"
-                        aria-label={t("searchMessages")}
-                        aria-expanded={showChatSearch}
-                        aria-controls="chat-message-search"
-                        onClick={() => {
-                          setShowChatSearch(!showChatSearch);
-                          setChatQuery("");
-                        }}
-                      >
-                        <Search size={19} />
-                      </button>
-                      <button
-                        className="icon-button"
-                        aria-label={t("invite")}
-                        onClick={invite}
-                      >
-                        <Users size={19} />
-                      </button>
-                      <button
-                        className="icon-button highlight"
-                        aria-label={t("createEvent")}
-                        onClick={() => openEvent()}
-                      >
-                        <CalendarPlus size={20} />
-                      </button>
-                    </div>
-                  </div>
-                  {showChatSearch && (
-                    <div className="chat-search" id="chat-message-search" role="search">
-
-                      <input
-                        autoFocus
-                        value={chatQuery}
-                        onChange={(e) => setChatQuery(e.target.value)}
-                        placeholder={t("searchMessages")}
-                        aria-label={t("searchMessages")}
-                      />
-                      <button type="button" className="icon-button" aria-label={t("clearSearch")} onClick={()=>{setChatQuery('');setShowChatSearch(false)}}><X size={18}/></button>
-                    </div>
-                  )}
-                  {showChatSearch&&<ChatFilters value={chatFilter} onChange={setChatFilter} pt={lang==="pt"}/>}
-                  {!!pinnedMessages.length&&<div className="pinned-chat-bar" aria-label={lang==='pt'?'Mensagens fixadas':'Pinned messages'}><span>📌</span><button type="button" onClick={()=>{const first=pinnedMessages[0];const node=document.getElementById('message-'+first.id);if(node){node.scrollIntoView({block:'center',behavior:'smooth'});}else setChatFilter({...emptyFilter,kind:'pinned'})}}><strong>{lang==='pt'?'Mensagem fixada':'Pinned message'}{pinnedMessages.length>1?' · '+pinnedMessages.length:''}</strong><span>{pinnedMessages[0].text||mediaLabel(pinnedMessages[0].attachment?.mime||'',lang==='pt')}</span></button><button type="button" className="icon-button" aria-label={lang==='pt'?'Ver todas as fixadas':'View pinned messages'} onClick={()=>setChatFilter({...emptyFilter,kind:'pinned'})}><ChevronDown size={18}/></button></div>}
-                  <UpcomingEventsBar
-                    events={boot.events}
-                    roomId={room.id}
-                    lang={lang}
-                    onSelect={openDetail}
-                  />
-                  <div
-                    ref={chatScroll.historyRef}
-                    onScroll={chatScroll.onScroll}
-                    className="chat-history"
-                    role="log"
-                    aria-label={t("conversations")}
-                    aria-live="polite"
-                  >
-                    {hasMore[room.id] && (
-                      <Button
-                        variant="ghost"
-                        className="older-button"
-                        busy={busy === "older"}
-                        onClick={loadOlder}
-                      >
-                        {t("loadOlder")}
-                      </Button>
-                    )}
-
-                    {!currentMessages.length&&<DaySeparator day={localDayKey(new Date())} value={chatFilter} onChange={setChatFilter} lang={lang}/>}
-                    {loadingMessages ? (
-                      <div className="message-skeletons">
-                        <span className="skeleton" />
-                        <span className="skeleton" />
-                        <span className="skeleton" />
-                      </div>
-                    ) : (
-                      currentMessages
-                        .map((m, i, arr) => {
-                          const own = m.senderId === boot.user.id,
-                            p = m.eventId
-                              ? boot.events.find((x) => x.id === m.eventId)
-                              : null,
-                            grouped =
-                              i > 0 &&
-                              localDayKey(new Date(arr[i-1].createdAt))===localDayKey(new Date(m.createdAt)) &&
-                              arr[i - 1].senderId === m.senderId &&
-                              !arr[i - 1].eventId &&
-                              !p;
-                          return (
-                            <Fragment key={m.id}>
-                            {(i===0||localDayKey(new Date(arr[i-1].createdAt))!==localDayKey(new Date(m.createdAt)))&&<DaySeparator day={localDayKey(new Date(m.createdAt))} value={chatFilter} onChange={setChatFilter} lang={lang}/>}
-                            <SwipeReply
-                              disabled={!!m.deleted||!!m.pendingStatus||!!p}
-                              onReply={()=>{void messageAction('reply',m)}}
-                              id={"message-"+m.id}
-                              onContextMenu={e=>{if(!m.deleted&&!m.pendingStatus){e.preventDefault();e.currentTarget.querySelector<HTMLButtonElement>('[data-message-actions]')?.click()}}}
-                              className={cn(
-                                "message",
-                                own && "own",
-                                p && "event-message",
-                                grouped && "grouped",
-                              )}
-                              key={m.id}
-                            >
-                              {!own && !grouped ? (
-                                <Avatar
-                                  image={m.senderImage}
-                                  name={m.senderName}
-                                  color={
-                                    COLORS[
-                                      (m.senderName.charCodeAt(0) || 0) % 5
-                                    ]
-                                  }
-                                  small
-                                />
-                              ) : (
-                                <span className="message-avatar-spacer" />
-                              )}
-                              <div className="message-body">
-                                {!own && !grouped && (
-                                  <span className="sender-name">
-                                    {m.senderName}
-                                  </span>
-                                )}
-                                {p ? (
-                                  eventCard(p)
-                                ) : (
-                                  <>{m.pinned&&<small className="pinned-label">📌 {lang==="pt"?'Fixada':'Pinned'}</small>}
-                                  {m.replyTo&&!m.deleted&&<ReplyReference message={m} source={rawMessages.find(x=>x.id===m.replyTo)} ownId={boot.user.id} lang={lang} onJump={()=>{void jumpToReply(m.replyTo!)}}/>}
-                                  <div className="message-bubble">{m.deleted?(lang==="pt"?'Mensagem removida':'Message removed'):<><MessageMedia attachment={m.attachment} lang={lang} onOpen={()=>setGalleryId(m.id)}/><MessageText text={m.text}/></>}</div>{m.editedAt&&<small>{lang==="pt"?"editada":"edited"}</small>}</>
-                                )}
-                                {m.pendingStatus&&<div className="pending-message" role="status">{m.pendingStatus==='sending'?<><LoaderCircle size={12} className="spin"/>{lang==='pt'?'Enviando…':'Sending…'}</>:<><span>{lang==='pt'?'Não enviada':'Not sent'}</span><button type="button" onClick={()=>void deliverPending(m as PendingMessage)}>{lang==='pt'?'Tentar novamente':'Retry'}</button></>}</div>}
-                                <div className="message-footer">
-                                  {m.reactions.length > 0 && (
-                                    <span className="reactions">
-                                      {[
-                                        ...new Set(
-                                          m.reactions.map((r) => r.emoji),
-                                        ),
-                                      ].map((emoji) => (
-                                        <button
-                                          aria-label={t("react") + " " + emoji}
-                                          key={emoji}
-                                          className={
-                                            m.reactions.some(
-                                              (r) =>
-                                                r.userId === boot.user.id &&
-                                                r.emoji === emoji,
-                                            )
-                                              ? "mine"
-                                              : ""
-                                          }
-                                          disabled={!!pendingReactions[m.id]}
-                                          onClick={() => react(m, emoji)}
-                                        >
-                                          <span className="reaction-emoji" key={emoji+":"+m.reactions.filter(r=>r.emoji===emoji).length+":"+m.reactions.some(r=>r.emoji===emoji&&r.userId===boot.user.id)}>{emoji}</span>
-                                          <small>
-                                            {
-                                              m.reactions.filter(
-                                                (r) => r.emoji === emoji,
-                                              ).length
-                                            }
-                                          </small>
-                                        </button>
-                                      ))}
-                                    </span>
-                                  )}
-                                  <time dateTime={m.createdAt}>
-                                    {time(m.createdAt)}
-                                  </time>
-                                  {own && !m.pendingStatus && (
-                                    <Check size={12} aria-label={t("send")} />
-                                  )}
-                                </div>
-                              </div>
-                              {!m.deleted&&!m.pendingStatus&&<div className="message-actions">
-                                <ReactionPicker label={t("react")} onReact={emoji=>{void react(m,emoji)}}/>
-                                <MessageActions message={m} own={own} pt={lang==="pt"} rooms={boot.rooms} onAction={messageAction}/>
-                              </div>}
-                            </SwipeReply></Fragment>
-                          );
-                        })
-                    )}
-                    {!filtering && !loadingMessages && !currentMessages.length && (
-                      <div className="empty-state">
-                        <MessageCircle size={32} />
-                        <h3>{t("conversationStarted")}</h3>
-                        <p>{t("conversationStartedDesc")}</p>
-                      </div>
-                    )}
-                    {filtering && !filterLoading && !currentMessages.length &&
-                      !currentMessages.some((m) =>
-                        m.text.toLowerCase().includes(chatQuery.toLowerCase()),
-                      ) && <p className="no-search-result">{t("noResults")}</p>}
-                    <div ref={bottomRef} />
-                  </div>
-                  {chatScroll.away&&<button className="jump-to-latest" type="button" onClick={chatScroll.jump} aria-label={lang==='pt'?'Voltar para a última mensagem':'Go to latest message'}><ArrowDown size={18}/>{chatScroll.newCount>0?<span>{chatScroll.newCount} {lang==='pt'?(chatScroll.newCount===1?'nova mensagem':'novas mensagens'):(chatScroll.newCount===1?'new message':'new messages')}</span>:null}</button>}
-                  <ChatGallery messages={rawMessages} selectedId={galleryId} onSelect={setGalleryId} onClose={()=>setGalleryId(null)} lang={lang}/>
-                  {failed && (
-                    <div className="send-error" role="alert">
-                      {t("failedSend")}
-                      <button onClick={() => sendMessage(failed)}>
-                        {t("retry")}
-                      </button>
-                    </div>
-                  )}
-                  <div className="composer-wrapper peakboo-composer">
-                    {replying&&!editing&&<ReplyReference message={replying} source={replying} ownId={boot.user.id} lang={lang} onCancel={()=>setReplying(null)}/>}
-                    {editing&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
-                    <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice />
-
-                  </div>
-                </>
-              ) : (
-                <div className="empty-state chat-empty">
-                  <Logo compact />
-                  <h2>{t("connectTitle")}</h2>
-                  <p>{t("connectDesc")}</p>
-                  <Button
-                    onClick={() => {
-                      setNewTab("create");
-                      openModal("new");
-                    }}
-                  >
-                    <Plus size={17} />
-                    {t("newConversation")}
-                  </Button>
-                </div>
-              )}
-            </section>
+            <ChatPanel room={room} rooms={boot.rooms} events={boot.events} userId={boot.user.id} lang={lang} locale={locale} t={t} time={time}
+              onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite}
+              onCreateEvent={()=>openEvent()} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
+              showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch} chatQuery={chatQuery} setChatQuery={setChatQuery}
+              chatFilter={chatFilter} setChatFilter={setChatFilter} pinnedMessages={pinnedMessages} chatScroll={chatScroll}
+              canLoadOlder={!!room&&!!hasMore[room.id]} onLoadOlder={loadOlder} busy={busy}
+              filtering={filtering} historyLoading={loadingMessages} loadingMessages={loadingMessages} filterLoading={filterLoading}
+              currentMessages={currentMessages} rawMessages={rawMessages} bottomRef={bottomRef} eventCard={eventCard} openDetail={openDetail}
+              messageAction={messageAction} jumpToReply={jumpToReply} setGalleryId={setGalleryId} galleryId={galleryId}
+              deliverPending={deliverPending} pendingReactions={pendingReactions} react={react} failed={failed} sendMessage={sendMessage}
+              replying={replying} editing={editing} setReplying={setReplying} setEditing={setEditing} selected={selected} text={text} setText={setText}
+              sendAttachment={sendAttachment} sendLocation={sendLocation} composerRef={composerRef}/>
             <aside className="plans-panel">
               <div className="plans-heading">
                 <span className="calendar-badge">
