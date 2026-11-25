@@ -78,11 +78,15 @@ async function member(req, res, next) {
     )
       return jsonError(res, 404, "NOT_FOUND");
     const r = await pool.query(
-      "SELECT r.*, m.user_id FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=$1 AND m.user_id=$2 AND r.kind='group'",
+      "SELECT r.*, m.user_id, m.joined_at::text AS member_joined_at FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=$1 AND m.user_id=$2 AND r.kind='group'",
       [req.params.room, req.user.id],
     );
     if (!r.rowCount) return jsonError(res, 404, "NOT_FOUND");
     req.room = r.rows[0];
+    if(req.params.message){
+      const visible=await pool.query("SELECT 1 FROM messages WHERE id=$1 AND room_id=$2 AND created_at >= $3::timestamptz",[req.params.message,req.params.room,req.room.member_joined_at]);
+      if(!visible.rowCount)return jsonError(res,404,"NOT_FOUND");
+    }
     next();
   } catch (e) {
     next(e);
@@ -127,7 +131,7 @@ app.get("/api/live", (req, res) => {
 app.get("/api/bootstrap", async (req, res) => {
   const rooms = (
     await pool.query(
-      `SELECT r.id,r.kind,r.name,r.description,r.color,r.image,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",(SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",(SELECT text FROM messages WHERE room_id=r.id ORDER BY created_at DESC LIMIT 1) AS "lastText",(SELECT max(created_at) FROM messages WHERE room_id=r.id) AS "lastAt",(SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND sender_id<>$1) AS unread FROM rooms r JOIN members m ON m.room_id=r.id WHERE m.user_id=$1 AND r.kind='group' ORDER BY coalesce((SELECT max(created_at) FROM messages WHERE room_id=r.id),r.created_at) DESC LIMIT 100`,
+      `SELECT r.id,r.kind,r.name,r.description,r.color,r.image,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",m.joined_at AS "joinedAt",(SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",(SELECT text FROM messages WHERE room_id=r.id AND created_at>=m.joined_at ORDER BY created_at DESC,id DESC LIMIT 1) AS "lastText",(SELECT max(created_at) FROM messages WHERE room_id=r.id AND created_at>=m.joined_at) AS "lastAt",(SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND created_at>=m.joined_at AND sender_id<>$1) AS unread FROM rooms r JOIN members m ON m.room_id=r.id WHERE m.user_id=$1 AND r.kind='group' ORDER BY coalesce((SELECT max(created_at) FROM messages WHERE room_id=r.id AND created_at>=m.joined_at),r.created_at) DESC LIMIT 100`,
       [req.user.id],
     )
   ).rows;
@@ -137,13 +141,15 @@ app.get("/api/bootstrap", async (req, res) => {
       [req.user.id],
     )
   ).rows;
-  res.json({ user: req.user, rooms, events });
+  const activity=(await pool.query(
+    `SELECT a.id,a.event_id AS "eventId",e.room_id AS "roomId",e.title AS "eventTitle",r.name AS "roomName",a.action,a.created_at AS "createdAt" FROM event_activity a JOIN events e ON e.id=a.event_id JOIN rooms r ON r.id=e.room_id JOIN members m ON m.room_id=e.room_id WHERE m.user_id=$1 AND r.kind='group' AND a.actor_id<>$1 AND a.created_at>=m.joined_at AND a.created_at>now()-interval '30 days' ORDER BY a.created_at DESC LIMIT 100`,[req.user.id])).rows;
+  res.json({ user: req.user, rooms, events, activity });
 });
 app.post("/api/rooms", async (req, res) => {
   const data = roomInput.safeParse(req.body);
   if (!data.success) return jsonError(res, 400, "INVALID_INPUT");
   const id = randomUUID(),
-    code = randomBytes(18).toString("base64url");
+    code = randomBytes(12).toString("hex");
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
@@ -223,8 +229,8 @@ app.get("/api/rooms/:room/messages", member, async (req, res) => {
   const to=typeof req.query.to==="string"&&!isNaN(Date.parse(req.query.to))?req.query.to:null;
   const messages = (
     await pool.query(
-      `SELECT m.id,m.text,m.reply_to AS "replyTo",(SELECT CASE WHEN p.deleted THEN '' ELSE p.text END FROM messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id) AS "replyText",(SELECT p.sender_id FROM messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id) AS "replySenderId",(SELECT u.name FROM messages p JOIN "user" u ON u.id=p.sender_id WHERE p.id=m.reply_to AND p.room_id=m.room_id) AS "replySenderName",(SELECT p.deleted FROM messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id) AS "replyDeleted",(SELECT a.mime FROM messages p JOIN media a ON a.id=p.attachment_id WHERE p.id=m.reply_to AND p.room_id=m.room_id AND NOT p.deleted) AS "replyMime",m.edited_at AS "editedAt",m.deleted,m.pinned,m.event_id AS "eventId",m.sender_id AS "senderId",u.name AS "senderName",u.image AS "senderImage",(SELECT json_build_object('id',a.id,'name',a.name,'mime',a.mime,'size',a.size,'width',a.width,'height',a.height) FROM media a WHERE a.id=m.attachment_id) AS attachment,m.created_at AS "createdAt",COALESCE((SELECT json_agg(json_build_object('userId',r.user_id,'emoji',r.emoji)) FROM reactions r WHERE r.message_id=m.id),'[]') AS reactions FROM messages m JOIN "user" u ON u.id=m.sender_id WHERE m.room_id=$1 AND ($7::uuid IS NULL OR (m.created_at,m.id)<=(SELECT p.created_at,p.id FROM messages p WHERE p.id=$7 AND p.room_id=$1)) AND ($2::timestamptz IS NULL OR m.created_at<$2) AND ($3::timestamptz IS NULL OR m.created_at>=$3) AND ($4::timestamptz IS NULL OR m.created_at<$4) AND ($5='' OR m.text ILIKE '%'||$5||'%') AND ($6='all' OR ($6='pinned' AND m.pinned) OR EXISTS(SELECT 1 FROM media a WHERE a.id=m.attachment_id AND (($6='files' AND a.mime !~ '^(image|video|audio)/') OR a.mime LIKE $6||'/%'))) ORDER BY m.created_at DESC,m.id DESC LIMIT 80`,
-      [req.params.room, before,from,to,q,kind,around],
+      `SELECT m.id,m.text,(SELECT p.id FROM messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND p.created_at >= $8::timestamptz) AS "replyTo",(SELECT CASE WHEN p.deleted THEN '' ELSE p.text END FROM messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND p.created_at >= $8::timestamptz) AS "replyText",(SELECT p.sender_id FROM messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND p.created_at >= $8::timestamptz) AS "replySenderId",(SELECT u.name FROM messages p JOIN "user" u ON u.id=p.sender_id WHERE p.id=m.reply_to AND p.room_id=m.room_id AND p.created_at >= $8::timestamptz) AS "replySenderName",(SELECT p.deleted FROM messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND p.created_at >= $8::timestamptz) AS "replyDeleted",(SELECT a.mime FROM messages p JOIN media a ON a.id=p.attachment_id WHERE p.id=m.reply_to AND p.room_id=m.room_id AND p.created_at >= $8::timestamptz AND NOT p.deleted) AS "replyMime",m.edited_at AS "editedAt",m.deleted,m.pinned,m.event_id AS "eventId",m.sender_id AS "senderId",u.name AS "senderName",u.image AS "senderImage",(SELECT json_build_object('id',a.id,'name',a.name,'mime',a.mime,'size',a.size,'width',a.width,'height',a.height) FROM media a WHERE a.id=m.attachment_id) AS attachment,m.created_at AS "createdAt",COALESCE((SELECT json_agg(json_build_object('userId',r.user_id,'emoji',r.emoji)) FROM reactions r WHERE r.message_id=m.id),'[]') AS reactions FROM messages m JOIN "user" u ON u.id=m.sender_id WHERE m.room_id=$1 AND m.created_at >= $8::timestamptz AND ($7::uuid IS NULL OR (m.created_at,m.id)<=(SELECT p.created_at,p.id FROM messages p WHERE p.id=$7 AND p.room_id=$1 AND p.created_at >= $8::timestamptz)) AND ($2::timestamptz IS NULL OR m.created_at<$2) AND ($3::timestamptz IS NULL OR m.created_at>=$3) AND ($4::timestamptz IS NULL OR m.created_at<$4) AND ($5='' OR m.text ILIKE '%'||$5||'%') AND ($6='all' OR ($6='pinned' AND m.pinned) OR EXISTS(SELECT 1 FROM media a WHERE a.id=m.attachment_id AND (($6='files' AND a.mime !~ '^(image|video|audio)/') OR a.mime LIKE $6||'/%'))) ORDER BY m.created_at DESC,m.id DESC LIMIT 80`,
+      [req.params.room, before,from,to,q,kind,around,req.room.member_joined_at],
     )
   ).rows.reverse();
   res.json({ messages, hasMore: messages.length === 80 });
@@ -249,9 +255,9 @@ app.get("/api/rooms/:room/members", member, async (req, res) =>
 app.post("/api/rooms/:room/messages", member, async (req, res) => {
   const data = messageInput.safeParse(req.body);
   if (!data.success) return jsonError(res, 400, "INVALID_INPUT");
-  if(data.data.replyTo){const r=await pool.query("SELECT id FROM messages WHERE id=$1 AND room_id=$2 AND NOT deleted",[data.data.replyTo,req.params.room]);if(!r.rowCount)return jsonError(res,400,"INVALID_INPUT");}
+  if(data.data.replyTo){const r=await pool.query("SELECT id FROM messages WHERE id=$1 AND room_id=$2 AND NOT deleted AND created_at >= $3::timestamptz",[data.data.replyTo,req.params.room,req.room.member_joined_at]);if(!r.rowCount)return jsonError(res,400,"INVALID_INPUT");}
   if (data.data.attachmentId) {
-    const a = await pool.query("SELECT id FROM media WHERE id=$1 AND owner_id=$2 AND room_id=$3", [data.data.attachmentId,req.user.id,req.params.room]);
+    const a = await pool.query("SELECT id FROM media WHERE id=$1 AND owner_id=$2 AND room_id=$3 AND created_at >= $4::timestamptz", [data.data.attachmentId,req.user.id,req.params.room,req.room.member_joined_at]);
     if (!a.rowCount) return jsonError(res,400,"INVALID_INPUT");
   }
   const r = await pool.query(
@@ -260,13 +266,13 @@ app.post("/api/rooms/:room/messages", member, async (req, res) => {
   );
   if (!r.rowCount) {
     const existing = (
-      await pool.query("SELECT room_id,sender_id FROM messages WHERE id=$1", [
-        data.data.id,
+      await pool.query("SELECT room_id,sender_id,created_at >= $2::timestamptz AS visible FROM messages WHERE id=$1", [
+        data.data.id, req.room.member_joined_at,
       ])
     ).rows[0];
     if (
       existing?.room_id !== req.params.room ||
-      existing?.sender_id !== req.user.id
+      existing?.sender_id !== req.user.id || !existing?.visible
     )
       return jsonError(res, 409, "CONFLICT");
   }
@@ -346,6 +352,7 @@ app.post("/api/rooms/:room/events", member, async (req, res) => {
       "INSERT INTO rsvps(event_id,user_id,status) VALUES($1,$2,'yes')",
       [id, req.user.id],
     );
+    await c.query("INSERT INTO event_activity(id,event_id,actor_id,action) VALUES($1,$2,$3,'created')",[randomUUID(),id,req.user.id]);
     await c.query("COMMIT");
   } catch (err) {
     await c.query("ROLLBACK");
@@ -361,7 +368,7 @@ app.put("/api/rooms/:room/events/:event", member, async (req, res) => {
   if (!data.success) return jsonError(res, 400, "INVALID_INPUT");
   const e = data.data;
   const r = await pool.query(
-    "UPDATE events SET title=$1,description=$2,location=$3,starts_at=$4,ends_at=$5,color=$6 WHERE id=$7 AND room_id=$8 AND creator_id=$9 RETURNING id",
+    "WITH changed AS (UPDATE events SET title=$1,description=$2,location=$3,starts_at=$4,ends_at=$5,color=$6 WHERE id=$7 AND room_id=$8 AND creator_id=$9 RETURNING id) INSERT INTO event_activity(id,event_id,actor_id,action) SELECT $10,id,$9,'updated' FROM changed RETURNING event_id",
     [
       e.title,
       e.description,
@@ -371,7 +378,7 @@ app.put("/api/rooms/:room/events/:event", member, async (req, res) => {
       e.color,
       req.params.event,
       req.params.room,
-      req.user.id,
+      req.user.id,randomUUID(),
     ],
   );
   if (!r.rowCount) return jsonError(res, 403, "FORBIDDEN");
@@ -397,8 +404,8 @@ app.post("/api/rooms/:room/events/:event/rsvp", member, async (req, res) => {
 });
 app.delete("/api/rooms/:room/events/:event", member, async (req, res) => {
   const r = await pool.query(
-    "UPDATE events SET cancelled=true WHERE id=$1 AND room_id=$2 AND creator_id=$3 RETURNING id",
-    [req.params.event, req.params.room, req.user.id],
+    "WITH changed AS (UPDATE events SET cancelled=true WHERE id=$1 AND room_id=$2 AND creator_id=$3 RETURNING id) INSERT INTO event_activity(id,event_id,actor_id,action) SELECT $4,id,$3,'cancelled' FROM changed RETURNING event_id",
+    [req.params.event, req.params.room, req.user.id,randomUUID()],
   );
   if (!r.rowCount) return jsonError(res, 403, "FORBIDDEN");
   await publish(req.params.room);
@@ -440,7 +447,7 @@ app.post("/api/rooms/:room/photo",member,(req,res,next)=>req.room.kind==='group'
 app.post("/api/rooms/:room/files",member,mediaBody,(req,res)=>saveMedia(req,res,req.params.room,false));
 app.get("/api/media/:id",async(req,res)=>{
  if(!/^[a-f0-9-]{36}$/i.test(req.params.id))return jsonError(res,404,"NOT_FOUND");
- const r=await pool.query(`SELECT a.* FROM media a WHERE a.id=$1 AND ((a.room_id IS NOT NULL AND EXISTS(SELECT 1 FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=a.room_id AND r.kind='group' AND m.user_id=$2)) OR (a.room_id IS NULL AND (a.owner_id=$2 OR EXISTS(SELECT 1 FROM profiles p JOIN "user" u ON u.id=p.user_id WHERE p.user_id=a.owner_id AND (u.image='/api/media/'||a.id::text OR p.cover='/api/media/'||a.id::text) AND p.is_public) OR EXISTS(SELECT 1 FROM members me JOIN members peer ON peer.room_id=me.room_id JOIN rooms r ON r.id=me.room_id WHERE r.kind='group' AND me.user_id=$2 AND peer.user_id=a.owner_id))))`,[req.params.id,req.user.id]);
+ const r=await pool.query(`SELECT a.* FROM media a WHERE a.id=$1 AND ((a.room_id IS NOT NULL AND EXISTS(SELECT 1 FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=a.room_id AND r.kind='group' AND m.user_id=$2 AND (r.image='/api/media/'||a.id::text OR (a.owner_id=$2 AND a.created_at>=m.joined_at) OR EXISTS(SELECT 1 FROM messages msg WHERE msg.room_id=r.id AND msg.attachment_id=a.id AND NOT msg.deleted AND msg.created_at>=m.joined_at)))) OR (a.room_id IS NULL AND (a.owner_id=$2 OR EXISTS(SELECT 1 FROM profiles p JOIN "user" u ON u.id=p.user_id WHERE p.user_id=a.owner_id AND (u.image='/api/media/'||a.id::text OR p.cover='/api/media/'||a.id::text) AND p.is_public) OR EXISTS(SELECT 1 FROM members me JOIN members peer ON peer.room_id=me.room_id JOIN rooms r ON r.id=me.room_id WHERE r.kind='group' AND me.user_id=$2 AND peer.user_id=a.owner_id))))`,[req.params.id,req.user.id]);
  if(!r.rowCount)return jsonError(res,404,"NOT_FOUND");
  const a=r.rows[0];res.set({"Content-Type":a.mime,"Content-Disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(a.name),"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}).send(a.bytes);
 });
