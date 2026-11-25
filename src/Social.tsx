@@ -62,6 +62,7 @@ export function ProfileEditor({
   const lock = useRef(false);
   useEffect(() => {
     let live = true;
+    const timer=setTimeout(()=>{if(live){live=false;setError(t.error)}},25000);
     api
       .me()
       .then((p) => {
@@ -69,8 +70,9 @@ export function ProfileEditor({
       })
       .catch(() => {
         if (live) setError(t.error);
-      });
+      }).finally(()=>clearTimeout(timer));
     return () => {
+      clearTimeout(timer);
       live = false;
     };
   }, [api, attempt]);
