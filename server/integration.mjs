@@ -164,6 +164,15 @@ try {
   check("invitation grants room membership", () =>
     assert.equal(joined.data.id, id),
   );
+  const peerPath="/api/profiles/"+encodeURIComponent(alice.data.user.id);
+  const peer=await call(peerPath,bob.token);
+  check("group participants can open a read-only profile",()=>{assert.equal(peer.status,200);assert.deepEqual(Object.keys(peer.data.profile).sort(),["bio","cover","id","image","name"]);assert.equal(peer.data.profile.id,alice.data.user.id)});
+  const outsiderProfile=await call(peerPath,charlie.token);
+  check("unrelated accounts cannot open profiles",()=>assert.equal(outsiderProfile.status,404));
+  const anonymousProfile=await call(peerPath,null);
+  check("profiles require authentication",()=>assert.equal(anonymousProfile.status,401));
+  const selfProfile=await call("/api/profiles/"+encodeURIComponent(charlie.data.user.id),charlie.token);
+  check("own profile is available without a group",()=>assert.equal(selfProfile.status,200));
   const streamController = new AbortController();
   const stream = await fetch("http://localhost:3001/api/live", {
     headers: { Authorization: "Bearer " + bob.token },
@@ -391,6 +400,11 @@ try {
   check("other members cannot change conversation photo",()=>assert.equal(refusedPhoto.status,403));
   const profilePhoto=await binary('/api/profile/photo',alice.token,"image/png",photo);
   check("profile photo is saved",()=>assert.equal(profilePhoto.status,201));
+  const ownPhoto=(await call('/api/me/profile',alice.token)).data.profile.image;
+  const peerPhoto=(await call(peerPath,bob.token)).data.profile.image;
+  check("current profile photo is returned to owner and group participant",()=>{assert.ok(ownPhoto);assert.equal(peerPhoto,ownPhoto)});
+  for(const u of [alice,bob]){const response=await fetch("http://localhost:3001"+ownPhoto,{headers:{Authorization:"Bearer "+u.token}});check("authorized profile photo downloads",()=>{assert.equal(response.status,200);assert.match(response.headers.get("content-type"),/^image\/png/)});assert.deepEqual(Buffer.from(await response.arrayBuffer()),photo)}
+  const unrelatedPhoto=await call(ownPhoto,charlie.token);check("unrelated profile photo is denied",()=>assert.equal(unrelatedPhoto.status,404));
   const badPhoto=await binary('/api/profile/photo',alice.token,"image/svg+xml",Buffer.from("<svg/>"));
   check("active image formats rejected",()=>assert.equal(badPhoto.status,400));
   const oversized=await binary(`/api/rooms/${id}/files`,alice.token,"text/plain",Buffer.alloc(10485761,65));
