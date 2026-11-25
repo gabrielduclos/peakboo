@@ -1,5 +1,5 @@
 import {displayName} from "../../../shared/display-name.mjs";
-import {Fragment,useState,type ReactNode,type RefObject} from "react";
+import {Fragment,useEffect,useState,type ReactNode,type RefObject} from "react";
 import {ArrowLeft,Users,Search,ListChecks,X,ChevronDown,LoaderCircle,Check,MessageCircle,ArrowDown,Plus} from "lucide-react";
 import {Avatar,Button,Logo,cn} from "../../components";
 import type {Room,Message,Plan,Color} from "../../types";
@@ -42,6 +42,7 @@ type ChatPanelProps={
 };
 export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,onRoomPhoto,onProfile,showMembers,invite,onCreateEvent,onCreateRoom,showChatSearch,setShowChatSearch,chatQuery,setChatQuery,chatFilter,setChatFilter,pinnedMessages,chatScroll,canLoadOlder,onLoadOlder,busy,filtering,historyLoading,loadingMessages,filterLoading,currentMessages,rawMessages,bottomRef,eventCard,openDetail,messageAction,jumpToReply,setGalleryId,galleryId,deliverPending,pendingReactions,react,failed,sendMessage,replying,editing,setReplying,setEditing,selected,text,setText,sendAttachment,sendLocation,composerRef,onSaveList,onUpdateList}:ChatPanelProps){
  const [listDraft,setListDraft]=useState<{roomId:string;title:string;items:string[];source?:Message}|null>(null);
+ useEffect(()=>setListDraft(null),[room?.id,userId]);
  return (
   <section className="chat-panel">
     {room ? (
