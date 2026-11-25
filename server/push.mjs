@@ -51,7 +51,7 @@ export function createPush(pool){
  };
  return {
   register(app){
-   app.get("/api/push/config",(req,res)=>res.set("Cache-Control","no-store").json({enabled,publicKey:keys?.publicKey||null}));
+   app.get("/api/push/config",(req,res)=>res.set("Cache-Control","private, no-store").json({enabled,publicKey:keys?.publicKey||null}));
    app.post("/api/push/subscriptions",async(req,res)=>{
     if(!enabled)return fail(res,503,"PUSH_UNAVAILABLE");
     const parsed=input.safeParse(req.body);if(!parsed.success)return fail(res,400,"INVALID_INPUT");
@@ -64,7 +64,7 @@ export function createPush(pool){
    app.post("/api/push/status",async(req,res)=>{
     const p=endpointInput.safeParse(req.body);if(!p.success)return fail(res,400,"INVALID_INPUT");
     const result=await pool.query("SELECT preview,locale FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2 AND session_id=$3",[p.data.endpoint,req.user.id,req.session.id]);
-    res.set("Cache-Control","no-store").json({active:!!result.rowCount,preview:result.rows[0]?.preview||false});
+    res.set("Cache-Control","private, no-store").json({active:!!result.rowCount,preview:result.rows[0]?.preview||false});
    });
    app.delete("/api/push/subscriptions",async(req,res)=>{
     const p=endpointInput.safeParse(req.body);if(!p.success)return fail(res,400,"INVALID_INPUT");
