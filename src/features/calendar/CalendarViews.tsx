@@ -1,3 +1,4 @@
+import {displayName} from "../../../shared/display-name.mjs";
 import {Avatar,Button,cn} from "../../components";
 import {CalendarDays,Clock,MapPin,Check,Plus,ChevronLeft,ChevronRight,Globe,X} from "lucide-react";
 import type {Plan,Room,Color} from "../../types";
@@ -56,7 +57,7 @@ export function EventCard({plan:p,compact=false,userId,fmt,time,t,busy,onDetail,
                 .map((r, i) => (
                   <Avatar
                     key={r.userId}
-                    name={r.name}
+                    name={displayName(r.name)}
                     color={colors[i]}
                     small
                   />

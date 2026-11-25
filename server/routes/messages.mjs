@@ -1,3 +1,4 @@
+import {displayName} from "../../shared/display-name.mjs";
 import {randomUUID} from "node:crypto";
 import {messageInput,reactionInput} from "../validation.mjs";
 
@@ -48,7 +49,7 @@ app.post("/api/rooms/:room/messages", member, async (req, res) => {
       return jsonError(res, 409, "CONFLICT");
   }
   await publish(req.params.room);
-  if(r.rowCount)push.notify({kind:"message",roomId:req.params.room,actorId:req.user.id,messageId:data.data.id,body:req.user.name+": "+(data.data.text||"📎")});
+  if(r.rowCount)push.notify({kind:"message",roomId:req.params.room,actorId:req.user.id,messageId:data.data.id,body:displayName(req.user.name)+": "+(data.data.text||"📎")});
   res.status(201).json({ id: data.data.id });
 });
 app.put("/api/rooms/:room/messages/:message",member,async(req,res)=>{
@@ -87,7 +88,7 @@ app.post(
     }catch(e){await db.query("ROLLBACK");throw e}finally{db.release()}
     const reaction={messageId:req.params.message,userId:req.user.id,emoji:data.data.emoji,active};
     await publish(req.params.room,{reaction});
-    if(added)push.notify({kind:"reaction",roomId:req.params.room,actorId:req.user.id,messageId:req.params.message,body:req.user.name+" "+data.data.emoji});
+    if(added)push.notify({kind:"reaction",roomId:req.params.room,actorId:req.user.id,messageId:req.params.message,body:displayName(req.user.name)+" "+data.data.emoji});
     res.json({ok:true,reaction});
   },
 );
