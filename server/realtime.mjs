@@ -14,7 +14,7 @@ function register(app){
 app.get("/api/live", (req, res) => {
   res.set({
     "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
+    "Cache-Control": "private, no-store",
     Connection: "keep-alive",
     "X-Accel-Buffering": "no",
   });
