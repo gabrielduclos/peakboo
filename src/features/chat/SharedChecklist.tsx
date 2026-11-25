@@ -33,7 +33,7 @@ export function SharedChecklist({list,pt,onChange}:{list:Checklist;pt:boolean;on
   try{await onChange(op);success?.()}catch{setError(pt?"Não foi possível atualizar a lista. Tente novamente.":"Could not update list. Try again.")}finally{pending.current=false;setBusy(null)}
  }
  const complete=list.items.filter(i=>i.done).length;
- return <div className="shared-checklist" onPointerDown={e=>e.stopPropagation()}>
+ return <div className="shared-checklist" data-no-swipe onContextMenu={e=>e.stopPropagation()} onPointerDown={e=>e.stopPropagation()}>
   <div className="shared-list-heading"><ListChecks size={18}/><strong>{list.title}</strong><small>{complete}/{list.items.length}</small><button type="button" className="icon-button tiny" disabled={!!busy} aria-label={pt?"Renomear lista":"Rename list"} onClick={()=>{setEditing("title");setEditText(list.title)}}><Pencil size={15}/></button></div>
   <progress max={Math.max(1,list.items.length)} value={complete} aria-label={pt?"Progresso da lista":"List progress"}/>
   {editing==="title"&&<form className="shared-list-edit" onSubmit={e=>{e.preventDefault();if(editText.trim())void run("title",{kind:"rename",title:editText.trim()},()=>setEditing(null))}}><input value={editText} onChange={e=>setEditText(e.target.value)} maxLength={80} required aria-label={pt?"Título":"Title"}/><Button busy={busy==="title"} disabled={!!busy}>{pt?"Salvar":"Save"}</Button><Button type="button" variant="ghost" disabled={!!busy} onClick={()=>setEditing(null)}>{pt?"Cancelar":"Cancel"}</Button></form>}
