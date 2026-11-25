@@ -288,7 +288,17 @@ try {
   const setReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
   const repeatReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
   check('reaction desired-state retries are idempotent',()=>{assert.equal(setReaction.data.reaction.active,true);assert.equal(repeatReaction.data.reaction.active,true)});
+  await call(`/api/rooms/${id}/messages/${messageId}/reaction`,alice.token,'POST',{emoji:'❤️',active:true});
+  await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'🔥',active:true});
   await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:false});
+  const replaced=await call(`/api/rooms/${id}/messages`,alice.token);
+  check('changing reaction replaces only the actor emoji; stale removal is harmless',()=>{
+    const reactions=replaced.data.messages.find(m=>m.id===messageId).reactions;
+    assert.equal(reactions.length,2);
+    assert.deepEqual(reactions.map(r=>r.emoji).sort(),['❤️','🔥'].sort());
+  });
+  await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'🔥',active:false}); 
+  await call(`/api/rooms/${id}/messages/${messageId}/reaction`,alice.token,'POST',{emoji:'❤️',active:false});
   client = postgres.getPgClient();
   await client.connect();
   for (let i = 0; i < 85; i++)

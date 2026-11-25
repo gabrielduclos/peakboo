@@ -73,7 +73,7 @@ export function PwaInvites({userId,lang,blocked}:{userId:string;lang:string;bloc
     <Button type="button" variant="ghost" disabled={busy} onClick={dismissInstall}>{later}</Button>
    </div>
   </Modal>
-  <Modal open={pushOpen&&!blocked&&!installOpen&&!!userId} onOpenChange={v=>{if(!v)dismissPush()}} title={pt?"Ative as notificações":"Enable notifications"} description={pt?"Receba mensagens e lembretes mesmo quando estiver fora do Peakboo.":"Receive messages and reminders even when you're away from Peakboo."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
+  <Modal open={pushOpen&&!blocked&&!installOpen&&!!userId&&canPush()} onOpenChange={v=>{if(!v)dismissPush()}} title={pt?"Ative as notificações":"Enable notifications"} description={pt?"Receba mensagens e lembretes mesmo quando estiver fora do Peakboo.":"Receive messages and reminders even when you're away from Peakboo."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
    <div className="pwa-invite-body"><div className="pwa-invite-bell"><BellRing size={28}/></div>
     <Button type="button" busy={busy} onClick={()=>void activate()}><BellRing size={18}/>{pt?"Ativar notificações":"Enable notifications"}</Button>
     {error&&<p role="alert" className="form-error">{error}</p>}

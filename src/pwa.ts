@@ -1,6 +1,7 @@
 import {request} from "./api";
+import {isPwaWindow} from "./pwaInstall";
 const supported=()=>typeof navigator!=="undefined"&&"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
-export const canPush=supported;
+export const canPush=()=>supported()&&isPwaWindow();
 let registration:Promise<ServiceWorkerRegistration>|null=null;
 export function registerPwa(){
  if(!("serviceWorker" in navigator))return null;
@@ -20,7 +21,7 @@ async function saveSubscription(sub:PushSubscription,userId:string,lang:string,p
  const json=sub.toJSON();await request("/api/push/subscriptions","POST",{endpoint:json.endpoint,keys:json.keys,locale:lang==="pt"?"pt":"en",preview});saveConsent(userId,{preview});try{localStorage.setItem(OWNER,userId)}catch{}
 }
 export async function enablePush(userId:string,lang:string,publicKey:string,preview:boolean){
- if(!supported())throw Error("PUSH_UNAVAILABLE");
+ if(!canPush())throw Error("PUSH_UNAVAILABLE");
  // Browser permission must be requested in the direct click handler (especially iOS).
  const permission=await Notification.requestPermission();if(permission!=="granted")throw Error("PUSH_DENIED");
  const reg=await pushRegistration();let sub=await reg.pushManager.getSubscription();
@@ -30,7 +31,7 @@ export async function enablePush(userId:string,lang:string,publicKey:string,prev
  try{await saveSubscription(sub,userId,lang,preview)}catch(e){await sub.unsubscribe().catch(()=>false);throw e}
 }
 export async function syncPush(userId:string,lang:string):Promise<boolean>{
- if(!supported())return false;
+ if(!canPush())return false;
  const consent=pushConsent(userId);let owner:string|null=null;try{owner=localStorage.getItem(OWNER)}catch{}
  if(owner&&owner!==userId){const reg=await pushRegistration(),old=await reg.pushManager.getSubscription();if(old)await old.unsubscribe();saveConsent(owner,null);try{localStorage.removeItem(OWNER)}catch{};return false}
  if(!consent||Notification.permission!=="granted")return false;

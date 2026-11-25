@@ -3875,3 +3875,11 @@ button.reply-reference-line:hover{text-decoration:underline}
 .push-settings{display:flex;flex-direction:column;gap:12px}.push-settings h3{font-size:14px;font-weight:600;margin:4px 0 0}.push-settings .muted{font-size:13px}.push-option{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;min-height:44px}.push-option span{overflow-wrap:anywhere}.push-option input{width:19px;height:19px;accent-color:var(--primary);flex:none}.push-install-hint{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.dialog-tabs{overflow-x:auto}.dialog-tabs>button{flex-shrink:0;white-space:nowrap}
 
 .pwa-invite-body{display:flex;flex-direction:column;gap:12px;align-items:stretch;padding-top:8px}.pwa-invite-icon{align-self:center;border-radius:16px;width:64px;height:64px}.pwa-invite-bell{display:grid;place-items:center;align-self:center;width:64px;height:64px;border-radius:50%;background:var(--surface-secondary,var(--line));color:var(--primary)}.pwa-invite-body>.button{width:100%;min-height:44px;justify-content:center}.pwa-invite-instructions{line-height:1.5;text-align:center;font-size:.875rem;overflow-wrap:anywhere}.pwa-invite-body .form-error{margin:0}
+
+/* Keep the header and composer inside the visible mobile viewport when the keyboard opens. */
+@media(max-width:700px){
+ .app-shell.chat-open{position:fixed;inset-inline:0;top:var(--peakboo-visible-top,0px);height:var(--peakboo-visible-height,100dvh);min-height:0}
+ .app-shell.chat-open .main-area,.app-shell.chat-open .messenger,.app-shell.chat-open .chat-panel{min-height:0;overflow:hidden}
+ .app-shell.chat-open .chat-header{flex-shrink:0;position:relative;z-index:2}
+ .app-shell.chat-open .peakboo-composer{flex-shrink:0}
+}

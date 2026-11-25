@@ -319,7 +319,7 @@ app.post(
       if(!m.rowCount){await db.query("ROLLBACK");return jsonError(res,404,"NOT_FOUND")}
       active=data.data.active;
       if(active===undefined){const existing=await db.query("SELECT 1 FROM reactions WHERE message_id=$1 AND user_id=$2 AND emoji=$3",[req.params.message,req.user.id,data.data.emoji]);active=!existing.rowCount;}
-      if(active)added=!!(await db.query("INSERT INTO reactions(message_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[req.params.message,req.user.id,data.data.emoji])).rowCount;
+      if(active)added=!!(await db.query("INSERT INTO reactions(message_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT(message_id,user_id) DO UPDATE SET emoji=EXCLUDED.emoji WHERE reactions.emoji IS DISTINCT FROM EXCLUDED.emoji",[req.params.message,req.user.id,data.data.emoji])).rowCount;
       else await db.query("DELETE FROM reactions WHERE message_id=$1 AND user_id=$2 AND emoji=$3",[req.params.message,req.user.id,data.data.emoji]);
       await db.query("COMMIT");
     }catch(e){await db.query("ROLLBACK");throw e}finally{db.release()}
