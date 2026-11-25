@@ -57,7 +57,8 @@
 
 /* Show the original mascot without its PWA icon background in the header. */
 .topbar .mobile-brand::before,
-.topbar .breadcrumb::before {
+.topbar .breadcrumb::before,
+.session-loading > .brand::before {
   content: "";
   display: block;
   width: 32px;
@@ -74,4 +75,15 @@
   width: 40px;
   height: 40px;
   flex-basis: 40px;
+}
+
+/* Use the same transparent mascot above the session-loading wordmark. */
+.session-loading > .brand {
+  flex-direction: column;
+  gap: 10px;
+}
+.session-loading > .brand::before {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
 }

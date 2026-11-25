@@ -916,7 +916,7 @@ export default function App() {
     await refresh();
   }
   if(getToken()&&!boot.user.id){
-    return <main className="fixed inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
+    return <main className="session-loading fixed inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
       <Logo />
       {restoreFailed ? <>
         <p role="alert">{lang==="pt"?"Não foi possível conectar. Sua sessão foi mantida.":"Could not connect. Your session was kept."}</p>
