@@ -120,4 +120,4 @@ A lista de grupos mostra o remetente, texto ou tipo de mídia da última mensage
 
 ### Organização modular da interface
 
-Componentes visuais compartilhados ficam em `src/features/<domínio>/`. A lista de grupos (`groups/GroupsPanel.tsx`) e as visualizações da agenda (`calendar/CalendarViews.tsx`) recebem dados e callbacks por propriedades. Produção e demonstração preservam suas fontes de dados e operações independentes; os componentes compartilhados não importam a API nem o armazenamento da demo. Novas extrações devem manter o comportamento e ser acompanhadas de testes de regressão.
+Componentes visuais compartilhados ficam em `src/features/<domínio>/`. A lista de grupos (`groups/GroupsPanel.tsx`) e as visualizações da agenda (`calendar/CalendarViews.tsx`) e o painel do chat (`chat/ChatPanel.tsx`) recebem dados e callbacks por propriedades. Produção e demonstração preservam suas fontes de dados e operações independentes; os componentes compartilhados não importam a API nem o armazenamento da demo. Novas extrações devem manter o comportamento e ser acompanhadas de testes de regressão.

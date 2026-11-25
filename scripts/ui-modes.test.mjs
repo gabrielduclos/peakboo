@@ -5,6 +5,11 @@ for(const key of ['window','document','navigator','HTMLElement','Element','Node'
 const {createElement,act}=await import('react');const {createRoot}=await import('react-dom/client');const dir=await mkdtemp(process.cwd()+'/.ui-test-');
 async function mount(entry){const out=dir+'/'+entry.split('/').at(-1)+'.mjs';await build({entryPoints:[entry],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});const {default:App}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));await act(async()=>{root.render(createElement(App));await new Promise(r=>setTimeout(r,0))});return root;}
 try{
+ await test('shared chat panel preserves empty state and create-group callback',async()=>{
+ const out=dir+'/chat-panel.mjs';await build({entryPoints:['src/features/chat/ChatPanel.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});
+ const {ChatPanel}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));let created=0;
+ try{await act(async()=>root.render(createElement(ChatPanel,{room:undefined,t:k=>k,onCreateRoom:()=>created++})));assert.ok(document.querySelector('.chat-panel .chat-empty'));assert.equal(document.querySelector('.chat-empty h2').textContent,'connectTitle');await act(async()=>document.querySelector('.chat-empty button').click());assert.equal(created,1);assert.equal(document.querySelector('.chat-history'),null)}finally{await act(async()=>root.unmount())}
+ });
  await test('shared calendar preserves month week agenda views and event callbacks',async()=>{
  const out=dir+'/calendar-views.mjs';await build({entryPoints:['src/features/calendar/CalendarViews.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});
  const {CalendarPage,EventCard}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));
