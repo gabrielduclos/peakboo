@@ -59,11 +59,12 @@ try {
       reject(new Error("Server exited " + code + ": " + errors));
     });
   });
-  const call = async (route, token, method = "GET", body) => {
+  const call = async (route, token, method = "GET", body, clientIp) => {
     const res = await fetch("http://localhost:3001" + route, {
       method,
       headers: {
         Origin: "http://localhost:3001",
+        ...(clientIp ? {"X-Forwarded-For":clientIp} : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(body ? { "Content-Type": "application/json" } : {}),
       },
@@ -312,24 +313,26 @@ try {
   const setReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
   const firstNotice=(await call("/api/bootstrap",alice.token)).data.reactionNotices.find(n=>n.messageId===messageId);
   assert.ok(firstNotice?.id);
-  const secondDevice=await call("/api/auth/sign-in/email",null,"POST",{email:alice.data.user.email,password:alice.credential});
+  // Model a second device with its own IP; keep the real production rate limiter intact.
+  const noticeCall=(route,token,method,body)=>call(route,token,method,body,"192.0.2.10");
+  const secondDevice=await noticeCall("/api/auth/sign-in/email",null,"POST",{email:alice.data.user.email,password:alice.credential});
   check("same account can open an independent session",()=>{assert.equal(secondDevice.status,200);assert.ok(secondDevice.token);assert.notEqual(secondDevice.token,alice.token)});
   const noticeId="reaction:"+firstNotice.id;
-  const readNotice=await call("/api/notifications/state",alice.token,"POST",{read:[noticeId],dismissed:[]});
+  const readNotice=await noticeCall("/api/notifications/state",alice.token,"POST",{read:[noticeId],dismissed:[]});
   check("notification reading is persisted per account",()=>assert.equal(readNotice.status,200));
-  const otherDeviceState=(await call("/api/bootstrap",secondDevice.token)).data.notificationState;
+  const otherDeviceState=(await noticeCall("/api/bootstrap",secondDevice.token)).data.notificationState;
   check("second session sees read state",()=>assert.ok(otherDeviceState.read.includes(noticeId)));
-  const dismissNotice=await call("/api/notifications/state",secondDevice.token,"POST",{read:[],dismissed:[noticeId]});
+  const dismissNotice=await noticeCall("/api/notifications/state",secondDevice.token,"POST",{read:[],dismissed:[noticeId]});
   check("second session can dismiss the same notification",()=>assert.equal(dismissNotice.status,200));
-  const retryRead=await call("/api/notifications/state",alice.token,"POST",{read:[noticeId],dismissed:[]});
+  const retryRead=await noticeCall("/api/notifications/state",alice.token,"POST",{read:[noticeId],dismissed:[]});
   assert.equal(retryRead.status,200);
-  const persistedState=(await call("/api/bootstrap",alice.token)).data.notificationState;
+  const persistedState=(await noticeCall("/api/bootstrap",alice.token)).data.notificationState;
   check("read retry cannot undo dismissal",()=>{assert.ok(persistedState.read.includes(noticeId));assert.ok(persistedState.dismissed.includes(noticeId))});
-  const independentState=(await call("/api/bootstrap",bob.token)).data.notificationState;
+  const independentState=(await noticeCall("/api/bootstrap",bob.token)).data.notificationState;
   check("other accounts do not receive private notification state",()=>assert.ok(!independentState.dismissed.includes(noticeId)));
-  const invalidState=await call("/api/notifications/state",alice.token,"POST",{read:[noticeId],dismissed:[],userId:bob.data.user.id});
+  const invalidState=await noticeCall("/api/notifications/state",alice.token,"POST",{read:[noticeId],dismissed:[],userId:bob.data.user.id});
   check("notification endpoint rejects caller-supplied account identity",()=>assert.equal(invalidState.status,400));
-  const noSessionState=await call("/api/notifications/state",null,"POST",{read:[noticeId],dismissed:[]});
+  const noSessionState=await noticeCall("/api/notifications/state",null,"POST",{read:[noticeId],dismissed:[]});
   check("notification state requires authentication",()=>assert.equal(noSessionState.status,401));
   const repeatReaction=await call(`/api/rooms/${id}/messages/${messageId}/reaction`,bob.token,'POST',{emoji:'👍',active:true});
   const repeatNotice=(await call("/api/bootstrap",alice.token)).data.reactionNotices.filter(n=>n.messageId===messageId);
