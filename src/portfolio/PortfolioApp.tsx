@@ -648,7 +648,7 @@ export default function App() {
   }
   async function react(m:Message,emoji:string){
     setReactionOpen(null);
-    if(!selected||m.pendingStatus||m.deleted)return;
+    if(!selected||m.pendingStatus||m.deleted||m.senderId===boot.user.id)return;
     const roomId=selected,userId=boot.user.id,key=m.id;
     if(pendingReactionRef.current[key])return;
     const change={messageId:m.id,userId,emoji,active:!m.reactions.some(r=>r.userId===userId&&r.emoji===emoji)};
@@ -1090,7 +1090,7 @@ export default function App() {
               onCreate={()=>{setNewTab("create");openModal("new")}}
               onJoin={()=>{setNewTab("join");openModal("new")}} decorateWeekend={demo}/>
             <ChatPanel room={room} rooms={boot.rooms} events={boot.events} userId={boot.user.id} lang={lang} locale={locale} t={t} time={time}
-              onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite} onProfile={openProfile}
+              onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} loadReactionMembers={async roomId=>demo?Array.from(new Map([{id:boot.user.id,name:boot.user.name,image:boot.user.image},...(messages[roomId]||[]).map(m=>({id:m.senderId,name:m.senderName,image:m.senderImage}))].map(p=>[p.id,p])).values()):(await request('/api/rooms/'+encodeURIComponent(roomId)+'/members')).members} invite={invite} onProfile={openProfile}
               onCreateEvent={()=>openEvent()} onSaveList={saveSharedList} onUpdateList={updateSharedList} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
               showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch} chatQuery={chatQuery} setChatQuery={setChatQuery}
               chatFilter={chatFilter} setChatFilter={setChatFilter} pinnedMessages={pinnedMessages} chatScroll={chatScroll}

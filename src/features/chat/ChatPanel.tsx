@@ -1,7 +1,7 @@
 import {displayName} from "../../../shared/display-name.mjs";
 import {Fragment,useEffect,useState,type ReactNode,type RefObject} from "react";
 import {ArrowLeft,Users,Search,ListChecks,X,ChevronDown,LoaderCircle,Check,MessageCircle,ArrowDown,Plus} from "lucide-react";
-import {Avatar,Button,Logo,cn} from "../../components";
+import {Avatar,Button,Logo,Modal,cn} from "../../components";
 import type {Room,Message,Plan,Color} from "../../types";
 import {ReplyReference} from "../../ReplyReference";
 import {SwipeReply} from "../../SwipeReply";
@@ -26,6 +26,7 @@ type ChatPanelProps={
  t:(key:string)=>string;time:(date:string)=>string;onBack:()=>void;onRoomPhoto:()=>void;
  onProfile?:(user:{id:string;name:string;image?:string|null})=>void;
  onSaveList:(roomId:string,draft:ListDraft)=>Promise<void>;onUpdateList:(roomId:string,messageId:string,op:ChecklistOperation)=>Promise<void>;
+ loadReactionMembers:(roomId:string)=>Promise<{id:string;name:string;image?:string|null}[]>;
  showMembers:()=>void;invite:()=>void;onCreateEvent:()=>void;onCreateRoom:()=>void;
  showChatSearch:boolean;setShowChatSearch:(value:boolean)=>void;chatQuery:string;setChatQuery:(value:string)=>void;
  chatFilter:ChatFilter;setChatFilter:(value:ChatFilter)=>void;pinnedMessages:Message[];
@@ -40,9 +41,23 @@ type ChatPanelProps={
  selected:string|null;text:string;setText:(text:string)=>void;sendAttachment:(file:File,caption:string)=>Promise<void>;
  sendLocation:(lat:number,lon:number,caption:string)=>Promise<void>;composerRef:RefObject<HTMLTextAreaElement|null>;
 };
-export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,onRoomPhoto,onProfile,showMembers,invite,onCreateEvent,onCreateRoom,showChatSearch,setShowChatSearch,chatQuery,setChatQuery,chatFilter,setChatFilter,pinnedMessages,chatScroll,canLoadOlder,onLoadOlder,busy,filtering,historyLoading,loadingMessages,filterLoading,currentMessages,rawMessages,bottomRef,eventCard,openDetail,messageAction,jumpToReply,setGalleryId,galleryId,deliverPending,pendingReactions,react,failed,sendMessage,replying,editing,setReplying,setEditing,selected,text,setText,sendAttachment,sendLocation,composerRef,onSaveList,onUpdateList}:ChatPanelProps){
+export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,onRoomPhoto,onProfile,showMembers,invite,onCreateEvent,onCreateRoom,showChatSearch,setShowChatSearch,chatQuery,setChatQuery,chatFilter,setChatFilter,pinnedMessages,chatScroll,canLoadOlder,onLoadOlder,busy,filtering,historyLoading,loadingMessages,filterLoading,currentMessages,rawMessages,bottomRef,eventCard,openDetail,messageAction,jumpToReply,setGalleryId,galleryId,deliverPending,pendingReactions,react,failed,sendMessage,replying,editing,setReplying,setEditing,selected,text,setText,sendAttachment,sendLocation,composerRef,onSaveList,onUpdateList,loadReactionMembers}:ChatPanelProps){
  const [listDraft,setListDraft]=useState<{roomId:string;title:string;items:string[];source?:Message}|null>(null);
- useEffect(()=>setListDraft(null),[room?.id,userId]);
+ const [reactionTarget,setReactionTarget]=useState<{roomId:string;userId:string;messageId:string}|null>(null);
+ const [reactionPeople,setReactionPeople]=useState<{id:string;name:string;image?:string|null}[]>([]);
+ const [reactionLoading,setReactionLoading]=useState(false);
+ const [reactionError,setReactionError]=useState(false);
+ const [reactionRetry,setReactionRetry]=useState(0);
+ const activeReactionTarget=reactionTarget?.roomId===room?.id&&reactionTarget?.userId===userId?reactionTarget:null;
+ const reactionMessage=activeReactionTarget?(currentMessages.find(m=>m.id===activeReactionTarget.messageId)||rawMessages.find(m=>m.id===activeReactionTarget.messageId)):undefined;
+ useEffect(()=>{setListDraft(null);setReactionTarget(null);setReactionPeople([])},[room?.id,userId]);
+ useEffect(()=>{
+   if(!activeReactionTarget)return;
+   let active=true;setReactionLoading(true);setReactionError(false);setReactionPeople([]);
+   loadReactionMembers(activeReactionTarget.roomId).then(people=>{if(active)setReactionPeople(people)}).catch(()=>{if(active)setReactionError(true)}).finally(()=>{if(active)setReactionLoading(false)});
+   return()=>{active=false};
+ },[activeReactionTarget,reactionRetry]);
+
  return (
   <section className="chat-panel">
     {room ? (
@@ -135,7 +150,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
               <span className="skeleton" />
             </div>
           ) : (
-            currentMessages
+            currentMessages.map(m=>({...m,reactions:m.reactions.filter(r=>r.userId!==m.senderId)}))
               .map((m, i, arr) => {
                 const own = m.senderId === userId,
                   p = m.eventId
@@ -199,7 +214,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                               ),
                             ].map((emoji) => (
                               <button
-                                aria-label={t("react") + " " + emoji}
+                                aria-label={(lang==="pt"?"Ver quem reagiu":"See who reacted")+" "+emoji}
                                 key={emoji}
                                 className={
                                   m.reactions.some(
@@ -210,8 +225,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                                     ? "mine"
                                     : ""
                                 }
-                                disabled={!!pendingReactions[m.id]}
-                                onClick={() => react(m, emoji)}
+                                onClick={() => {setReactionPeople([]);setReactionLoading(true);setReactionError(false);setReactionTarget({roomId:room.id,userId,messageId:m.id})}}
                               >
                                 <span className="reaction-emoji" key={emoji+":"+m.reactions.filter(r=>r.emoji===emoji).length+":"+m.reactions.some(r=>r.emoji===emoji&&r.userId===userId)}>{emoji}</span>
                                 <small>
@@ -234,7 +248,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                       </div>
                     </div>
                     {!m.deleted&&!m.pendingStatus&&<div className="message-actions">
-                      <ReactionPicker label={t("react")} onReact={emoji=>{void react(m,emoji)}}/>
+                      {!own&&<ReactionPicker label={t("react")} selectedEmoji={m.reactions.find(r=>r.userId===userId)?.emoji} disabled={!!pendingReactions[m.id]} onReact={emoji=>{void react(m,emoji)}}/>}
                       <MessageActions message={m} own={own} pt={lang==="pt"} rooms={rooms} onAction={messageAction}/>
                     </div>}
                   </SwipeReply></Fragment>
@@ -287,6 +301,12 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
         </Button>
       </div>
     )}
+    {activeReactionTarget&&reactionMessage&&!reactionMessage.deleted&&<Modal open onOpenChange={v=>{if(!v)setReactionTarget(null)}} title={lang==="pt"?"Reações":"Reactions"} closeLabel={t("close")}>
+      {reactionLoading?<div role="status" className="flex justify-center p-4"><LoaderCircle className="spin" aria-label={lang==="pt"?"Carregando":"Loading"}/></div>:reactionError?<div role="alert"><p>{t("error")}</p><Button onClick={()=>setReactionRetry(v=>v+1)}>{t("retry")}</Button></div>:<div className="member-list">
+        {reactionMessage.reactions.filter(r=>r.userId!==reactionMessage.senderId).map(r=>{const person=reactionPeople.find(p=>p.id===r.userId);const name=person?.name||(lang==="pt"?"Participante indisponível":"Participant unavailable");return <div key={r.userId}><Avatar name={displayName(name)} image={person?.image} small/><span className="min-w-0 flex-1 break-words">{displayName(name)}</span><span className="shrink-0 text-lg">{r.emoji}</span></div>})}
+        {!reactionMessage.reactions.some(r=>r.userId!==reactionMessage.senderId)&&<p className="muted">{lang==="pt"?"Nenhuma reação":"No reactions"}</p>}
+      </div>}
+    </Modal>}
   </section>
  );
 }
