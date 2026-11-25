@@ -101,12 +101,13 @@ export function Avatar({
 }) {
   return (
     <span className={cn("avatar", color, small && "small")} aria-hidden="true">
-      {image ? <AvatarPhoto src={image} /> : name
+      {name
         .split(" ")
         .filter(Boolean)
         .slice(0, 2)
         .map((x) => x[0])
         .join("")}
+      {image && <AvatarPhoto key={image} src={image} />}
     </span>
   );
 }
