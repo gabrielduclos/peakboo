@@ -156,6 +156,8 @@ export default function App() {
     | null
   >(null);
   const [authMode, setAuthMode] = useState("login");
+  const [verificationEmail,setVerificationEmail]=useState("");
+  const [verificationNotice,setVerificationNotice]=useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState("");
   const [deleteTarget,setDeleteTarget]=useState<{id:string;name:string}|null>(null);
@@ -241,6 +243,7 @@ export default function App() {
       FORBIDDEN: "forbidden",
       CONFLICT: "conflict",
       INVALID_EMAIL_OR_PASSWORD: "authError",
+      EMAIL_NOT_VERIFIED: "verifyEmailRequired",
       USER_ALREADY_EXISTS: "emailExists",
       USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "emailExists",
       PASSWORD_TOO_SHORT: "shortPassword",
@@ -452,11 +455,17 @@ export default function App() {
     );
     openModal("event");
   }
+  function verificationCallback(){return location.origin+location.pathname+(pendingInvite?"#invite="+encodeURIComponent(pendingInvite):"");}
+  async function resendVerification(){
+    if(!verificationEmail||busy)return;
+    setBusy("verification");setFormError("");setVerificationNotice(false);
+    try{await request("/api/auth/send-verification-email","POST",{email:verificationEmail,callbackURL:verificationCallback()});setVerificationNotice(true)}catch(err){setFormError(errorText(err))}finally{setBusy(null)}
+  }
   async function authenticate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const d = new FormData(e.currentTarget);
     setBusy("auth");
-    setFormError("");
+    setFormError("");setVerificationNotice(false);setVerificationEmail("");
     try {
       await request(
         "/api/auth/" +
@@ -465,9 +474,11 @@ export default function App() {
         {
           email: d.get("email"),
           password: d.get("password"),
+          callbackURL:verificationCallback(),
           ...(authMode === "signup" ? { name: d.get("name") } : { rememberMe: true }),
         },
       );
+      if (!getToken()&&authMode==="signup"){setVerificationEmail(String(d.get("email")||""));setVerificationNotice(true);setAuthMode("login");return;}
       if (!getToken()) throw new Error("SERVER_ERROR");
       setBoot(emptyBoot);
       setMessages({});
@@ -479,6 +490,7 @@ export default function App() {
       setRestoreAttempt(v=>v+1);
       notify(t("authSuccess"));
     } catch (err) {
+      if(err instanceof Error&&err.message==="EMAIL_NOT_VERIFIED")setVerificationEmail(String(d.get("email")||""));
       setFormError(errorText(err));
     } finally {
       setBusy(null);
@@ -1369,7 +1381,8 @@ export default function App() {
 
       {modal==="profile"&&boot.user.id&&profileTarget&&<ProfileDialog key={boot.user.id+":"+profileTarget.id} target={profileTarget} lang={lang} load={async()=> (await request("/api/profiles/"+encodeURIComponent(profileTarget.id))).profile} onClose={()=>setModal(null)}/>}
       <AuthDialog open={modal==="auth"||!getToken()} required={!getToken()} preventAutoFocus onClose={()=>setModal(null)}
-        authMode={authMode} setAuthMode={setAuthMode} setFormError={setFormError} pendingInvite={!!pendingInvite} authenticate={authenticate}
+        authMode={authMode} setAuthMode={value=>{setAuthMode(value);setVerificationEmail("");setVerificationNotice(false)}} setFormError={setFormError} pendingInvite={!!pendingInvite} authenticate={authenticate}
+        verificationNotice={verificationNotice} resendVerification={verificationEmail?resendVerification:undefined}
         t={t} showPassword={showPassword} setShowPassword={setShowPassword} busy={busy} formError={formError}/>
       <SettingsDialog open={modal==="settings"} onClose={()=>setModal(null)} lang={lang} setLang={setLang} theme={theme} setTheme={setTheme}
         t={t} showPassword={showPassword} setShowPassword={setShowPassword} busy={busy} formError={formError}

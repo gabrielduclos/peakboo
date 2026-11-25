@@ -5,8 +5,8 @@ import {Button,Logo,Modal,cn} from "../../components";
 
 type Translate=(key:string)=>string;
 type PasswordProps={t:Translate;showPassword:boolean;setShowPassword:(value:boolean)=>void;busy:string|null;formError:string};
-type AuthDialogProps=PasswordProps&{open:boolean;required?:boolean;preventAutoFocus?:boolean;onClose:()=>void;authMode:string;setAuthMode:(value:string)=>void;setFormError:(value:string)=>void;pendingInvite:boolean;authenticate:FormEventHandler<HTMLFormElement>;preview?:ReactNode};
-export function AuthDialog({open,required=false,preventAutoFocus=false,onClose,authMode,setAuthMode,setFormError,pendingInvite,authenticate,preview,t,showPassword,setShowPassword,busy,formError}:AuthDialogProps){
+type AuthDialogProps=PasswordProps&{open:boolean;required?:boolean;preventAutoFocus?:boolean;onClose:()=>void;authMode:string;setAuthMode:(value:string)=>void;setFormError:(value:string)=>void;pendingInvite:boolean;authenticate:FormEventHandler<HTMLFormElement>;preview?:ReactNode;verificationNotice?:boolean;resendVerification?:()=>void};
+export function AuthDialog({open,required=false,preventAutoFocus=false,onClose,authMode,setAuthMode,setFormError,pendingInvite,authenticate,preview,verificationNotice,resendVerification,t,showPassword,setShowPassword,busy,formError}:AuthDialogProps){
  return <Modal open={open} onOpenChange={v=>!v&&onClose()} title={t(authMode==="signup"?"signupTitle":"welcome")} description={pendingInvite?t("joinAfterAuth"):t("authDesc")} closeLabel={t("close")} className={required?"auth-modal auth-required":"auth-modal"} preventAutoFocus={preventAutoFocus}>
         <div className="auth-brand">
           <Logo />
@@ -73,12 +73,14 @@ export function AuthDialog({open,required=false,preventAutoFocus=false,onClose,a
               </div>
               <small className="field-hint">{t("passwordHelp")}</small>
             </label>
+            {verificationNotice&&<p role="status" className="field-hint">{t("verifyEmailNotice")}</p>}
             {formError && (
               <p className="form-error" role="alert">
                 {formError}
               </p>
             )}
-            <Button className="full-width" busy={busy === "auth"}>
+            {resendVerification&&<Button type="button" variant="ghost" busy={busy==="verification"} disabled={!!busy} onClick={resendVerification}>{t("resendVerification")}</Button>}
+            <Button className="full-width" busy={busy === "auth"} disabled={!!busy}>
               {t(authMode === "signup" ? "signUp" : "signIn")}
             </Button>
           </form>
