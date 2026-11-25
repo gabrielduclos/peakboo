@@ -1,4 +1,4 @@
-// Local, deterministic suggestion. Explicit bullets or short line-separated items.
+// Local, deterministic suggestion. Two or more nonempty lines, with or without markers.
 export function suggestChecklist(text) {
   if(typeof text!=='string'||text.length>4000)return null;
   const lines=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
@@ -6,8 +6,6 @@ export function suggestChecklist(text) {
   if(lines[0]?.endsWith(':'))title=lines.shift().slice(0,-1).trim();
   if(lines.length<2||lines.length>50||title.length>80)return null;
   const marker=/^(?:[-*•]\s+|\d{1,3}[.)]\s+|\[[ xX]\]\s+)/u;
-  const explicit=lines.every(s=>marker.test(s));
-  if(!explicit&&(lines.length<3||lines.some(s=>/[.!?;:]$|https?:\/\//i.test(s)||s.split(/\s+/).length>8)))return null;
   const items=lines.map(s=>s.replace(marker,'').trim());
   if(items.some(s=>!s||s.length>200))return null;
   return {title,items};
