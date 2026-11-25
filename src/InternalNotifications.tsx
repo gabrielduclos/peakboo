@@ -1,9 +1,9 @@
+import {displayName} from "../shared/display-name.mjs";
 import {useEffect,useMemo,useState} from "react";
 import {reactionPreview} from "./roomPreview";
 import {Bell,CalendarDays,MessageCircle,Check,Smile} from "lucide-react";
 import {Button} from "./components";
 import type {Boot,Plan,Room} from "./types";
-const shortName=(name:string)=>{const parts=name.trim().split(/\s+/);return parts.length>1?parts[0]+" "+parts.at(-1):parts[0]};
 export type AgendaNotice={id:string;eventId:string;roomId:string;title:string;roomName:string;action:"created"|"updated"|"cancelled"|"confirmed"|"reminder";actorName?:string;at:string;minutes?:number};
 function readIds(key:string):string[]{try{const value=JSON.parse(localStorage.getItem(key)||"[]");return Array.isArray(value)?value.filter((v:unknown)=>typeof v==="string"):[]}catch{return []}}
 export function useInternalNotifications(boot:Boot){
@@ -44,7 +44,7 @@ export function NotificationCenter({boot,center,lang,onRoom,onEvent}:{boot:Boot;
   {rooms.map(r=><button type="button" className="notification-row notification-unread" key={r.id} onClick={()=>onRoom(r)}><MessageCircle size={20}/><span><strong>{r.name}</strong><small>{r.unread} {pt?"mensagens não lidas":"unread messages"}</small></span><NotificationBadge count={r.unread}/></button>)}
   {center.reactionUnread>0&&<Button variant="outline" className="full-width" onClick={()=>center.mark(center.reactionNotices.map(n=>"reaction:"+n.id))}><Check size={16}/>{pt?"Marcar reações como lidas":"Mark reactions as read"}</Button>}
   {center.reactionNotices.map(n=><button type="button" key={"reaction:"+n.id} className={"notification-row"+(!center.read.has("reaction:"+n.id)?" notification-unread":"")} onClick={()=>{center.mark(["reaction:"+n.id]);const room=boot.rooms.find(r=>r.id===n.roomId);if(room)onRoom(room)}}><Smile size={20}/><span><strong>{reactionPreview(n,pt)}</strong><small>{n.roomName} · {new Date(n.createdAt).toLocaleString(pt?"pt-BR":"en",{dateStyle:"short",timeStyle:"short"})}</small></span>{!center.read.has("reaction:"+n.id)&&<span className="notification-unread-dot" aria-hidden="true"/>}</button>)}
-  {center.notices.map(n=><button type="button" key={n.id} className={"notification-row"+(!center.read.has(n.id)?" notification-unread":"")} onClick={()=>{center.mark([n.id]);onEvent(boot.events.find(e=>e.id===n.eventId))}}><CalendarDays size={20}/><span><strong>{n.action==="confirmed"&&n.actorName?shortName(n.actorName)+(pt?" confirmou presença":" confirmed attendance"):labels[n.action]}</strong><small>{n.title}{n.roomName?" · "+n.roomName:""}</small>{n.minutes&&<small>{pt?"Aviso de ":"Reminder: "}{n.minutes} min</small>}<small>{new Date(n.at).toLocaleString(pt?"pt-BR":"en",{dateStyle:"short",timeStyle:"short"})}</small></span>{!center.read.has(n.id)&&<span className="notification-unread-dot" aria-hidden="true"/>}</button>)}
+  {center.notices.map(n=><button type="button" key={n.id} className={"notification-row"+(!center.read.has(n.id)?" notification-unread":"")} onClick={()=>{center.mark([n.id]);onEvent(boot.events.find(e=>e.id===n.eventId))}}><CalendarDays size={20}/><span><strong>{n.action==="confirmed"&&n.actorName?displayName(n.actorName)+(pt?" confirmou presença":" confirmed attendance"):labels[n.action]}</strong><small>{n.title}{n.roomName?" · "+n.roomName:""}</small>{n.minutes&&<small>{pt?"Aviso de ":"Reminder: "}{n.minutes} min</small>}<small>{new Date(n.at).toLocaleString(pt?"pt-BR":"en",{dateStyle:"short",timeStyle:"short"})}</small></span>{!center.read.has(n.id)&&<span className="notification-unread-dot" aria-hidden="true"/>}</button>)}
   {!rooms.length&&!center.notices.length&&!center.reactionNotices.length&&<div className="notification-empty"><Bell size={28}/><p>{pt?"Nenhuma notificação por enquanto.":"No notifications yet."}</p></div>}
  </section>
 }
