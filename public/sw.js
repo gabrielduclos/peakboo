@@ -24,5 +24,5 @@ self.addEventListener("notificationclick",event=>{
 });
 self.addEventListener("fetch",event=>{
  if(event.request.mode!=="navigate"||new URL(event.request.url).origin!==self.location.origin)return;
- event.respondWith(fetch(event.request).catch(()=>new Response('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Peakboo</title><body style="font-family:system-ui;text-align:center;padding:40px"><h1>Peakboo</h1><p>Sem conexão / Offline</p><button onclick="location.reload()">Tentar novamente / Retry</button></body></html>',{headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"}})));
+ event.respondWith(fetch(event.request).catch(()=>new Response('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Peakboo</title><body style="font-family:system-ui;text-align:center;padding:40px"><h1>Peakboo</h1><p>Sem conexão / Offline</p><a href="/">Tentar novamente / Retry</a></body></html>',{headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"}})));
 });
