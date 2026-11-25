@@ -588,7 +588,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     <div className="relative shrink-0">
       <button type="button" aria-label={pt ? 'Adicionar anexo' : 'Add attachment'}
         aria-expanded={attachmentsOpen} aria-haspopup="dialog"
-        onClick={() => { setAttachmentsOpen(v => !v); setEmojiOpen(false); }}
+        onClick={() => { setAttachmentsOpen(v => !v); setCameraOptions(false); setEmojiOpen(false); }}
         className="grid size-11 lg:size-12 place-items-center text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
         <Plus className={cn('size-6 transition-transform',attachmentsOpen && 'rotate-45')} />
       </button>
