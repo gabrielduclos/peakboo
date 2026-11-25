@@ -107,3 +107,6 @@
 /* Reserve the voice player's final width and height before media is available. */
 .message-media.message-audio{width:min(280px,65vw);min-width:0;max-width:100%}.message-audio .media-frame{width:100%;height:54px}.message-audio .voice-player{width:280px;max-width:100%}
 .location-card{display:block;width:min(280px,62vw);max-width:100%;overflow:hidden;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;white-space:normal;margin:4px 0}.location-preview{display:block;position:relative;aspect-ratio:16/9;background:var(--surface-2);overflow:hidden}.location-fallback{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)}.location-preview iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}.location-card-label{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:13px;font-weight:600}.location-card-label>span{flex:1}.location-card-label small{display:block;color:var(--muted);font-weight:400;font-size:11px}.location-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+:root:not([data-theme="dark"]) .voice-progress input::-webkit-slider-thumb{background:#2563eb}
+:root:not([data-theme="dark"]) .voice-progress input::-moz-range-thumb{background:#2563eb}
