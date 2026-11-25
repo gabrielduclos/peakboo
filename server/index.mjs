@@ -10,6 +10,7 @@ import path from "node:path";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import { auth, pool, origins } from "./auth.mjs";
 import { migrate } from "./migrate.mjs";
+import {r2,mediaKey,mediaBytes,drainR2Deletes} from "./r2.mjs";
 import {
   roomInput,
   messageInput,
@@ -19,6 +20,7 @@ import {
 } from "./validation.mjs";
 
 await migrate();
+if(r2)void drainR2Deletes(pool).catch(()=>console.error("R2 cleanup pending"));
 const app = express();
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -196,6 +198,7 @@ app.delete("/api/rooms/:room", member, async (req, res) => {
     await c.query("ROLLBACK");
     throw error;
   } finally { c.release(); }
+  if(r2)void drainR2Deletes(pool).catch(()=>console.error("R2 cleanup pending"));
   for (const participant of participants)
     for (const stream of live.get(participant.user_id) || []) {
       try { stream.write(`data: ${JSON.stringify({ roomId: req.params.room, deletedRoomId: req.params.room })}\n\n`); } catch {}
@@ -418,13 +421,14 @@ async function saveMedia(req, res, roomId, avatar) {
   const name=String(req.query.name||"arquivo").replace(/[\\/\r\n\x00-\x1f]/g,"_").slice(0,180);
   const width=Number(req.query.width),height=Number(req.query.height);
   if((width||height)&&(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>32768||height>32768))return jsonError(res,400,"INVALID_INPUT");
-  const id=randomUUID(); const c=await pool.connect();
+  const id=randomUUID(),key=r2?mediaKey(id):null; let uploaded=false; const c=await pool.connect();
   try {
     await c.query("BEGIN");
     await c.query('SELECT id FROM "user" WHERE id=$1 FOR UPDATE',[req.user.id]);
     const quota=await c.query("SELECT coalesce(sum(size),0)::bigint AS total FROM media WHERE owner_id=$1",[req.user.id]);
     if(Number(quota.rows[0].total)+req.body.length>100*1048576){await c.query("ROLLBACK");return jsonError(res,413,"STORAGE_FULL");}
-    await c.query("INSERT INTO media(id,owner_id,room_id,name,mime,size,bytes,width,height) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",[id,req.user.id,roomId,name,mime,req.body.length,req.body,width||null,height||null]);
+    if(r2){uploaded=true;await r2.put(key,req.body,mime);}
+    await c.query("INSERT INTO media(id,owner_id,room_id,name,mime,size,bytes,width,height,r2_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",[id,req.user.id,roomId,name,mime,req.body.length,r2?null:req.body,width||null,height||null,key]);
     if(avatar){
       const url="/api/media/"+id;
       if(roomId)await c.query("UPDATE rooms SET image=$1 WHERE id=$2",[url,roomId]);
@@ -433,7 +437,7 @@ async function saveMedia(req, res, roomId, avatar) {
       }else await c.query('UPDATE "user" SET image=$1 WHERE id=$2',[url,req.user.id]);
     }
     await c.query("COMMIT");
-  }catch(e){await c.query("ROLLBACK");throw e;}finally{c.release();}
+  }catch(e){await c.query("ROLLBACK");if(uploaded){try{const exists=await c.query("SELECT 1 FROM media WHERE id=$1",[id]);if(!exists.rowCount)await c.query("INSERT INTO r2_delete_queue(object_key) VALUES($1) ON CONFLICT DO NOTHING",[key]);}catch{} }throw e;}finally{c.release();}
   if(roomId)await publish(roomId);
   else if(avatar)await notifyUsers(req.user.id);
   res.status(201).json({id,image:"/api/media/"+id,name,mime,size:req.body.length,width:width||null,height:height||null});
@@ -445,9 +449,9 @@ app.post("/api/rooms/:room/photo",member,(req,res,next)=>req.room.kind==='group'
 app.post("/api/rooms/:room/files",member,mediaBody,(req,res)=>saveMedia(req,res,req.params.room,false));
 app.get("/api/media/:id",async(req,res)=>{
  if(!/^[a-f0-9-]{36}$/i.test(req.params.id))return jsonError(res,404,"NOT_FOUND");
- const r=await pool.query(`SELECT a.* FROM media a WHERE a.id=$1 AND ((a.room_id IS NOT NULL AND EXISTS(SELECT 1 FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=a.room_id AND r.kind='group' AND m.user_id=$2 AND (r.image='/api/media/'||a.id::text OR (a.owner_id=$2 AND a.created_at>=m.joined_at) OR EXISTS(SELECT 1 FROM messages msg WHERE msg.room_id=r.id AND msg.attachment_id=a.id AND NOT msg.deleted AND msg.created_at>=m.joined_at)))) OR (a.room_id IS NULL AND (a.owner_id=$2 OR (EXISTS(SELECT 1 FROM "user" u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=a.owner_id AND (u.image='/api/media/'||a.id::text OR p.cover='/api/media/'||a.id::text)) AND EXISTS(SELECT 1 FROM members me JOIN members peer ON peer.room_id=me.room_id JOIN rooms r ON r.id=me.room_id WHERE r.kind='group' AND me.user_id=$2 AND peer.user_id=a.owner_id)))))`,[req.params.id,req.user.id]);
+ const r=await pool.query(`SELECT a.id,a.mime,a.name,a.r2_key,CASE WHEN a.r2_key IS NULL THEN a.bytes ELSE NULL END AS bytes FROM media a WHERE a.id=$1 AND ((a.room_id IS NOT NULL AND EXISTS(SELECT 1 FROM rooms r JOIN members m ON m.room_id=r.id WHERE r.id=a.room_id AND r.kind='group' AND m.user_id=$2 AND (r.image='/api/media/'||a.id::text OR (a.owner_id=$2 AND a.created_at>=m.joined_at) OR EXISTS(SELECT 1 FROM messages msg WHERE msg.room_id=r.id AND msg.attachment_id=a.id AND NOT msg.deleted AND msg.created_at>=m.joined_at)))) OR (a.room_id IS NULL AND (a.owner_id=$2 OR (EXISTS(SELECT 1 FROM "user" u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=a.owner_id AND (u.image='/api/media/'||a.id::text OR p.cover='/api/media/'||a.id::text)) AND EXISTS(SELECT 1 FROM members me JOIN members peer ON peer.room_id=me.room_id JOIN rooms r ON r.id=me.room_id WHERE r.kind='group' AND me.user_id=$2 AND peer.user_id=a.owner_id)))))`,[req.params.id,req.user.id]);
  if(!r.rowCount)return jsonError(res,404,"NOT_FOUND");
- const a=r.rows[0];res.set({"Content-Type":a.mime,"Content-Disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(a.name),"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}).send(a.bytes);
+ const a=r.rows[0];let bytes;try{bytes=await mediaBytes(a)}catch(e){if(!a.r2_key)throw e;const legacy=(await pool.query("SELECT bytes FROM media WHERE id=$1",[a.id])).rows[0]?.bytes;if(!legacy)throw e;bytes=legacy;}res.set({"Content-Type":a.mime,"Content-Disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(a.name),"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}).send(bytes);
 });
 
 app.use("/api", (_, res) => jsonError(res, 404, "NOT_FOUND"));
