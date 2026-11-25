@@ -31,7 +31,7 @@ export const strings: Record<string, Record<string, string>> = {
         searchMessages: "Buscar nesta conversa",
         messagePlaceholder: "Escreva uma mensagem…",
         send: "Enviar mensagem",
-        enterSend: "Enter para enviar · Shift + Enter para nova linha",
+        enterSend: "Enter para nova linha · botão para enviar",
         conversationStarted: "O começo de uma boa conversa",
         conversationStartedDesc: "Mande um oi ou já combine o próximo encontro.",
         going: "Eu vou",
