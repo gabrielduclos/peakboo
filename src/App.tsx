@@ -10,7 +10,7 @@ import {useAppNavigation,useMobileViewport} from "./appNavigation";
 import {ReplyReference,replySnapshot} from "./ReplyReference";
 import {ProfileEditor,ProfileDialog,type ProfileTarget} from "./Social";
 import {PushSettings} from "./PushSettings";
-import {disablePush} from "./pwa";
+import {disablePush,closeReadRoomPush} from "./pwa";
 import {PwaInvites} from "./PwaInvites";
 import {InvitationTools} from "./InvitationTools";
 import {inviteLink} from "./links";
@@ -318,6 +318,7 @@ export default function App() {
     pruneRoomPins(data.user.id,data.rooms.map(r=>r.id));
     setMessages(old=>Object.fromEntries(Object.entries(old).filter(([id])=>data.rooms.some(r=>r.id===id)).map(([id,list])=>{const joined=data.rooms.find(r=>r.id===id)?.joinedAt;return [id,joined?list.filter(m=>Date.parse(m.createdAt)>=Date.parse(joined)):list]})));
     setBoot(data);
+    void closeReadRoomPush(data.rooms.filter(r=>r.unread===0).map(r=>r.id)).catch(()=>{});
     setSelected((id) =>
       data.rooms.some((r: Room) => r.id === id)
         ? id
@@ -384,6 +385,7 @@ export default function App() {
     fetchMessages(selected,true).then(async()=>{
       if(!alive||!chatVisibleRef.current||document.hidden)return;
       await request("/api/rooms/" + selected + "/read", "POST");
+      if(alive&&!signedOutRef.current)void closeReadRoomPush([selected]).catch(()=>{});
       if(alive)setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===selected?{...r,unread:0}:r)}));
     }).catch(e=>notify(errorText(e))).finally(()=>alive&&setLoadingMessages(false));
     return () => {
@@ -404,7 +406,7 @@ export default function App() {
         if(id&&chatVisibleRef.current&&(all||changed.has(id))){
           setPinnedRevision(v=>v+1);setFilterRevision(v=>v+1);await fetchMessages(id,all);
           if(!stopped&&!document.hidden&&chatVisibleRef.current&&selectedRef.current===id){
-            await request("/api/rooms/"+id+"/read","POST");setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r)}));
+            await request("/api/rooms/"+id+"/read","POST");if(!stopped&&!signedOutRef.current)void closeReadRoomPush([id]).catch(()=>{});setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r)}));
           }
         }
       }catch{full=true}
