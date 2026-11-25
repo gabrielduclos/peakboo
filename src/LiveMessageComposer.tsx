@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { CalendarPlus, ListChecks, SwitchCamera, Zap, ZapOff, Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Square, Video, X } from 'lucide-react';
+import { CalendarPlus, ListChecks, SwitchCamera, Zap, ZapOff, Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Video, X } from 'lucide-react';
 import { attachmentLabel } from './chatAttachmentLabels';
 import { createPortal } from 'react-dom';
 import { ChatAudioPlayer,mediaLabel } from './Media';
 import { ChatImageEditor } from './ChatImageEditor';
-import { Modal, cn } from './components';
+import { cn } from './components';
 import { optimizeVideoAttachment } from './videoCompression';
 import { optimizeImageAttachment, prepareCameraPhoto } from './imageCompression';
 
@@ -180,8 +180,17 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   const audioStream = useRef<MediaStream | null>(null);
   const recordingChunks = useRef<Blob[]>([]);
   const discardRecording = useRef(false);
+  const voiceBusy=useRef(false);
+  const [voiceProcessing,setVoiceProcessing]=useState(false);
+  const finishRequested=useRef(false);
+  const [pausedAudio,setPausedAudio]=useState<string|null>(null);
+  const pausedAudioRef=useRef<string|null>(null);
+  function clearPausedAudio(){
+    if(pausedAudioRef.current)URL.revokeObjectURL(pausedAudioRef.current);
+    pausedAudioRef.current=null;setPausedAudio(null);
+  }
   const mounted = useRef(true);
-  const canSend = (!!value.trim() || !!pending || pendingPhotos.length>0 || !!pendingLocation) && !sending && !sendingPhotos && !locating && !optimizing && recording==='idle';
+  const canSend = (!!value.trim() || !!pending || pendingPhotos.length>0 || !!pendingLocation) && !sending && !sendingPhotos && !locating && !optimizing && recording==='idle' && !voiceProcessing;
   const maxHeight = 208;
   useEffect(()=>{
     mounted.current = true;
@@ -190,6 +199,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       optimizationController.current?.abort();
       if(recorder.current && recorder.current.state!=='inactive') { recorder.current.onstop=null; recorder.current.stop(); }
       audioStream.current?.getTracks().forEach(track=>track.stop());
+      if(pausedAudioRef.current)URL.revokeObjectURL(pausedAudioRef.current);
       if(localUrl.current) URL.revokeObjectURL(localUrl.current);
       photoLocalUrls.current.forEach(url=>URL.revokeObjectURL(url));
     };
@@ -382,46 +392,75 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   }
 
   async function toggleRecording() {
-    if(recorder.current?.state==='recording'){recorder.current.stop();return;}
-    if(recorder.current?.state==='paused'){recorder.current.stop();return;}
+    if(voiceBusy.current)return;
+    const active=recorder.current;
+    if(active&&(active.state==='recording'||active.state==='paused')){
+      finishRequested.current=true;voiceBusy.current=true;setVoiceProcessing(true);
+      clearPausedAudio();active.stop();return;
+    }
+    if(active)return;
     if(!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder==='undefined'){
       setError(pt?'Este navegador não permite gravar áudio.':'Audio recording is unavailable.');return;
     }
+    voiceBusy.current=true;setVoiceProcessing(true);
     try{
       const stream=await navigator.mediaDevices.getUserMedia({audio:true});
       if(!mounted.current){stream.getTracks().forEach(t=>t.stop());return;}
-      audioStream.current=stream;recordingChunks.current=[];discardRecording.current=false;
+      audioStream.current=stream;recordingChunks.current=[];discardRecording.current=false;finishRequested.current=false;
       const preferred=['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus']
         .find(mime=>MediaRecorder.isTypeSupported(mime));
       const instance=new MediaRecorder(stream,preferred?{mimeType:preferred}:undefined);
       recorder.current=instance;
-      instance.ondataavailable=e=>{if(e.data.size)recordingChunks.current.push(e.data);};
-      instance.onstop=()=>{
+      const mime=instance.mimeType.split(';')[0] || 'audio/webm';
+      instance.ondataavailable=e=>{
+        if(e.data.size&&!discardRecording.current)recordingChunks.current.push(e.data);
+        if(instance.state==='paused'&&!discardRecording.current&&recordingChunks.current.length&&mounted.current){
+          const url=URL.createObjectURL(new Blob(recordingChunks.current,{type:mime}));
+          if(pausedAudioRef.current)URL.revokeObjectURL(pausedAudioRef.current);
+          pausedAudioRef.current=url;setPausedAudio(url);
+        }
+      };
+      instance.onstop=async()=>{
         stream.getTracks().forEach(t=>t.stop());audioStream.current=null;recorder.current=null;
         if(!mounted.current)return;
-        setRecording('idle');
-        if(discardRecording.current){recordingChunks.current=[];return;}
-        const mime=instance.mimeType.split(';')[0] || 'audio/webm';
+        clearPausedAudio();setRecording('idle');
         const blob=new Blob(recordingChunks.current,{type:mime});recordingChunks.current=[];
-        if(!blob.size){setError(pt?'Não foi possível capturar áudio.':'No audio was captured.');return;}
-        const ext=mime.includes('mp4')?'m4a':mime.includes('ogg')?'ogg':'webm';
-        stageFile(new File([blob],'gravacao-'+Date.now()+'.'+ext,{type:mime}));
+        try{
+          if(discardRecording.current)return;
+          if(!blob.size){setError(pt?'Não foi possível capturar áudio.':'No audio was captured.');return;}
+          if(blob.size>10*1024*1024){setError(pt?'O áudio deve ter até 10 MB.':'Audio must be up to 10 MB.');return;}
+          const ext=mime.includes('mp4')?'m4a':mime.includes('ogg')?'ogg':'webm';
+          const file=new File([blob],'gravacao-'+Date.now()+'.'+ext,{type:mime});
+          if(!finishRequested.current){stageFile(file);return;}
+          try{await onAttach(file,'');}
+          catch{if(mounted.current){stageFile(file);setError(pt?'Não foi possível enviar o áudio. Tente novamente.':'Could not send audio. Retry.');}}
+        }finally{voiceBusy.current=false;if(mounted.current)setVoiceProcessing(false);}
       };
-      instance.onerror=()=>{setError(pt?'Erro ao gravar áudio.':'Audio recording failed.');};
+      instance.onerror=()=>{finishRequested.current=false;setError(pt?'Erro ao gravar áudio.':'Audio recording failed.');};
       instance.start(500);setRecordSeconds(0);setRecording('recording');setError('');
-      setAttachmentsOpen(false);setEmojiOpen(false);
+      setAttachmentsOpen(false);setEmojiOpen(false);voiceBusy.current=false;setVoiceProcessing(false);
     }catch{
-      audioStream.current?.getTracks().forEach(t=>t.stop());audioStream.current=null;
-      setError(pt?'Permita o acesso ao microfone nas configurações.':'Allow microphone access to record.');
+      audioStream.current?.getTracks().forEach(t=>t.stop());audioStream.current=null;recorder.current=null;
+      voiceBusy.current=false;if(mounted.current){setVoiceProcessing(false);setError(pt?'Permita o acesso ao microfone nas configurações.':'Allow microphone access to record.');}
     }
   }
   function pauseRecording(){
-    if(recorder.current?.state==='recording'){recorder.current.pause();setRecording('paused');}
-    else if(recorder.current?.state==='paused'){recorder.current.resume();setRecording('recording');}
+    if(voiceBusy.current)return;
+    const instance=recorder.current;
+    if(instance?.state==='recording'){
+      instance.pause();setRecording('paused');
+      if(recordingChunks.current.length){
+        clearPausedAudio();
+        const url=URL.createObjectURL(new Blob(recordingChunks.current,{type:instance.mimeType.split(';')[0]||'audio/webm'}));
+        pausedAudioRef.current=url;setPausedAudio(url);
+      }
+      instance.requestData();
+    }else if(instance?.state==='paused'){clearPausedAudio();instance.resume();setRecording('recording');}
   }
   function cancelRecording(){
-    discardRecording.current=true;
-    if(recorder.current?.state!=='inactive')recorder.current?.stop();
+    if(voiceBusy.current)return;
+    discardRecording.current=true;finishRequested.current=false;clearPausedAudio();
+    if(recorder.current&&recorder.current.state!=='inactive'){voiceBusy.current=true;setVoiceProcessing(true);recorder.current.stop();}
     audioStream.current?.getTracks().forEach(t=>t.stop());
     setRecording('idle');recordingChunks.current=[];
   }
@@ -483,29 +522,22 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   }, [value, textareaRef]);
 
   useEffect(() => {
-    if (!emojiOpen) return;
+    if (!emojiOpen && !attachmentsOpen) return;
     const outside = (event: PointerEvent) => {
       if (!controls.current?.contains(event.target as Node)) {
-        setEmojiOpen(false);
+        setEmojiOpen(false);setAttachmentsOpen(false);setCameraOptions(false);
       }
     };
     const escape = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
-        setEmojiOpen(false);
+        setEmojiOpen(false);setAttachmentsOpen(false);setCameraOptions(false);
       }
     };
     document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', escape, true);
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape, true); };
-  }, [emojiOpen]);
-
-  function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      if (canSend) sendSelected();
-    }
-  }
+  }, [emojiOpen,attachmentsOpen]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -573,9 +605,10 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     {recording!=='idle' && <div className="flex w-full items-center gap-2 border border-destructive/40 bg-destructive/5 p-2 text-xs" role="status">
       <span className="size-2 animate-pulse rounded-full bg-destructive"/>
       <span className="flex-1">{recording==='paused'?(pt?'Gravação pausada':'Recording paused'):(pt?'Gravando áudio':'Recording audio')} · {Math.floor(recordSeconds/60)}:{String(recordSeconds%60).padStart(2,'0')}</span>
-      <button type="button" onClick={pauseRecording} className="grid size-9 place-items-center hover:bg-accent" aria-label={recording==='paused'?(pt?'Retomar gravação':'Resume recording'):(pt?'Pausar gravação':'Pause recording')}>{recording==='paused'?<Play className="size-4"/>:<Pause className="size-4"/>}</button>
-      <button type="button" onClick={cancelRecording} className="grid size-9 place-items-center hover:bg-accent" aria-label={pt?'Descartar áudio':'Discard audio'}><X className="size-4"/></button>
+      <button type="button" onClick={pauseRecording} disabled={voiceProcessing} className="grid size-9 place-items-center hover:bg-accent" aria-label={recording==='paused'?(pt?'Retomar gravação':'Resume recording'):(pt?'Pausar gravação':'Pause recording')}>{recording==='paused'?<Play className="size-4"/>:<Pause className="size-4"/>}</button>
+      <button type="button" onClick={cancelRecording} disabled={voiceProcessing} className="grid size-9 place-items-center hover:bg-accent" aria-label={pt?'Descartar áudio':'Discard audio'}><X className="size-4"/></button>
     </div>}
+    {recording==='paused'&&pausedAudio&&<div className="w-full min-w-0" aria-label={pt?'Prévia do áudio pausado':'Paused audio preview'}><ChatAudioPlayer key={pausedAudio} src={pausedAudio}/></div>}
     {error && <p role="alert" className="w-full text-xs text-destructive">{error}</p>}
     {editorOpen && (editingPhotoIndex!==null ? !!photoUrls[editingPhotoIndex] : !!pendingUrl&&!!pending) && typeof document!=='undefined' && createPortal(
       <div className="fixed inset-0 z-[120] flex flex-col bg-black/95 p-3 text-white sm:p-6" role="dialog" aria-modal="true" aria-label={pt?'Editar imagem':'Edit image'}>
@@ -585,14 +618,15 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
           onSave={blob=>{if(editingPhotoIndex!==null)saveEditedPhoto(blob);
             else if(pending){const filename=pending.name.replace(/\.[^.]+$/,'')+'-editada.png';stageFile(new File([blob],filename,{type:'image/png'}));setEditorOpen(false);}}}/>
       </div>,document.body)}
-    <div className="relative shrink-0">
-      <button type="button" aria-label={pt ? 'Adicionar anexo' : 'Add attachment'}
+    <div className="shrink-0">
+      <button type="button" disabled={recording!=='idle'||voiceProcessing} aria-label={pt ? 'Adicionar anexo' : 'Add attachment'}
         aria-expanded={attachmentsOpen} aria-haspopup="dialog"
         onClick={() => { setAttachmentsOpen(v => !v); setCameraOptions(false); setEmojiOpen(false); }}
         className="grid size-11 lg:size-12 place-items-center text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
         <Plus className={cn('size-6 transition-transform',attachmentsOpen && 'rotate-45')} />
       </button>
-      <Modal open={attachmentsOpen} onOpenChange={v=>{setAttachmentsOpen(v);if(!v)setCameraOptions(false)}} title={pt?'Adicionar à conversa':'Add to chat'} closeLabel={pt?'Fechar':'Close'} className="attachment-dialog">
+      {attachmentsOpen&&<div role="dialog" aria-label={pt?'Adicionar à conversa':'Add to chat'} className="attachment-popover absolute bottom-full inset-x-0 z-40 mb-2 max-h-[min(50dvh,320px)] overflow-y-auto overscroll-contain border border-border bg-popover p-2 text-popover-foreground shadow-xl">
+        <div className="flex items-center justify-between px-2 py-1"><span className="text-xs font-semibold">{pt?'Adicionar à conversa':'Add to chat'}</span><button type="button" onClick={()=>{setAttachmentsOpen(false);setCameraOptions(false)}} aria-label={pt?'Fechar anexos':'Close attachments'} className="grid size-7 place-items-center hover:bg-accent"><X className="size-4"/></button></div>
         {cameraOptions ? <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={()=>{setPhotoCameraOpen(true);setCameraOptions(false);setAttachmentsOpen(false);}}
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Camera className="size-5"/>{pt?'Tirar foto':'Take photo'}</button>
@@ -600,7 +634,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Video className="size-5"/>{pt?'Gravar vídeo':'Record video'}</button>
           <button type="button" onClick={()=>setCameraOptions(false)} className="col-span-2 text-xs hover:bg-accent">{pt?'Voltar':'Back'}</button>
         </div> : <div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1">
           {ATTACHMENTS.map(({icon: Icon,pt:labelPt,en},index) => <button key={en} type="button"
             disabled={sending || sendingPhotos || editing || optimizing || recording!=='idle'}
             onClick={() => {
@@ -610,18 +644,18 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
               setAttachmentsOpen(false);
             }}
             title={index===3 ? (pt ? 'Compartilhar localização atual' : 'Share current location') : undefined}
-            className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 px-2 text-sm hover:bg-accent disabled:opacity-40"
+            className="flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 border border-border/70 px-0.5 text-[10px] text-center break-words hover:bg-accent disabled:opacity-40"
             aria-label={pt ? labelPt : en}>
             <Icon className="size-5 text-primary"/><span className="break-words text-center">{pt ? labelPt : en}</span>
           </button>)}
-          {onCreateEvent&&<button type="button" disabled={editing||sending||sendingPhotos||optimizing||recording!=='idle'} onClick={()=>{setAttachmentsOpen(false);onCreateEvent()}} className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 px-2 text-sm hover:bg-accent disabled:opacity-40"><CalendarPlus className="size-5 text-primary"/>{pt?'Criar compromisso':'Create event'}</button>}
-          {onCreateList&&<button type="button" disabled={editing||sending||sendingPhotos||optimizing||recording!=='idle'} onClick={()=>{setAttachmentsOpen(false);onCreateList()}} className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 px-2 text-sm hover:bg-accent disabled:opacity-40"><ListChecks className="size-5 text-primary"/>{pt?'Criar lista':'Create list'}</button>}
+          {onCreateEvent&&<button type="button" disabled={editing||sending||sendingPhotos||optimizing||recording!=='idle'} onClick={()=>{setAttachmentsOpen(false);onCreateEvent()}} className="flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 border border-border/70 px-0.5 text-[10px] text-center break-words hover:bg-accent disabled:opacity-40"><CalendarPlus className="size-5 text-primary"/>{pt?'Criar compromisso':'Create event'}</button>}
+          {onCreateList&&<button type="button" disabled={editing||sending||sendingPhotos||optimizing||recording!=='idle'} onClick={()=>{setAttachmentsOpen(false);onCreateList()}} className="flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 border border-border/70 px-0.5 text-[10px] text-center break-words hover:bg-accent disabled:opacity-40"><ListChecks className="size-5 text-primary"/>{pt?'Criar lista':'Create list'}</button>}
           </div>
         </div>}
         <p className="px-2 pt-2 text-[11px] text-muted-foreground">
           {pt ? 'Anexos até 10 MB após compactação. Vídeos originais até 300 MB.' : 'Attachments up to 10 MB after compression. Videos up to 300 MB before compression.'}
         </p>
-      </Modal>
+      </div>}
     </div>
     <input ref={galleryRef} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" className="sr-only"
       onChange={e => { const files=Array.from(e.target.files??[]); e.target.value=''; selectGallery(files); }} />
@@ -629,12 +663,12 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       onChange={e => { const file=e.target.files?.[0]; e.target.value=''; if(file?.type.startsWith('image/'))void stageCameraPhoto(file);else chosenFile(file); }} />
     <input ref={fileRef} type="file" accept={'.pdf,.txt,.zip,.mp3,.m4a,.ogg,.webm,.wav,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,application/octet-stream'+(allowOffice?',.doc,.docx,.xls,.xlsx,.ppt,.pptx':'')} className="sr-only"
       onChange={e => { const file=e.target.files?.[0]; e.target.value=''; chosenFile(file); }} />
-    <textarea ref={textareaRef} rows={1} value={value} disabled={recording!=='idle'}
+    <textarea ref={textareaRef} rows={1} value={value} disabled={recording!=='idle'||voiceProcessing}
       onPaste={e=>{const file=Array.from(e.clipboardData.items).find(item=>item.kind==='file' && item.type.startsWith('image/'))?.getAsFile();if(file){e.preventDefault();void prepareGalleryPhotos([file]);}}}
       onChange={event => onChange(event.target.value)}
       onSelect={event => onSelectionChange?.(event.currentTarget.value,
         event.currentTarget.selectionStart,event.currentTarget.selectionEnd)}
-      onKeyDown={keyDown} maxLength={4000}
+      enterKeyHint="enter" maxLength={4000}
       aria-label={pt ? 'Escrever mensagem' : 'Write a message'}
       data-message-composer placeholder={editing ? (pt ? 'Editar mensagem…' : 'Edit message…') : (pt ? 'Mensagem…' : 'Message…')}
       className="min-h-12 max-h-52 min-w-0 flex-1 resize-none rounded-lg border border-input bg-background px-3 py-3 text-base leading-6 text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -676,10 +710,10 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         className="chat-send-touch grid size-11 lg:size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         <Send className="size-5"/>
       </button>
-      : <button type="button" onClick={()=>void toggleRecording()} disabled={sending || sendingPhotos || editing || optimizing || (!!pending && recording==='idle') || pendingPhotos.length>0}
+      : <button type="button" onClick={()=>void toggleRecording()} disabled={voiceProcessing || sending || sendingPhotos || editing || optimizing || (!!pending && recording==='idle') || pendingPhotos.length>0}
         aria-label={recording!=='idle'?(pt?'Finalizar gravação':'Finish recording'):(pt?'Gravar áudio':'Record voice note')}
         className={cn('chat-send-touch grid size-11 lg:size-12 shrink-0 place-items-center',recording!=='idle'?'bg-destructive text-destructive-foreground':'text-muted-foreground',sending && 'opacity-40')}>
-        {recording!=='idle'?<Square className="size-4" fill="currentColor"/>:<Mic className="size-5"/>}
+        {voiceProcessing?<span className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent" role="status"/>:recording!=='idle'?<Send className="size-5"/>:<Mic className="size-5"/>}
       </button>}
   </form>;
 }
