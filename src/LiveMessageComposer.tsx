@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
-import { Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Square, Video, X } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { SwitchCamera, Zap, ZapOff, Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Square, Video, X } from 'lucide-react';
 import { attachmentLabel } from './chatAttachmentLabels';
 import { createPortal } from 'react-dom';
 import { ChatAudioPlayer,mediaLabel } from './Media';
@@ -21,6 +22,117 @@ const ATTACHMENTS = [
   { icon: MapPin, pt: 'Localização', en: 'Location' },
 ] as const;
 
+
+/** Only the downscaled JPEG is retained; the original camera frame is never exported. */
+function PhotoCameraModal({pt,onClose,onAccept}:{pt:boolean;onClose:()=>void;onAccept:(file:File)=>void}){
+  const video=useRef<HTMLVideoElement>(null);
+  const stream=useRef<MediaStream|null>(null);
+  const active=useRef(true);
+  const captureBusy=useRef(false);
+  const [facing,setFacing]=useState<'user'|'environment'>('environment');
+  const [generation,restart]=useState(0);
+  const [ready,setReady]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
+  const [hasTorch,setHasTorch]=useState(false);
+  const [torch,setTorch]=useState(false);
+  const [torchBusy,setTorchBusy]=useState(false);
+  const [photo,setPhoto]=useState<File|null>(null);
+  const [preview,setPreview]=useState('');
+  const stop=()=>{
+    const current=stream.current;
+    stream.current=null;
+    current?.getTracks().forEach(track=>track.stop());
+    if(video.current)video.current.srcObject=null;
+  };
+  useEffect(()=>{active.current=true;return()=>{active.current=false;stop();};},[]);
+  useEffect(()=>{
+    if(!photo){setPreview('');return;}
+    const url=URL.createObjectURL(photo);
+    setPreview(url);
+    return()=>URL.revokeObjectURL(url);
+  },[photo]);
+  useEffect(()=>{
+    if(photo)return;
+    let cancelled=false;
+    setReady(false);setError('');setHasTorch(false);setTorch(false);setTorchBusy(false);
+    const open=async()=>{
+      try{
+        if(!navigator.mediaDevices?.getUserMedia)throw Error('unsupported');
+        const constraints:MediaTrackConstraints={facingMode:{ideal:facing},width:{ideal:1280,max:1600},height:{ideal:960,max:1600},frameRate:{ideal:24,max:30}};
+        let next:MediaStream;
+        try{next=await navigator.mediaDevices.getUserMedia({audio:false,video:constraints});}
+        catch(e){if(!(e instanceof DOMException)||e.name!=='OverconstrainedError')throw e;next=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720}}});}
+        if(cancelled||!active.current){next.getTracks().forEach(t=>t.stop());return;}
+        stream.current=next;
+        const track=next.getVideoTracks()[0];
+        const caps=track?.getCapabilities?.() as (MediaTrackCapabilities & {torch?:boolean})|undefined;
+        setHasTorch(caps?.torch===true);
+        if(video.current){video.current.srcObject=next;await video.current.play();}
+        if(!cancelled&&active.current)setReady(true);
+      }catch{
+        if(!cancelled&&active.current){stop();setError(pt?'Não foi possível abrir a câmera. Verifique a permissão ou tente novamente.':'Could not open the camera. Check permissions or retry.');}
+      }
+    };
+    void open();
+    return()=>{cancelled=true;stop();};
+  },[facing,generation,photo,pt]);
+  async function toggleTorch(){
+    const track=stream.current?.getVideoTracks()[0];
+    if(!track||!hasTorch||torchBusy)return;
+    setTorchBusy(true);
+    try{
+      await track.applyConstraints({advanced:[{torch:!torch} as MediaTrackConstraintSet]});
+      if(active.current&&stream.current?.getVideoTracks()[0]===track)setTorch(!torch);
+    }catch{if(active.current){setHasTorch(false);setTorch(false);}}
+    finally{if(active.current)setTorchBusy(false);}
+  }
+  async function capture(){
+    const frame=video.current;
+    if(!ready||!frame?.videoWidth||!frame.videoHeight||captureBusy.current)return;
+    captureBusy.current=true;setBusy(true);setError('');
+    const canvas=document.createElement('canvas');
+    try{
+      const ratio=Math.min(1,1600/Math.max(frame.videoWidth,frame.videoHeight));
+      canvas.width=Math.max(1,Math.round(frame.videoWidth*ratio));
+      canvas.height=Math.max(1,Math.round(frame.videoHeight*ratio));
+      const ctx=canvas.getContext('2d',{alpha:false});
+      if(!ctx)throw Error('canvas');
+      ctx.drawImage(frame,0,0,canvas.width,canvas.height);
+      stop();setReady(false);setTorch(false);
+      const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',0.8));
+      if(!blob?.size||blob.type!=='image/jpeg'||blob.size>10*1024*1024)throw Error('encode');
+      if(active.current)setPhoto(new File([blob],'foto-'+Date.now()+'.jpg',{type:'image/jpeg'}));
+    }catch{if(active.current){setError(pt?'Não foi possível capturar a foto. Tente novamente.':'Could not capture the photo. Retry.');setReady(false);stop();}}
+    finally{canvas.width=0;canvas.height=0;captureBusy.current=false;if(active.current)setBusy(false);}
+  }
+  return <Dialog.Root open onOpenChange={open=>{if(!open)onClose();}}>
+    <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/80"/>
+      <Dialog.Content className="fixed inset-0 z-[101] m-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden bg-black text-white sm:h-[min(90dvh,800px)] sm:rounded-xl">
+        <div className="flex shrink-0 items-center justify-between p-4">
+          <Dialog.Title className="text-base font-semibold">{pt?'Câmera':'Camera'}</Dialog.Title>
+          <Dialog.Description className="sr-only">{pt?'Capture e confirme uma foto':'Capture and confirm a photo'}</Dialog.Description>
+          <Dialog.Close asChild><button type="button" className="grid size-11 place-items-center rounded-full bg-white/10" aria-label={pt?'Fechar câmera':'Close camera'}><X className="size-6"/></button></Dialog.Close>
+        </div>
+        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+          {photo? <img src={preview||undefined} alt={pt?'Foto capturada':'Captured photo'} className="max-h-full max-w-full object-contain"/>:
+            <video ref={video} autoPlay muted playsInline className={cn('h-full w-full object-contain',facing==='user'&&'-scale-x-100')} onLoadedMetadata={()=>{if(stream.current)setReady(true);}}/>}
+          {(!ready&&!photo&&!error)&&<div role="status" className="absolute inset-0 grid place-items-center bg-black/30">{busy?(pt?'Preparando foto…':'Preparing photo…'):(pt?'Abrindo câmera…':'Opening camera…')}</div>}
+          {error&&<div role="alert" className="absolute inset-x-4 top-4 rounded-lg bg-black/80 p-3 text-center">{error}<button type="button" className="mt-2 block w-full underline" onClick={()=>restart(v=>v+1)}>{pt?'Tentar novamente':'Retry'}</button></div>}
+        </div>
+        <div className="flex shrink-0 items-center justify-around gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {photo?<><button type="button" className="min-h-12 rounded-lg bg-white/10 px-4" onClick={()=>{setPhoto(null);restart(v=>v+1);}}>{pt?'Refazer':'Retake'}</button>
+            <button type="button" className="min-h-12 rounded-lg bg-white px-4 font-semibold text-black" onClick={()=>onAccept(photo)}>{pt?'Usar foto':'Use photo'}</button></>:
+            <><button type="button" disabled={!ready||busy||torchBusy||!hasTorch} aria-pressed={torch} title={hasTorch?(pt?'Flash':'Flash'):(pt?'Flash indisponível':'Flash unavailable')} aria-label={torch?(pt?'Desligar flash':'Turn flash off'):(pt?'Ligar flash':'Turn flash on')} onClick={()=>void toggleTorch()} className="grid size-12 place-items-center rounded-full bg-white/10 disabled:opacity-30">{torch?<Zap className="size-6"/>:<ZapOff className="size-6"/>}</button>
+            <button type="button" disabled={!ready||busy||torchBusy} aria-label={pt?'Tirar foto':'Take photo'} onClick={()=>void capture()} className="grid size-[72px] place-items-center rounded-full border-4 border-white disabled:opacity-30"><span className="size-[54px] rounded-full bg-white"/></button>
+            <button type="button" disabled={busy||torchBusy} aria-label={pt?'Alternar câmera':'Switch camera'} onClick={()=>setFacing(v=>v==='environment'?'user':'environment')} className="grid size-12 place-items-center rounded-full bg-white/10 disabled:opacity-30"><SwitchCamera className="size-6"/></button></>}
+        </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>;
+}
+
 export function LiveMessageComposer({ value, onChange, onSelectionChange, serializeValue, onSubmit, onAttach, onShareLocation, sending, locale, textareaRef, editing = false, onGif, gifOpen = false, allowOffice = false }: {
   value: string; onChange: (text: string) => void;
   onSelectionChange?: (text:string,start:number,end:number)=>void;
@@ -41,6 +153,8 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraKindRef = useRef<'image' | 'video'>('image');
   const [cameraOptions,setCameraOptions] = useState(false);
+  const [photoCameraOpen,setPhotoCameraOpen]=useState(false);
+  const readyPhotos=useRef(new WeakSet<File>());
   const [pending,setPending] = useState<File | null>(null);
   const [pendingUrl,setPendingUrl] = useState<string | null>(null);
   const localUrl = useRef<string | null>(null);
@@ -293,7 +407,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       const ready: File[] = [];
       for (let index = 0; index < files.length; index++) {
         setOptimizingFile({name: files[index].name, size: files[index].size});
-        ready.push(await optimizeImageAttachment(files[index], controller.signal));
+        ready.push(readyPhotos.current.has(files[index])?files[index]:await optimizeImageAttachment(files[index], controller.signal));
         if (controller.signal.aborted || !mounted.current) return;
         setOptimizationProgress(Math.round((index + 1) / files.length * 100));
       }
@@ -381,6 +495,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
 
   return <form ref={controls} onSubmit={submit}
     className="relative flex w-full min-w-0 flex-wrap items-end gap-1 sm:gap-2" data-live-message-composer>
+    {photoCameraOpen&&<PhotoCameraModal pt={pt} onClose={()=>setPhotoCameraOpen(false)} onAccept={file=>{readyPhotos.current.add(file);stagePhotos([file]);setPhotoCameraOpen(false);}}/>}
     {optimizing&&<div className="w-full min-w-0 space-y-2 rounded-lg border border-border bg-card p-3" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-xs">
         <span className="min-w-0 flex-1 truncate font-semibold" title={pt?'Preparando mídia':'Preparing media'}>
@@ -468,7 +583,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
           </button>
         </div>
         {cameraOptions ? <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={()=>{cameraKindRef.current='image';cameraRef.current?.setAttribute('accept','image/*');cameraRef.current?.click();setCameraOptions(false);setAttachmentsOpen(false);}}
+          <button type="button" onClick={()=>{setPhotoCameraOpen(true);setCameraOptions(false);setAttachmentsOpen(false);}}
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Camera className="size-5"/>{pt?'Tirar foto':'Take photo'}</button>
           <button type="button" onClick={()=>{cameraKindRef.current='video';cameraRef.current?.setAttribute('accept','video/*');cameraRef.current?.click();setCameraOptions(false);setAttachmentsOpen(false);}}
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Video className="size-5"/>{pt?'Gravar vídeo':'Record video'}</button>
