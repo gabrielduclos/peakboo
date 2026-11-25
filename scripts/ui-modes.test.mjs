@@ -140,6 +140,11 @@ try{
  const urls=await Promise.all([media.cachedMedia(src),media.cachedMedia(src)]);assert.equal(calls,1);assert.equal(urls[0],urls[1]);await media.cachedMedia(src);assert.equal(calls,1);
  media.setMediaAccount('b');localStorage.setItem('peakboo-session','test-b');await media.cachedMedia(src);assert.equal(calls,2);
  const {renderToStaticMarkup}=await import('react-dom/server');const html=renderToStaticMarkup(createElement(media.MessageMedia,{attachment:{id:'12345678-1234-1234-1234-123456789abc',mime:'image/png',name:'internal-uuid-technical.png',size:123,width:800,height:400}}));assert.ok(html.includes('aspect-ratio:2'));assert.ok(html.includes('media-skeleton'));assert.ok(!html.includes('internal-uuid'));
+ globalThis.fetch=async()=>{calls++;return {ok:true,blob:async()=>new Blob(['audio'],{type:'audio/mp4'})}};
+ const audioSrc='/api/media/12345678-1234-1234-1234-123456789abd';
+ const firstAudio=await media.cachedMedia(audioSrc,true);assert.equal(calls,3);
+ assert.equal(await media.cachedMedia(audioSrc,true),firstAudio);
+ const freshAudio=await media.cachedMedia(audioSrc,true,true);assert.notEqual(freshAudio,firstAudio);assert.equal(calls,4);
  media.setMediaAccount('');localStorage.removeItem('peakboo-session');URL.createObjectURL=create;URL.revokeObjectURL=revoke;
  });
  await test('optimistic send is immediate, fails visibly and retries with one message ID',async()=>{
@@ -335,7 +340,7 @@ try{
  await act(async()=>root.render(createElement(MessageText,{text:'Meeting point\nhttps://www.google.com/maps/search/?api=1&query=-23.5,-46.6',lang:'en'})));
  const card=document.querySelector('.location-card');assert.ok(card);assert.equal(card.hostname,'www.google.com');assert.equal(card.querySelector('iframe').loading||card.querySelector('iframe').getAttribute('loading'),'lazy');assert.ok(document.getElementById('root').textContent.includes('Meeting point'));
  await act(async()=>root.render(createElement(MessageMedia,{attachment:{id:'voice',name:'voice.webm',mime:'audio/webm',size:32,url:'data:audio/webm;base64,YQ=='},lang:'en'})));
- const frame=document.querySelector('.message-audio .media-frame');assert.ok(frame);assert.equal(frame.style.width,'280px');assert.equal(frame.style.height,'54px');assert.ok(frame.querySelector('.media-skeleton'));
+ const frame=document.querySelector('.message-audio .media-frame');assert.ok(frame);assert.equal(frame.style.width,'280px');assert.equal(frame.style.height,'54px');assert.ok(frame.querySelector('.voice-player'));assert.equal(frame.querySelector('.media-skeleton'),null);assert.ok(frame.querySelector('[aria-label="Play audio"]'));
  }finally{await act(async()=>root.unmount())}
  });
  await test('dismissed notifications persist across remount and preserve unread chat count',async()=>{

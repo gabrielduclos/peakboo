@@ -26,26 +26,36 @@ const active=new Map<string,number>();
 let account='';let generation=0;
 export function setMediaAccount(next:string){if(next===account)return;account=next;generation++;for(const v of cache.values())URL.revokeObjectURL(v.url);cache.clear();pending.clear();active.clear();}
 function trimCache(){let total=[...cache.values()].reduce((sum,v)=>sum+v.size,0);for(const [key,v] of [...cache].sort((a,b)=>a[1].used-b[1].used)){if(total<=64*1048576&&cache.size<=160)break;if(active.get(key))continue;cache.delete(key);URL.revokeObjectURL(v.url);total-=v.size;}}
-export async function cachedMedia(src:string,preferAudio=false){
+// IndexedDB may be blocked or return a stale Blob after a PWA restart.
+async function playableCachedAudio(key:string):Promise<Blob|null>{
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ try{return await Promise.race([readAudioCache(key).then(async b=>{
+  if(!b?.size||!b.type.startsWith('audio/'))return null;
+  const bytes=await b.arrayBuffer();
+  return bytes.byteLength===b.size?new Blob([bytes],{type:b.type}):null;
+ }),new Promise<null>(resolve=>{timer=setTimeout(()=>resolve(null),1500)})]);}
+ catch{return null}finally{clearTimeout(timer)}
+}
+export async function cachedMedia(src:string,preferAudio=false,fresh=false){
  if(src.startsWith('data:')||src.startsWith('blob:'))return src;
  const token=getToken()||'';const key=account+':'+token+':'+src;const entry=cache.get(key);
- if(entry&&Date.now()-entry.checked<300000){entry.used=Date.now();return entry.url;}
+ if(!fresh&&entry&&Date.now()-entry.checked<300000){entry.used=Date.now();return entry.url;}
  const current=pending.get(key);if(current)return current;
  const g=generation,owner=account;
  const task=(async()=>{
  const diskKey=preferAudio?await audioCacheKey(owner,token,src):null;
  if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
- const stored=diskKey?await readAudioCache(diskKey):null;
+ const stored=diskKey&&!fresh?await playableCachedAudio(diskKey):null;
  if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
- const b=stored??(src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/(?:media|public-media)\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);try{const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');return await r.blob()}finally{clearTimeout(timer)}})());
+ const b=stored??(src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/(?:media|public-media)\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);try{const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');const blob=await r.blob();if(!blob.size||(preferAudio&&!blob.type.startsWith('audio/')))throw Error('MEDIA_UNAVAILABLE');return blob}finally{clearTimeout(timer)}})());
  if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
  if(!stored&&diskKey&&b.type.startsWith('audio/'))void writeAudioCache(diskKey,b);
- const old=cache.get(key);if(old){old.checked=Date.now();old.used=Date.now();return old.url;}const url=URL.createObjectURL(b);cache.set(key,{url,size:b.size,checked:Date.now(),used:Date.now()});trimCache();return url;
+ const old=cache.get(key);if(old&&!fresh){old.checked=Date.now();old.used=Date.now();return old.url;}const url=URL.createObjectURL(b);if(old)URL.revokeObjectURL(old.url);cache.set(key,{url,size:b.size,checked:Date.now(),used:Date.now()});trimCache();return url;
  })().finally(()=>{if(pending.get(key)===task)pending.delete(key)});pending.set(key,task);return task;
 }
 export function useMedia(src?:string|null,preferAudio=false){
  const [state,setState]=useState<{src?:string|null;url:string;error:boolean}>({src,url:'',error:false});const [retry,setRetry]=useState(0);
- useEffect(()=>{let live=true;const key=account+':'+(getToken()||'')+':'+src;active.set(key,(active.get(key)||0)+1);setState({src,url:'',error:false});const timer=setTimeout(()=>{if(live){live=false;setState({src,url:'',error:true})}},25000);if(src)cachedMedia(src,preferAudio).then(url=>{if(live)setState({src,url,error:false})}).catch(()=>{if(live)setState({src,url:'',error:true})}).finally(()=>clearTimeout(timer));else clearTimeout(timer);return()=>{clearTimeout(timer);live=false;const count=(active.get(key)||1)-1;if(count>0)active.set(key,count);else active.delete(key);trimCache()}},[src,retry,preferAudio]);
+ useEffect(()=>{let live=true;const key=account+':'+(getToken()||'')+':'+src;active.set(key,(active.get(key)||0)+1);setState({src,url:'',error:false});const timer=setTimeout(()=>{if(live){live=false;setState({src,url:'',error:true})}},25000);if(src)cachedMedia(src,preferAudio,preferAudio&&retry>0).then(url=>{if(live)setState({src,url,error:false})}).catch(()=>{if(live)setState({src,url:'',error:true})}).finally(()=>clearTimeout(timer));else clearTimeout(timer);return()=>{clearTimeout(timer);live=false;const count=(active.get(key)||1)-1;if(count>0)active.set(key,count);else active.delete(key);trimCache()}},[src,retry,preferAudio]);
  return {...(state.src===src?state:{url:'',error:false}),retry:()=>setRetry(x=>x+1)};
 }
 // Track decode state by URL, not a resetting effect that can race a cached load.
@@ -71,8 +81,8 @@ export function MessageMedia({attachment,lang='pt',onOpen}:{attachment?:{id:stri
  const ratio=attachment.width&&attachment.height?attachment.width/attachment.height:4/3;
  return <div className={audio?"message-media message-audio":"message-media"}>
  {(visual||audio)&&<div className="media-frame" style={visual?{aspectRatio:String(ratio),width:Math.min(360,attachment.width||360),maxWidth:'100%'}:{width:280,height:54}}>
- {!ready&&!media.error&&<div className="media-skeleton" role="status" aria-label={lang==='pt'?'Carregando mídia':'Loading media'}/>}
- {media.url&&(attachment.mime.startsWith('image/')?<button type="button" className="open-chat-photo" onClick={onOpen} aria-label={lang==='pt'?'Abrir foto na galeria':'Open photo gallery'}><img src={media.url} alt={label} onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/></button>:attachment.mime.startsWith('video/')?<video controls preload="metadata" src={media.url} onLoadedData={()=>setReady(true)}/>:<div style={{visibility:ready?"visible":"hidden"}}><ChatAudioPlayer src={media.url} lang={lang} onReady={()=>setReady(true)}/></div>)}
+ {!(audio?media.url:ready)&&!media.error&&<div className="media-skeleton" role="status" aria-label={lang==='pt'?'Carregando mídia':'Loading media'}/>}
+ {media.url&&(attachment.mime.startsWith('image/')?<button type="button" className="open-chat-photo" onClick={onOpen} aria-label={lang==='pt'?'Abrir foto na galeria':'Open photo gallery'}><img src={media.url} alt={label} onLoad={()=>setReady(true)} onError={()=>setReady(true)} style={{opacity:ready?1:0}}/></button>:attachment.mime.startsWith('video/')?<video controls preload="metadata" src={media.url} onLoadedData={()=>setReady(true)}/>:<ChatAudioPlayer key={media.url} src={media.url} lang={lang} onRetry={media.retry}/>)}
  </div>}
  {media.error?<button type="button" onClick={media.retry}>{lang==='pt'?'Tentar carregar novamente':'Retry loading'}</button>:media.url?(!visual&&!audio?<a className="document-open" href={media.url} target="_blank" rel="noreferrer">{label}</a>:null):!visual&&!audio?<span className="media-skeleton file-skeleton" role="status" aria-label={lang==='pt'?'Carregando documento':'Loading document'}/>:null}
  </div>;
