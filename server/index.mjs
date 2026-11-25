@@ -25,7 +25,9 @@ const app = express();
 const push=createPush(pool);
 await push.start();
 app.set("trust proxy", 1);
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({contentSecurityPolicy:{useDefaults:false,directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'"],imgSrc:["'self'","data:","blob:"],mediaSrc:["'self'","blob:","data:"],fontSrc:["'self'","data:"],connectSrc:["'self'"],workerSrc:["'self'","blob:"],objectSrc:["'none'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],manifestSrc:["'self'"]}}}));
+// Apply before authentication, including errors, token responses and SSE.
+app.use("/api", (_req,res,next)=>{res.set("Cache-Control","private, no-store");next()});
 app.use(
   cors({
     origin: (origin, cb) =>
