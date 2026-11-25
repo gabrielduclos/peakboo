@@ -1,3 +1,4 @@
+import {displayName} from "../../../shared/display-name.mjs";
 import {Fragment,type ReactNode,type RefObject} from "react";
 import {ArrowLeft,Users,Search,CalendarPlus,X,ChevronDown,LoaderCircle,Check,MessageCircle,ArrowDown,Plus} from "lucide-react";
 import {Avatar,Button,Logo,cn} from "../../components";
@@ -166,7 +167,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                     {!own && !grouped ? (
                       <Avatar
                         image={m.senderImage}
-                        name={m.senderName}
+                        name={displayName(m.senderName)}
                         color={
                           colors[
                             (m.senderName.charCodeAt(0) || 0) % 5
@@ -179,7 +180,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                     )}
                     <div className="message-body">
                       {!own && !grouped && (
-                        <button type="button" className="sender-name profile-name-link" onClick={()=>onProfile?.({id:m.senderId,name:m.senderName,image:m.senderImage})} disabled={!onProfile}>{m.senderName}</button>
+                        <button type="button" className="sender-name profile-name-link" onClick={()=>onProfile?.({id:m.senderId,name:m.senderName,image:m.senderImage})} disabled={!onProfile}>{displayName(m.senderName)}</button>
                       )}
                       {p ? (
                         eventCard(p)
