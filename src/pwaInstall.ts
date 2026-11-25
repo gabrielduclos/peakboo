@@ -10,7 +10,7 @@ export function shouldInviteInstall(installed:boolean,lastDay:string,today:strin
 export function markInstallInvite(){memoryDay=localDay();write(DAY,memoryDay)}
 // Installation remembered in storage is not proof that this window was launched as an app.
 export function isPwaWindow(){
- return window.matchMedia?.("(display-mode: standalone)").matches===true||window.matchMedia?.("(display-mode: fullscreen)").matches===true||(navigator as Navigator&{standalone?:boolean}).standalone===true;
+ return window.matchMedia?.("(display-mode: standalone)").matches===true||(navigator as Navigator&{standalone?:boolean}).standalone===true;
 }
 export function installedPwa(){
  return installedHere||isPwaWindow()||read(INSTALLED)==="1";

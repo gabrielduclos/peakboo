@@ -1,7 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';import {build} from 'esbuild';import {JSDOM} from 'jsdom';import {pathToFileURL} from 'node:url';
 // Import React DOM after browser globals so Radix uses its browser portal implementation.
-const dom=new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>',{url:'https://main.peakboo.workers.dev'});
-for(const key of ['window','document','navigator','HTMLElement','Element','Node','NodeFilter','MutationObserver','CustomEvent','Event','localStorage','sessionStorage','location','history','HTMLInputElement'])Object.defineProperty(globalThis,key,{value:dom.window[key],configurable:true});globalThis.getComputedStyle=dom.window.getComputedStyle.bind(dom.window);globalThis.IS_REACT_ACT_ENVIRONMENT=true;dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
+const dom=new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>',{url:'https://main.peakboo.workers.dev',pretendToBeVisual:true});
+for(const key of ['window','document','navigator','HTMLElement','Element','Node','NodeFilter','MutationObserver','CustomEvent','Event','localStorage','sessionStorage','location','history','HTMLInputElement'])Object.defineProperty(globalThis,key,{value:dom.window[key],configurable:true});globalThis.getComputedStyle=dom.window.getComputedStyle.bind(dom.window);globalThis.IS_REACT_ACT_ENVIRONMENT=true;globalThis.requestAnimationFrame=dom.window.requestAnimationFrame.bind(dom.window);globalThis.cancelAnimationFrame=dom.window.cancelAnimationFrame.bind(dom.window);dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
 const {createElement,act}=await import('react');const {createRoot}=await import('react-dom/client');const dir=await mkdtemp(process.cwd()+'/.ui-test-');
 async function mount(entry){const out=dir+'/'+entry.split('/').at(-1)+'.mjs';await build({entryPoints:[entry],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});const {default:App}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));await act(async()=>{root.render(createElement(App));await new Promise(r=>setTimeout(r,0))});return root;}
 try{
@@ -19,8 +19,33 @@ try{
  localStorage.setItem('peakboo-pwa-installed','1');
  assert.equal(pwa.installedPwa(),true);assert.equal(pwa.isPwaWindow(),false);
  const originalMatch=window.matchMedia;window.matchMedia=q=>({matches:q==='(display-mode: standalone)'});
- try{assert.equal(pwa.isPwaWindow(),true)}finally{window.matchMedia=originalMatch;localStorage.removeItem('peakboo-pwa-installed')}
+ try{assert.equal(pwa.isPwaWindow(),true);window.matchMedia=q=>({matches:q==='(display-mode: fullscreen)'});assert.equal(pwa.isPwaWindow(),false)}finally{window.matchMedia=originalMatch;localStorage.removeItem('peakboo-pwa-installed')}
 
+ });
+ await test('mobile history restores the previous internal page and visual viewport tracks the keyboard',async()=>{
+ const out=dir+'/app-navigation.mjs';await build({entryPoints:['src/appNavigation.ts'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external'});
+ const {useAppNavigation,useMobileViewport}=await import(pathToFileURL(out));const {useState}=await import('react');
+ const originalWidth=window.innerWidth,originalViewport=Object.getOwnPropertyDescriptor(window,'visualViewport');
+ const viewport=new dom.window.EventTarget();Object.assign(viewport,{height:740,offsetTop:0,scale:1});
+ Object.defineProperty(window,'visualViewport',{value:viewport,configurable:true});window.innerWidth=390;
+ const root=createRoot(document.getElementById('root'));let navigate;
+ function Harness(){const [view,setView]=useState('chats'),[mobile,setMobile]=useState(false),[selected,setSelected]=useState(null);
+ useMobileViewport();useAppNavigation('navigation-test',view,mobile,selected,['room-a'],setView,setMobile,setSelected);
+ navigate=(next)=>{setView(next==='calendar'?'calendar':'chats');setMobile(next==='room');if(next==='room')setSelected('room-a')};
+ return createElement('div',{id:'route'},view==='calendar'?'calendar':mobile?selected:'groups')}
+ const back=()=>act(async()=>{const done=new Promise(resolve=>window.addEventListener('popstate',resolve,{once:true}));history.back();await done});
+ try{
+ await act(async()=>root.render(createElement(Harness)));
+ assert.equal(document.querySelector('#route').textContent,'groups');
+ await act(async()=>navigate('room'));assert.equal(history.state.peakbooNavigation.route,'room:room-a');
+ await act(async()=>navigate('calendar'));assert.equal(history.state.peakbooNavigation.route,'calendar');
+ await back();assert.equal(document.querySelector('#route').textContent,'room-a');
+ await back();assert.equal(document.querySelector('#route').textContent,'groups');
+ viewport.height=410;viewport.offsetTop=12;viewport.dispatchEvent(new Event('resize'));
+ assert.equal(document.documentElement.style.getPropertyValue('--peakboo-visible-height'),'410px');
+ assert.equal(document.documentElement.style.getPropertyValue('--peakboo-visible-top'),'12px');
+ viewport.scale=2;viewport.dispatchEvent(new Event('resize'));assert.equal(document.documentElement.style.getPropertyValue('--peakboo-visible-height'),'');
+ }finally{await act(async()=>root.unmount());window.innerWidth=originalWidth;if(originalViewport)Object.defineProperty(window,'visualViewport',originalViewport);else delete window.visualViewport}
  });
  await test('reaction replacement is idempotent and preserves other users',async()=>{
  const out=dir+'/reaction.mjs';await build({entryPoints:['src/realtime.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {applyReaction}=await import(pathToFileURL(out));
