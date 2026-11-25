@@ -295,7 +295,7 @@ try{
  });
 
  await test('shared event form preserves room choice, local date and submit callback',async()=>{
- const out=dir+'/event-form.mjs';await build({entryPoints:['src/features/calendar/EventFormDialog.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic'});const {EventFormDialog}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));let saved,closed=0;
+ const out=dir+'/event-form.mjs';await build({entryPoints:['src/features/calendar/EventFormDialog.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});const {EventFormDialog}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));let saved,closed=0;
  const room={id:'r',name:'Group',description:'',color:'blue',ownerId:'me',memberCount:1,unread:0};
  try{await act(async()=>root.render(createElement(EventFormDialog,{open:true,onClose:()=>closed++,t:k=>k,editPlan:null,selected:'r',rooms:[room],eventTitle:'Meeting',setEventTitle:()=>{},eventDay:'2026-12-01',setEventDay:()=>{},eventColor:'blue',setEventColor:()=>{},formError:'',busy:null,saveEvent:e=>{e.preventDefault();saved=new window.FormData(e.currentTarget)}})));
  const form=document.querySelector('[role=dialog] form');assert.equal(form.querySelector('select').value,'r');assert.equal(form.querySelector('[name=date]').value,'2026-12-01');assert.equal(form.querySelector('[name=start]').value,'16:00');assert.ok(form.querySelector('[aria-label=blue][aria-pressed=true]'));
