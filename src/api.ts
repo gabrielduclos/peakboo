@@ -7,7 +7,27 @@ export const API =
 export const PREVIEW_ONLY =
   (import.meta as unknown as { env: { VITE_PREVIEW_ONLY?: string } }).env
     .VITE_PREVIEW_ONLY === "true";
-export const getToken = () => sessionStorage.getItem("peakboo-session");
+export const SESSION_KEY = "peakboo-session";
+export const SESSION_EXPIRED = "peakboo:session-expired";
+// Migrate the previously tab-scoped bearer token without changing its server-side expiry.
+export function getToken() {
+  const persisted = localStorage.getItem(SESSION_KEY);
+  const previous = sessionStorage.getItem(SESSION_KEY);
+  if (previous) {
+    if (!persisted) localStorage.setItem(SESSION_KEY, previous);
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+  return persisted || previous;
+}
+export function clearToken() {
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_KEY);
+}
+function expireToken(token: string | null) {
+  if (!token || token !== getToken()) return;
+  clearToken();
+  window.dispatchEvent(new Event(SESSION_EXPIRED));
+}
 const inFlight = new Map<string, Promise<any>>();
 export function request(path: string, method = "GET", data?: unknown) {
   if (method !== "GET") return performRequest(path, method, data);
@@ -36,10 +56,16 @@ async function performRequest(path: string, method: string, data?: unknown) {
     throw new Error("NETWORK_ERROR");
   }
   const result = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(result.error || result.code || "SERVER_ERROR");
-  if (method === "GET" && token !== getToken()) throw new Error("UNAUTHORIZED");
+  if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/api/auth/")) {
+      expireToken(token);
+      throw new Error("UNAUTHORIZED");
+    }
+    throw new Error(result.error || result.code || "SERVER_ERROR");
+  }
+  if (token !== getToken()) throw new Error("SESSION_CHANGED");
   const authToken = res.headers.get("set-auth-token");
-  if (authToken) sessionStorage.setItem("peakboo-session", authToken);
+  if (authToken) localStorage.setItem(SESSION_KEY, authToken);
   return result;
 }
 import type {LiveChange} from "./realtime";
@@ -54,7 +80,9 @@ export async function watchChanges(
   const renew=()=>{clearTimeout(watchdog);watchdog=setTimeout(abort,70000)};
   renew();
   try{
-    const res=await fetch(API+"/api/live",{headers:{Authorization:"Bearer "+getToken()},signal:controller.signal,cache:"no-store"});
+    const token=getToken();
+    const res=await fetch(API+"/api/live",{headers:{Authorization:"Bearer "+token},signal:controller.signal,cache:"no-store"});
+    if(res.status===401)expireToken(token);
     if(!res.ok||!res.body)throw Error("STREAM_FAILED");
     onStatus(true);
     const reader=res.body.getReader(),decoder=new TextDecoder();let buffer="";

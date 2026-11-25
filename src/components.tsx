@@ -44,6 +44,7 @@ export function Modal({
   children,
   closeLabel = "Fechar",
   className = "",
+  preventAutoFocus = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -52,6 +53,7 @@ export function Modal({
   children: ReactNode;
   closeLabel?: string;
   className?: string;
+  preventAutoFocus?: boolean;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -59,6 +61,10 @@ export function Modal({
         <Dialog.Overlay className="modal-overlay" />
         <Dialog.Content
           className={cn("modal", className)}
+          onOpenAutoFocus={preventAutoFocus ? (event)=>{
+            event.preventDefault();
+            (event.target as HTMLElement | null)?.focus({preventScroll:true});
+          } : undefined}
           aria-describedby={description ? "modal-description" : undefined}
         >
           <div className="modal-heading">
