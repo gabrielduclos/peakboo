@@ -1,7 +1,7 @@
 import {displayName} from "../shared/display-name.mjs";
 import {AuthDialog,SettingsDialog} from "./features/account/AccountDialogs";
 import type {ListDraft} from "./features/chat/SharedChecklist";
-import {type Checklist,type ChecklistOperation} from "../shared/checklists.mjs";
+import {suggestChecklist,type Checklist,type ChecklistOperation} from "../shared/checklists.mjs";
 import {ChatPanel} from "./features/chat/ChatPanel";
 import {EventFormDialog} from "./features/calendar/EventFormDialog";
 import {CalendarPage,EventCard,MiniCalendar} from "./features/calendar/CalendarViews";
@@ -193,6 +193,7 @@ export default function App() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listHistoryRef=useRef(messages);listHistoryRef.current=messages;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const signedOutRef = useRef(!getToken());
@@ -276,7 +277,8 @@ export default function App() {
     const id = setTimeout(() => setToast(""), 4000);
     return () => clearTimeout(id);
   }, [toast]);
-  const fetchMessages = useCallback(async (id: string) => {
+  const fetchMessages = useCallback(async (id: string, refreshOlderLists=false) => {
+    const session=getToken();
     const data = await request("/api/rooms/" + id + "/messages");
     if (!signedOutRef.current)
       setMessages((m) => ({
@@ -292,6 +294,18 @@ export default function App() {
           .slice(-2000),
       }));
     setHasMore((m) => ({ ...m, [id]: data.hasMore }));
+    if(refreshOlderLists&&session===getToken()){
+      const freshIds=new Set(data.messages.map((m:Message)=>m.id));
+      const ids=(listHistoryRef.current[id]||[]).filter(m=>!freshIds.has(m.id)&&!m.deleted&&!m.pendingStatus&&(m.checklist||(!m.eventId&&!m.attachment&&suggestChecklist(m.text)))).map(m=>m.id);
+      for(let i=0;i<ids.length;i+=100){
+        const result=await request("/api/rooms/"+id+"/lists/refresh","POST",{ids:ids.slice(i,i+100)});
+        if(session!==getToken())return;
+        for(const entry of result.lists){if(entry.checklist)commitList(id,entry.id,entry.checklist);else if(entry.deleted){
+          const remove=(m:Message)=>m.id===entry.id?{...m,deleted:true,text:"",checklist:null,pinned:false}:m;
+          setMessages(old=>({...old,[id]:(old[id]||[]).map(remove)}));if(selectedRef.current===id)setFiltered(old=>old.map(remove));
+        }}
+      }
+    }
   }, []);
   const refresh = useCallback(async () => {
     const data: Boot = await request("/api/bootstrap");
@@ -365,7 +379,7 @@ export default function App() {
     if (!selected) return;
     let alive = true;
     setLoadingMessages(!messages[selected]);
-    fetchMessages(selected).then(async()=>{
+    fetchMessages(selected,true).then(async()=>{
       if(!alive||!chatVisibleRef.current||document.hidden)return;
       await request("/api/rooms/" + selected + "/read", "POST");
       if(alive)setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===selected?{...r,unread:0}:r)}));
@@ -386,7 +400,7 @@ export default function App() {
         await refresh();
         const id=selectedRef.current;
         if(id&&chatVisibleRef.current&&(all||changed.has(id))){
-          setPinnedRevision(v=>v+1);setFilterRevision(v=>v+1);await fetchMessages(id);
+          setPinnedRevision(v=>v+1);setFilterRevision(v=>v+1);await fetchMessages(id,all);
           if(!stopped&&!document.hidden&&chatVisibleRef.current&&selectedRef.current===id){
             await request("/api/rooms/"+id+"/read","POST");setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r)}));
           }
