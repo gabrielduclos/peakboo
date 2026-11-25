@@ -154,7 +154,8 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   const cameraKindRef = useRef<'image' | 'video'>('image');
   const [cameraOptions,setCameraOptions] = useState(false);
   const [photoCameraOpen,setPhotoCameraOpen]=useState(false);
-  const readyPhotos=useRef(new WeakSet<File>());
+  const sendingPhotosRef=useRef(false);
+  const [sendingPhotos,setSendingPhotos]=useState(false);
   const [pending,setPending] = useState<File | null>(null);
   const [pendingUrl,setPendingUrl] = useState<string | null>(null);
   const localUrl = useRef<string | null>(null);
@@ -180,7 +181,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   const recordingChunks = useRef<Blob[]>([]);
   const discardRecording = useRef(false);
   const mounted = useRef(true);
-  const canSend = (!!value.trim() || !!pending || pendingPhotos.length>0 || !!pendingLocation) && !sending && !locating && !optimizing && recording==='idle';
+  const canSend = (!!value.trim() || !!pending || pendingPhotos.length>0 || !!pendingLocation) && !sending && !sendingPhotos && !locating && !optimizing && recording==='idle';
   const maxHeight = 208;
   useEffect(()=>{
     mounted.current = true;
@@ -238,7 +239,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     setEditingPhotoIndex(null); setEditorOpen(false);setVideoNotice('');
   }
   function stagePhotos(files:File[]) {
-    if(editing || optimizingRef.current || !files.length)return;
+    if(editing || optimizingRef.current || sendingPhotosRef.current || !files.length)return;
     const next=[...(pending?.type.startsWith('image/')?[pending]:[]),...pendingPhotos,...files];
     if(next.length>10){setError(pt?'Selecione no máximo 10 fotos por envio.':'Select up to 10 photos per batch.');return;}
     const valid=new Set(['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif']);
@@ -253,6 +254,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     setPendingLocation(null);setError('');setAttachmentsOpen(false);
   }
   function removePhoto(index:number) {
+    if(sendingPhotosRef.current)return;
     const remaining=pendingPhotos.filter((_,i)=>i!==index);
     const urls=photoUrls.filter((_,i)=>i!==index);
     URL.revokeObjectURL(photoUrls[index]);
@@ -260,9 +262,10 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     setEditorOpen(false);setEditingPhotoIndex(null);
   }
   function saveEditedPhoto(blob:Blob) {
-    if(editingPhotoIndex===null || !pendingPhotos[editingPhotoIndex])return;
+    if(editingPhotoIndex===null || !pendingPhotos[editingPhotoIndex]||sendingPhotosRef.current)return;
+    if(!blob.size||blob.size>10*1024*1024){setError(pt?'A foto editada deve ter até 10 MB.':'The edited photo must be up to 10 MB.');return;}
     const source=pendingPhotos[editingPhotoIndex];
-    const file=new File([blob],source.name.replace(/\.[^.]+$/,'')+'-editada.png',{type:'image/png'});
+    const file=new File([blob],source.name.replace(/\.[^.]+$/,'').slice(0,168)+'-editada.png',{type:'image/png'});
     const next=URL.createObjectURL(file),index=editingPhotoIndex;
     URL.revokeObjectURL(photoUrls[index]);
     setPendingPhotos(old=>old.map((item,i)=>i===index?file:item));
@@ -353,7 +356,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
 
   // Process gallery photos serially before any preview URLs are created.
   async function prepareGalleryPhotos(files:File[]){
-    if(editing||optimizingRef.current)return;
+    if(editing||optimizingRef.current||sendingPhotosRef.current)return;
     if(files.length+pendingPhotos.length+(pending?.type.startsWith('image/')?1:0)>10){setError(pt?'Selecione no máximo 10 fotos por envio.':'Select up to 10 photos per batch.');return;}
     const controller=new AbortController();
     optimizationController.current=controller;optimizingRef.current=true;
@@ -365,7 +368,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         setOptimizingFile({name:file.name,size:file.size});
         const result=file.type==='image/jpeg'?await prepareCameraPhoto(file,controller.signal):await optimizeImageAttachment(file,controller.signal);
         if(controller.signal.aborted||!mounted.current)return;
-        prepared.push(result);readyPhotos.current.add(result);
+        prepared.push(result);
         setOptimizationProgress(Math.round(prepared.length/files.length*100));
       }
       optimizingRef.current=false;stagePhotos(prepared);
@@ -422,40 +425,31 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     audioStream.current?.getTracks().forEach(t=>t.stop());
     setRecording('idle');recordingChunks.current=[];
   }
-  async function sendOptimizedPhotos() {
-    if (optimizingRef.current || !pendingPhotos.length) return;
-    const files = [...pendingPhotos], caption = (serializeValue?.(value)??value).trim();
-    const controller = new AbortController();
-    optimizationController.current = controller;
-    optimizingRef.current = true;
-    setOptimizing(true);setOptimizationKind('image');setOptimizationProgress(0);
-    setVideoNotice('');setError('');
-    try {
-      const ready: File[] = [];
-      for (let index = 0; index < files.length; index++) {
-        setOptimizingFile({name: files[index].name, size: files[index].size});
-        ready.push(readyPhotos.current.has(files[index])?files[index]:await optimizeImageAttachment(files[index], controller.signal));
-        if (controller.signal.aborted || !mounted.current) return;
-        setOptimizationProgress(Math.round((index + 1) / files.length * 100));
-      }
-      if (controller.signal.aborted || !mounted.current) return;
-      for(let index=0;index<ready.length;index++){await onAttach(ready[index],index===0?caption:'');const first=photoLocalUrls.current.shift();if(first)URL.revokeObjectURL(first);setPendingPhotos(old=>old.slice(1));setPhotoUrls(old=>old.slice(1));}
-      clearPending();onChange('');
-    } catch (error) {
-      if (!mounted.current) return;
-      if (controller.signal.aborted || (error instanceof Error && error.message === 'ABORTED'))
-        setVideoNotice(pt ? 'Compactação cancelada. Nenhuma foto foi enviada.' : 'Compression cancelled. No photo was sent.');
-      else setError(pt ? 'Não foi possível preparar as fotos.' : 'Could not prepare the photos.');
-    } finally {
-      if (optimizationController.current === controller) optimizationController.current = null;
-      optimizingRef.current = false;
-      if (mounted.current) {setOptimizing(false);setOptimizingFile(null);}
+  // Photos are finalized before preview (or when saving an edit). Upload the exact staged bytes.
+  async function sendPhotos() {
+    if(sendingPhotosRef.current||optimizingRef.current||!pendingPhotos.length)return;
+    const files=[...pendingPhotos],caption=(serializeValue?.(value)??value).trim();
+    if(files.some(file=>!file.size||file.size>10*1024*1024)){
+      setError(pt?'Cada foto deve ter até 10 MB.':'Each photo must be up to 10 MB.');return;
     }
+    sendingPhotosRef.current=true;setSendingPhotos(true);setError('');
+    try{
+      for(let index=0;index<files.length;index++){
+        if(!mounted.current)return;
+        await onAttach(files[index],index===0?caption:'');
+        if(!mounted.current)return;
+        const first=photoLocalUrls.current.shift();if(first)URL.revokeObjectURL(first);
+        setPendingPhotos(old=>old.slice(1));setPhotoUrls(old=>old.slice(1));
+        if(index===0)onChange('');
+      }
+      clearPending();
+    }catch{if(mounted.current)setError(pt?'Não foi possível enviar as fotos. Tente novamente.':'Could not send photos. Retry.');}
+    finally{sendingPhotosRef.current=false;if(mounted.current)setSendingPhotos(false);}
   }
   async function sendSelected(){
     if(!canSend)return;
     try{
-      if(pendingPhotos.length){await sendOptimizedPhotos();}
+      if(pendingPhotos.length){await sendPhotos();}
       else if(pending){await onAttach(pending,(serializeValue?.(value)??value).trim());clearPending();onChange('');}
       else if(pendingLocation){const {latitude,longitude}=pendingLocation;await onShareLocation(latitude,longitude,(serializeValue?.(value)??value).trim());setPendingLocation(null);onChange('');}
       else onSubmit();
@@ -475,7 +469,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       setLocating(false);setError(pt?'Não foi possível obter sua localização. Verifique a permissão.':'Could not get your location. Check permissions.');
     },{enableHighAccuracy:false,timeout:12000,maximumAge:30000});
   }
-  function chosenFile(file?:File){if(file && !editing){if(file.type.startsWith('video/'))void stageVideo(file);else stageFile(file);}}
+  function chosenFile(file?:File){if(file && !editing && !sendingPhotosRef.current){if(file.type.startsWith('video/'))void stageVideo(file);else stageFile(file);}}
   
 
   useLayoutEffect(() => {
@@ -522,7 +516,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
 
   return <form ref={controls} onSubmit={submit}
     className="relative flex w-full min-w-0 flex-wrap items-end gap-1 sm:gap-2" data-live-message-composer>
-    {photoCameraOpen&&<PhotoCameraModal pt={pt} onClose={()=>setPhotoCameraOpen(false)} onAccept={file=>{readyPhotos.current.add(file);stagePhotos([file]);setPhotoCameraOpen(false);}}/>}
+    {photoCameraOpen&&<PhotoCameraModal pt={pt} onClose={()=>setPhotoCameraOpen(false)} onAccept={file=>{stagePhotos([file]);setPhotoCameraOpen(false);}}/>}
     {optimizing&&<div className="w-full min-w-0 space-y-2 rounded-lg border border-border bg-card p-3" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-xs">
         <span className="min-w-0 flex-1 truncate font-semibold" title={pt?'Preparando mídia':'Preparing media'}>
@@ -618,7 +612,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         </div> : <div>
           <div className="grid grid-cols-4 gap-1">
           {ATTACHMENTS.map(({icon: Icon,pt:labelPt,en},index) => <button key={en} type="button"
-            disabled={sending || editing || optimizing || recording!=='idle'}
+            disabled={sending || sendingPhotos || editing || optimizing || recording!=='idle'}
             onClick={() => {
               if(index===1){setCameraOptions(true);return;}
               if(index===3){chooseLocation();return;}
@@ -644,7 +638,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     <input ref={fileRef} type="file" accept={'.pdf,.txt,.zip,.mp3,.m4a,.ogg,.webm,.wav,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,application/octet-stream'+(allowOffice?',.doc,.docx,.xls,.xlsx,.ppt,.pptx':'')} className="sr-only"
       onChange={e => { const file=e.target.files?.[0]; e.target.value=''; chosenFile(file); }} />
     <textarea ref={textareaRef} rows={1} value={value} disabled={recording!=='idle'}
-      onPaste={e=>{const file=Array.from(e.clipboardData.items).find(item=>item.kind==='file' && item.type.startsWith('image/'))?.getAsFile();if(file){e.preventDefault();stagePhotos([file]);}}}
+      onPaste={e=>{const file=Array.from(e.clipboardData.items).find(item=>item.kind==='file' && item.type.startsWith('image/'))?.getAsFile();if(file){e.preventDefault();void prepareGalleryPhotos([file]);}}}
       onChange={event => onChange(event.target.value)}
       onSelect={event => onSelectionChange?.(event.currentTarget.value,
         event.currentTarget.selectionStart,event.currentTarget.selectionEnd)}
@@ -690,7 +684,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         className="chat-send-touch grid size-11 lg:size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         <Send className="size-5"/>
       </button>
-      : <button type="button" onClick={()=>void toggleRecording()} disabled={sending || editing || optimizing || (!!pending && recording==='idle') || pendingPhotos.length>0}
+      : <button type="button" onClick={()=>void toggleRecording()} disabled={sending || sendingPhotos || editing || optimizing || (!!pending && recording==='idle') || pendingPhotos.length>0}
         aria-label={recording!=='idle'?(pt?'Finalizar gravação':'Finish recording'):(pt?'Gravar áudio':'Record voice note')}
         className={cn('chat-send-touch grid size-11 lg:size-12 shrink-0 place-items-center',recording!=='idle'?'bg-destructive text-destructive-foreground':'text-muted-foreground',sending && 'opacity-40')}>
         {recording!=='idle'?<Square className="size-4" fill="currentColor"/>:<Mic className="size-5"/>}
