@@ -139,7 +139,18 @@ app.get("/api/live", (req, res) => {
 app.get("/api/bootstrap", async (req, res) => {
   const rooms = (
     await pool.query(
-      `SELECT r.id,r.kind,r.name,r.description,r.color,r.image,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",m.joined_at AS "joinedAt",(SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",(SELECT text FROM messages WHERE room_id=r.id AND created_at>=m.joined_at ORDER BY created_at DESC,id DESC LIMIT 1) AS "lastText",(SELECT max(created_at) FROM messages WHERE room_id=r.id AND created_at>=m.joined_at) AS "lastAt",(SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND created_at>=m.joined_at AND sender_id<>$1) AS unread FROM rooms r JOIN members m ON m.room_id=r.id WHERE m.user_id=$1 AND r.kind='group' ORDER BY coalesce((SELECT max(created_at) FROM messages WHERE room_id=r.id AND created_at>=m.joined_at),r.created_at) DESC LIMIT 100`,
+      `SELECT r.id,r.kind,r.name,r.description,r.color,r.image,r.owner_id AS "ownerId",r.invite_code AS "inviteCode",m.joined_at AS "joinedAt",
+       (SELECT count(*)::int FROM members WHERE room_id=r.id) AS "memberCount",
+       lm.text AS "lastText",greatest(lm.created_at,lr.changed_at) AS "lastAt",
+       CASE WHEN lr.changed_at IS NOT NULL AND (lm.created_at IS NULL OR lr.changed_at>=lm.created_at)
+         THEN json_build_object('kind','reaction','actorName',lr.actor_name,'emoji',lr.emoji,'text',lr.text,'mime',lr.mime)
+         WHEN lm.id IS NOT NULL THEN json_build_object('kind','message','senderId',lm.sender_id,'senderName',lm.sender_name,'text',lm.text,'mime',lm.mime,'deleted',lm.deleted,'eventId',lm.event_id)
+       END AS preview,
+       (SELECT count(*)::int FROM messages WHERE room_id=r.id AND created_at>m.last_read_at AND created_at>=m.joined_at AND sender_id<>$1) AS unread
+       FROM rooms r JOIN members m ON m.room_id=r.id
+       LEFT JOIN LATERAL (SELECT msg.*,u.name AS sender_name,media.mime FROM messages msg JOIN "user" u ON u.id=msg.sender_id LEFT JOIN media ON media.id=msg.attachment_id WHERE msg.room_id=r.id AND msg.created_at>=m.joined_at ORDER BY msg.created_at DESC,msg.id DESC LIMIT 1) lm ON true
+       LEFT JOIN LATERAL (SELECT rx.changed_at,rx.emoji,u.name AS actor_name,msg.text,media.mime FROM messages msg JOIN reactions rx ON rx.message_id=msg.id JOIN "user" u ON u.id=rx.user_id LEFT JOIN media ON media.id=msg.attachment_id WHERE msg.room_id=r.id AND msg.sender_id=$1 AND rx.user_id<>$1 AND NOT msg.deleted AND msg.created_at>=m.joined_at AND rx.changed_at>=m.joined_at ORDER BY rx.changed_at DESC,rx.activity_id DESC LIMIT 1) lr ON true
+       WHERE m.user_id=$1 AND r.kind='group' ORDER BY coalesce(greatest(lm.created_at,lr.changed_at),r.created_at) DESC,r.id LIMIT 100`,
       [req.user.id],
     )
   ).rows;
@@ -151,7 +162,13 @@ app.get("/api/bootstrap", async (req, res) => {
   ).rows;
   const activity=(await pool.query(
     `SELECT a.id,a.event_id AS "eventId",e.room_id AS "roomId",e.title AS "eventTitle",r.name AS "roomName",a.action,a.created_at AS "createdAt" FROM event_activity a JOIN events e ON e.id=a.event_id JOIN rooms r ON r.id=e.room_id JOIN members m ON m.room_id=e.room_id WHERE m.user_id=$1 AND r.kind='group' AND a.actor_id<>$1 AND a.created_at>=m.joined_at AND a.created_at>now()-interval '30 days' ORDER BY a.created_at DESC LIMIT 100`,[req.user.id])).rows;
-  res.json({ user: req.user, rooms, events, activity });
+  const reactionNotices=(await pool.query(
+    `SELECT rx.activity_id AS id,msg.id AS "messageId",r.id AS "roomId",r.name AS "roomName",u.name AS "actorName",rx.emoji,msg.text,media.mime,rx.changed_at AS "createdAt"
+      FROM reactions rx JOIN messages msg ON msg.id=rx.message_id JOIN rooms r ON r.id=msg.room_id JOIN members m ON m.room_id=r.id AND m.user_id=$1 JOIN "user" u ON u.id=rx.user_id LEFT JOIN media ON media.id=msg.attachment_id
+      LEFT JOIN push_muted_groups muted ON muted.room_id=r.id AND muted.user_id=$1
+      WHERE r.kind='group' AND msg.sender_id=$1 AND rx.user_id<>$1 AND NOT msg.deleted AND muted.user_id IS NULL AND msg.created_at>=m.joined_at AND rx.changed_at>=m.joined_at AND rx.changed_at>now()-interval '30 days' AND rx.activity_id IS NOT NULL
+      ORDER BY rx.changed_at DESC,rx.activity_id DESC LIMIT 100`,[req.user.id])).rows;
+  res.json({ user: req.user, rooms, events, activity, reactionNotices });
 });
 app.post("/api/rooms", async (req, res) => {
   const data = roomInput.safeParse(req.body);
@@ -320,7 +337,7 @@ app.post(
       if(!m.rowCount){await db.query("ROLLBACK");return jsonError(res,404,"NOT_FOUND")}
       active=data.data.active;
       if(active===undefined){const existing=await db.query("SELECT 1 FROM reactions WHERE message_id=$1 AND user_id=$2 AND emoji=$3",[req.params.message,req.user.id,data.data.emoji]);active=!existing.rowCount;}
-      if(active)added=!!(await db.query("INSERT INTO reactions(message_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT(message_id,user_id) DO UPDATE SET emoji=EXCLUDED.emoji WHERE reactions.emoji IS DISTINCT FROM EXCLUDED.emoji",[req.params.message,req.user.id,data.data.emoji])).rowCount;
+      if(active)added=!!(await db.query("INSERT INTO reactions(message_id,user_id,emoji,changed_at,activity_id) VALUES($1,$2,$3,now(),$4) ON CONFLICT(message_id,user_id) DO UPDATE SET emoji=EXCLUDED.emoji,changed_at=EXCLUDED.changed_at,activity_id=EXCLUDED.activity_id WHERE reactions.emoji IS DISTINCT FROM EXCLUDED.emoji",[req.params.message,req.user.id,data.data.emoji,randomUUID()])).rowCount;
       else await db.query("DELETE FROM reactions WHERE message_id=$1 AND user_id=$2 AND emoji=$3",[req.params.message,req.user.id,data.data.emoji]);
       await db.query("COMMIT");
     }catch(e){await db.query("ROLLBACK");throw e}finally{db.release()}
