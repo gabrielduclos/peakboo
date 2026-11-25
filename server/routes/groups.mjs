@@ -86,7 +86,14 @@ app.post("/api/rooms/:room/read", member, async (req, res) => {
       AND EXISTS(SELECT 1 FROM messages msg WHERE msg.room_id=m.room_id AND msg.sender_id<>m.user_id AND msg.created_at>m.last_read_at AND msg.created_at>=m.joined_at)`,
     [req.params.room, req.user.id],
   );
-  if(changed.rowCount)notifyAccount(req.user.id,{notificationStateChanged:true});
+  const reactions=await pool.query(`INSERT INTO notification_state(user_id,notice_id,seen)
+    SELECT $2,'reaction:'||rx.activity_id::text,true FROM reactions rx
+    JOIN messages msg ON msg.id=rx.message_id JOIN members m ON m.room_id=msg.room_id AND m.user_id=$2
+    WHERE msg.room_id=$1 AND msg.sender_id=$2 AND rx.user_id<>$2 AND NOT msg.deleted
+      AND rx.activity_id IS NOT NULL AND msg.created_at>=m.joined_at AND rx.changed_at>=m.joined_at
+      AND rx.changed_at>now()-interval '30 days'
+    ON CONFLICT(user_id,notice_id) DO UPDATE SET seen=true WHERE NOT notification_state.seen`,[req.params.room,req.user.id]);
+  if(changed.rowCount||reactions.rowCount)notifyAccount(req.user.id,{notificationStateChanged:true});
   res.json({ ok: true });
 });
 app.get("/api/rooms/:room/members", member, async (req, res) =>
