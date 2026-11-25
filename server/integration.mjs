@@ -253,6 +253,12 @@ try {
       "maybe",
     ),
   );
+  const confirmPath=`/api/rooms/${id}/events/${eid}/rsvp`;
+  await Promise.all([call(confirmPath,bob.token,"POST",{status:"yes"}),call(confirmPath,bob.token,"POST",{status:"yes"})]);
+  const confirmations=(await call("/api/bootstrap",alice.token)).data.activity.filter(a=>a.eventId===eid&&a.action==="confirmed");
+  check("attendance confirmation is registered exactly once on duplicate requests",()=>{assert.equal(confirmations.length,1);assert.equal(confirmations[0].actorName,bob.data.user.name)});
+  check("confirmation notifies other group participants only",async()=>{assert.equal((await call("/api/bootstrap",bob.token)).data.activity.some(a=>a.eventId===eid&&a.action==="confirmed"),false);assert.equal((await call("/api/bootstrap",charlie.token)).data.activity.some(a=>a.eventId===eid&&a.action==="confirmed"),false)});
+  await call(confirmPath,bob.token,"POST",{status:"maybe"});
   const edit = await call(`/api/rooms/${id}/events/${eid}`, bob.token, "PUT", {
     title: "Changed",
     startsAt,
