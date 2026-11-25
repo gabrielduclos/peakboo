@@ -1,3 +1,4 @@
+import {displayName} from "../shared/display-name.mjs";
 // Profile presentation adapted from Uorqui.
 import { useEffect, useRef, useState } from "react";
 import { Camera } from "lucide-react";
@@ -119,8 +120,8 @@ export function ProfileEditor({
         <>
           <Cover src={profile.cover} />
           <div className="profile-identity">
-            <Avatar name={profile.name} image={profile.image} />
-            <strong>{profile.name}</strong>
+            <Avatar name={displayName(profile.name)} image={profile.image} />
+            <strong>{displayName(profile.name)}</strong>
           </div>
           <div className="profile-photo-actions">
             {(["avatar", "cover"] as const).map((kind) => (
@@ -200,6 +201,6 @@ export function ProfileDialog({target,load,lang,onClose}:{target:ProfileTarget;l
  const [profile,setProfile]=useState<Profile|null>(null),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
  useEffect(()=>{let active=true;const timer=setTimeout(()=>{if(active){active=false;setFailed(true)}},25000);load().then(p=>{if(active)setProfile(p)}).catch(()=>{if(active)setFailed(true)}).finally(()=>clearTimeout(timer));return()=>{active=false;clearTimeout(timer)}},[attempt]);
  return <Modal open onOpenChange={v=>{if(!v)onClose()}} title={lang==="pt"?"Perfil":"Profile"} closeLabel={t.close}>
- {profile?<div className="profile-editor"><Cover src={profile.cover}/><div className="profile-identity"><Avatar name={profile.name} image={profile.image}/><strong>{profile.name}</strong></div>{profile.bio&&<p className="profile-bio">{profile.bio}</p>}</div>:failed?<><p role="alert" className="form-error">{t.error}</p><Button variant="outline" onClick={()=>{setFailed(false);setAttempt(x=>x+1)}}>{lang==="pt"?"Tentar novamente":"Retry"}</Button></>:<div className="profile-editor"><div className="profile-identity"><Avatar name={target.name}/><strong>{target.name}</strong></div><div className="social-skeleton" role="status" aria-label={t.loading}/></div>}
+ {profile?<div className="profile-editor"><Cover src={profile.cover}/><div className="profile-identity"><Avatar name={displayName(profile.name)} image={profile.image}/><strong>{displayName(profile.name)}</strong></div>{profile.bio&&<p className="profile-bio">{profile.bio}</p>}</div>:failed?<><p role="alert" className="form-error">{t.error}</p><Button variant="outline" onClick={()=>{setFailed(false);setAttempt(x=>x+1)}}>{lang==="pt"?"Tentar novamente":"Retry"}</Button></>:<div className="profile-editor"><div className="profile-identity"><Avatar name={displayName(target.name)}/><strong>{displayName(target.name)}</strong></div><div className="social-skeleton" role="status" aria-label={t.loading}/></div>}
  </Modal>;
 }
