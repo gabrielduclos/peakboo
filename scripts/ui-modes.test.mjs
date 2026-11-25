@@ -80,6 +80,7 @@ try{
  const out=dir+'/reaction.mjs';await build({entryPoints:['src/realtime.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {applyReaction}=await import(pathToFileURL(out));
  const message={id:'m',reactions:[{userId:'me',emoji:'👍'},{userId:'other',emoji:'❤️'}]};
  const change={messageId:'m',userId:'me',emoji:'🔥',active:true};
+ assert.equal(applyReaction({...message,senderId:'me'},change).reactions[0].emoji,'👍');
  const changed=applyReaction(message,change);assert.deepEqual(changed.reactions,[{userId:'other',emoji:'❤️'},{userId:'me',emoji:'🔥'}]);
  assert.equal(applyReaction(changed,change),changed);
  assert.equal(applyReaction(changed,{...change,emoji:'👍',active:false}),changed);
@@ -124,6 +125,7 @@ try{
  const action=document.querySelector('[aria-label="Ações da mensagem"]');assert.ok(action);await act(async()=>action.click());const reply=[...document.querySelectorAll('[role=menuitem]')].find(x=>x.textContent==='Responder');assert.ok(reply);await act(async()=>reply.click());assert.ok(document.querySelector('.reply-draft svg'));assert.ok(document.querySelector('.reply-draft strong').textContent.endsWith(':'));await act(async()=>document.querySelector('[aria-label="Cancelar resposta"]').click());assert.equal(document.querySelector('.reply-draft'),null);
  const pinAction=document.querySelector('[aria-label="Ações da mensagem"]');await act(async()=>pinAction.click());const pinButton=[...document.querySelectorAll('[role=menuitem]')].find(x=>x.textContent==='Fixar mensagem');await act(async()=>pinButton.click());assert.ok(document.querySelector('.pinned-chat-bar'));
  const reaction=document.querySelector('.message-actions [aria-haspopup="menu"]');await act(async()=>reaction.click());assert.equal(document.querySelectorAll('.reaction-grid [role=menuitem]').length,24);await act(async()=>document.querySelector('.bubble-menu-backdrop').dispatchEvent(new Event('pointerdown',{bubbles:true})));
+ assert.equal(document.querySelector('.message.own .reaction-grid'),null);assert.equal(document.querySelector('.message.own .message-actions [aria-label="Reagir"]'),null);
  const badge=document.querySelector('.reactions button');assert.ok(badge);const before=badge.textContent;
  await act(async()=>badge.click());const peopleDialog=document.querySelector('[role=dialog]');assert.ok(peopleDialog.textContent.includes('Reações'));assert.ok(peopleDialog.textContent.includes('Marina'));assert.ok(peopleDialog.textContent.includes('Bia'));assert.equal(peopleDialog.querySelectorAll('.member-list>div').length,2);
  await act(async()=>peopleDialog.querySelector('[aria-label="Fechar"]').click());assert.equal(document.querySelector('.reactions button').textContent,before);assert.equal(calls,0);
