@@ -14,4 +14,18 @@ function icon(size){
  }
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk("IHDR",h),chunk("IDAT",deflateSync(raw)),chunk("IEND",Buffer.alloc(0))]);
 }
-export function pwaAssets(){return {name:"peakboo-pwa-assets",generateBundle(){for(const size of [192,512,180])this.emitFile({type:"asset",fileName:"icon-"+size+".png",source:icon(size)})}}}
+// Monochrome chat bubble with a transparent eye cutout, for Android status badges.
+function notificationBadge(size=96){
+ const raw=Buffer.alloc(size*(size*4+1)),h=Buffer.alloc(13);h.writeUInt32BE(size);h.writeUInt32BE(size,4);h[8]=8;h[9]=6;
+ const inside=(x,y)=>{
+  const dx=Math.max(Math.abs(x-.5)-.24,0),dy=Math.max(Math.abs(y-.46)-.19,0);
+  const bubble=dx*dx+dy*dy<=.15*.15;
+  const tail=y>=.65&&y<=.88&&x>=.15&&x<=.40-(y-.65)*.95;
+  const eye=Math.abs(y-.46)<=.145*Math.sqrt(Math.max(0,1-Math.pow((x-.5)/.27,2)))&&Math.abs(x-.5)<.27;
+  const pupil=(x-.5)**2+(y-.46)**2<=.077**2;
+  return (bubble||tail)&&(!eye||pupil);
+ };
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){let hits=0;for(let a=0;a<4;a++)for(let b=0;b<4;b++)if(inside((x+(a+.5)/4)/size,(y+(b+.5)/4)/size))hits++;const i=y*(size*4+1)+1+x*4;raw[i]=raw[i+1]=raw[i+2]=255;raw[i+3]=Math.round(hits*255/16)}
+ return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk("IHDR",h),chunk("IDAT",deflateSync(raw)),chunk("IEND",Buffer.alloc(0))]);
+}
+export function pwaAssets(){return {name:"peakboo-pwa-assets",generateBundle(){for(const size of [192,512,180])this.emitFile({type:"asset",fileName:"icon-"+size+".png",source:icon(size)});this.emitFile({type:"asset",fileName:"notification-badge.png",source:notificationBadge()})}}}
