@@ -150,7 +150,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
               <span className="skeleton" />
             </div>
           ) : (
-            currentMessages
+            currentMessages.map(m=>({...m,reactions:m.reactions.filter(r=>r.userId!==m.senderId)}))
               .map((m, i, arr) => {
                 const own = m.senderId === userId,
                   p = m.eventId
@@ -248,7 +248,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                       </div>
                     </div>
                     {!m.deleted&&!m.pendingStatus&&<div className="message-actions">
-                      <ReactionPicker label={t("react")} selectedEmoji={m.reactions.find(r=>r.userId===userId)?.emoji} disabled={!!pendingReactions[m.id]} onReact={emoji=>{void react(m,emoji)}}/>
+                      {!own&&<ReactionPicker label={t("react")} selectedEmoji={m.reactions.find(r=>r.userId===userId)?.emoji} disabled={!!pendingReactions[m.id]} onReact={emoji=>{void react(m,emoji)}}/>}
                       <MessageActions message={m} own={own} pt={lang==="pt"} rooms={rooms} onAction={messageAction}/>
                     </div>}
                   </SwipeReply></Fragment>
@@ -303,8 +303,8 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
     )}
     {activeReactionTarget&&reactionMessage&&!reactionMessage.deleted&&<Modal open onOpenChange={v=>{if(!v)setReactionTarget(null)}} title={lang==="pt"?"Reações":"Reactions"} closeLabel={t("close")}>
       {reactionLoading?<div role="status" className="flex justify-center p-4"><LoaderCircle className="spin" aria-label={lang==="pt"?"Carregando":"Loading"}/></div>:reactionError?<div role="alert"><p>{t("error")}</p><Button onClick={()=>setReactionRetry(v=>v+1)}>{t("retry")}</Button></div>:<div className="member-list">
-        {reactionMessage.reactions.map(r=>{const person=reactionPeople.find(p=>p.id===r.userId);const name=person?.name||(lang==="pt"?"Participante indisponível":"Participant unavailable");return <div key={r.userId}><Avatar name={displayName(name)} image={person?.image} small/><span className="min-w-0 flex-1 break-words">{displayName(name)}</span><span className="shrink-0 text-lg">{r.emoji}</span></div>})}
-        {!reactionMessage.reactions.length&&<p className="muted">{lang==="pt"?"Nenhuma reação":"No reactions"}</p>}
+        {reactionMessage.reactions.filter(r=>r.userId!==reactionMessage.senderId).map(r=>{const person=reactionPeople.find(p=>p.id===r.userId);const name=person?.name||(lang==="pt"?"Participante indisponível":"Participant unavailable");return <div key={r.userId}><Avatar name={displayName(name)} image={person?.image} small/><span className="min-w-0 flex-1 break-words">{displayName(name)}</span><span className="shrink-0 text-lg">{r.emoji}</span></div>})}
+        {!reactionMessage.reactions.some(r=>r.userId!==reactionMessage.senderId)&&<p className="muted">{lang==="pt"?"Nenhuma reação":"No reactions"}</p>}
       </div>}
     </Modal>}
   </section>
