@@ -1,3 +1,4 @@
+import {displayName} from "../shared/display-name.mjs";
 import {CornerDownRight, X} from 'lucide-react';
 import type {Message} from './types';
 import {attachmentLabel} from './chatAttachmentLabels';
@@ -8,7 +9,7 @@ export function replySnapshot(source:Message|null){
 export function ReplyReference({message,source,ownId,lang,onJump,onCancel}:{message:Message;source?:Message;ownId:string;lang:string;onJump?:()=>void;onCancel?:()=>void}){
   const pt=lang==='pt',deleted=source?source.deleted:message.replyDeleted;
   const authorId=source?.senderId??message.replySenderId;
-  const author=authorId===ownId?(pt?'Você':'You'):(source?.senderName??message.replySenderName??(pt?'Mensagem anterior':'Earlier message'));
+  const author=authorId===ownId?(pt?'Você':'You'):(displayName(source?.senderName??message.replySenderName)||(pt?'Mensagem anterior':'Earlier message'));
   const text=deleted?(pt?'Mensagem excluída':'Deleted message'):((source?source.text:message.replyText)?.trim()||attachmentLabel(source?.attachment?.mime??message.replyMime,pt?'pt-BR':'en')).replace(/\s+/g,' ');
   const content=<><strong>{author}:</strong><span>{text}</span></>;
   return <div className={'reply-reference'+(onCancel?' reply-draft':'')}>
