@@ -1,0 +1,812 @@
+/* The layout scales up without shrinking message text. */
+@media (min-width: 1600px) {
+  .sidebar {
+    width: 245px;
+    padding-left: 23px;
+    padding-right: 23px;
+  }
+  .messenger {
+    grid-template-columns: 310px minmax(380px, 1fr) 300px;
+  }
+  .conversation-item {
+    padding: 17px 11px;
+  }
+  .conversation-summary strong {
+    font-size: 13px;
+  }
+  .conversation-summary p {
+    font-size: 12px;
+  }
+  .chat-history {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+  .chat-header {
+    padding: 0 35px;
+  }
+  .chat-context {
+    margin-left: 35px;
+    margin-right: 35px;
+    font-size: 11px;
+  }
+  .plans-panel {
+    padding: 30px 25px;
+  }
+  .plans-heading h3 {
+    font-size: 14px;
+  }
+  .upcoming-item strong {
+    font-size: 12px;
+  }
+  .upcoming-item small {
+    font-size: 11px;
+  }
+  .upcoming-room {
+    font-size: 10px;
+  }
+  .event-message .message-body {
+    width: 365px;
+  }
+  .message {
+    margin-bottom: 19px;
+  }
+  .message-bubble {
+    padding: 11px 16px;
+  }
+  .event-card {
+    padding: 18px 20px 15px;
+  }
+  .event-card .event-title {
+    font-size: 19px;
+  }
+  .event-meta {
+    font-size: 12px;
+  }
+  .event-tag {
+    font-size: 10px;
+  }
+  .composer-wrapper {
+    padding: 14px 35px 18px;
+  }
+}
+@media (max-width: 1250px) {
+  .sidebar {
+    width: 195px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .brand {
+    font-size: 27px;
+  }
+  .brand-mark {
+    width: 34px;
+    height: 35px;
+  }
+  .messenger {
+    grid-template-columns: 260px minmax(300px, 1fr);
+  }
+  .plans-panel {
+    display: none;
+  }
+  .sidebar-note {
+    margin-bottom: 24px;
+  }
+  .chat-header {
+    padding: 0 20px;
+  }
+  .calendar-page {
+    padding: 14px 25px 25px;
+  }
+  .calendar-hero h2 {
+    font-size: 23px;
+  }
+  .calendar-layout {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .calendar-sidebar {
+    padding: 21px 15px;
+  }
+  .calendar-toolbar {
+    padding: 16px;
+  }
+  .month-label h3 {
+    font-size: 14px;
+  }
+  .calendar-event {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+  .calendar-event strong {
+    width: 100%;
+  }
+  .month-cell {
+    height: 110px;
+  }
+  .form-row label > input {
+    font-size: 16px;
+  }
+}
+@media (max-width: 950px) {
+  .sidebar {
+    width: 82px;
+    padding: 27px 12px 17px;
+    align-items: center;
+  }
+  .sidebar .brand-link {
+    padding: 0;
+  }
+  .sidebar .brand > span:last-child {
+    display: none;
+  }
+  .sidebar .brand-mark {
+    width: 40px;
+    height: 41px;
+  }
+  .workspace-label,
+  .sidebar-note,
+  .sidebar .nav-item > span,
+  .sidebar .nav-item > b,
+  .sidebar .user-profile > button {
+    display: none;
+  }
+  .sidebar nav {
+    margin-top: 40px;
+    width: 100%;
+    gap: 10px;
+  }
+  .sidebar .nav-item {
+    justify-content: center;
+    padding: 13px 0;
+    position: relative;
+  }
+  .sidebar .sidebar-bottom {
+    width: 100%;
+  }
+  .sidebar .user-profile {
+    padding-top: 18px;
+    justify-content: center;
+  }
+  .sidebar .nav-item.active:before {
+    content: "";
+    height: 19px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--primary);
+    position: absolute;
+    left: -12px;
+  }
+  .messenger {
+    grid-template-columns: 265px minmax(300px, 1fr);
+  }
+  .topbar {
+    padding: 0 23px;
+    height: 69px;
+    min-height: 69px;
+  }
+  .demo-banner {
+    padding: 8px 23px;
+  }
+  .demo-banner > span {
+    font-size: 10px;
+  }
+  .demo-banner > button {
+    font-size: 10px;
+  }
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+  .calendar-sidebar {
+    display: none;
+  }
+  .calendar-hero {
+    align-items: flex-start;
+  }
+  .calendar-hero > .button {
+    font-size: 12px;
+  }
+  .calendar-hero h2 {
+    font-size: 22px;
+    max-width: 320px;
+  }
+  .calendar-toolbar {
+    gap: 10px;
+  }
+  .week-grid {
+    min-height: 500px;
+  }
+  .week-event {
+    padding: 8px 5px;
+  }
+  .week-event strong {
+    font-size: 11px;
+  }
+}
+@media (max-width: 700px) {
+  .app-shell {
+    min-height: 0;
+  }
+  .sidebar {
+    display: none;
+  }
+  .main-area {
+    padding-bottom: 65px;
+  }
+  .topbar {
+    height: 61px;
+    min-height: 61px;
+    padding: 0 19px;
+  }
+  .breadcrumb {
+    font-size: 12px;
+    gap: 8px;
+  }
+  .breadcrumb > strong {
+    font-size: 13px;
+  }
+  .top-date {
+    display: none;
+  }
+  .topbar-actions {
+    gap: 9px;
+  }
+  .mobile-settings {
+    display: flex;
+  }
+  .demo-pill {
+    font-size: 10px;
+    padding: 5px 7px;
+  }
+  .demo-banner {
+    padding: 8px 17px;
+    gap: 7px;
+    min-height: 47px;
+    align-items: center;
+  }
+  .demo-banner > span {
+    font-size: 10px;
+    line-height: 1.5;
+    max-width: 68%;
+  }
+  .demo-banner > button {
+    font-size: 10px;
+    max-width: 30%;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.4;
+    padding: 0;
+    gap: 3px;
+  }
+  .messenger {
+    display: flex;
+    flex-direction: column;
+  }
+  .conversation-panel {
+    border: 0;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+  .conversation-title {
+    padding: 10px 21px 8px;
+  }
+  .conversation-title h1 {
+    font-size: 28px;
+  }
+  .new-chat {
+    width: 35px;
+    height: 35px;
+  }
+  .search-field {
+    height: 45px;
+    margin-bottom: 21px;
+  }
+  .search-field input {
+    font-size: 16px;
+  }
+  .conversation-tabs {
+    gap: 24px;
+  }
+  .conversation-tabs > button {
+    font-size: 14px;
+  }
+  .conversation-tabs > button > span {
+    font-size: 11px;
+  }
+  .conversation-list {
+    padding: 9px 12px;
+  }
+  .conversation-item {
+    padding: 17px 11px;
+    margin-bottom: 4px;
+    gap: 13px;
+  }
+  .conversation-item.selected {
+    background: transparent;
+  }
+  .conversation-item:active {
+    background: var(--primary-soft);
+  }
+  .conversation-summary strong {
+    font-size: 15px;
+  }
+  .conversation-summary small {
+    font-size: 11px;
+  }
+  .conversation-summary p {
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  .room-avatar-wrap .avatar {
+    width: 49px;
+    height: 49px;
+    border-radius: 17px;
+    font-size: 16px;
+  }
+  .conversation-summary b {
+    font-size: 11px;
+    height: 19px;
+    min-width: 19px;
+  }
+  .join-shortcut {
+    font-size: 13px;
+    padding: 18px 23px;
+  }
+  .chat-panel {
+    display: none;
+  }
+  .messenger.show-mobile-chat .conversation-panel {
+    display: none;
+  }
+  .messenger.show-mobile-chat .chat-panel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  .mobile-back {
+    display: flex;
+    margin-left: -8px;
+    width: 30px;
+    min-width: 30px;
+  }
+  .chat-header {
+    height: 73px;
+    min-height: 73px;
+    padding: 0 15px;
+    gap: 8px;
+  }
+  .chat-header .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  .chat-header-title h2 {
+    font-size: 14px;
+  }
+  .chat-header-title > button {
+    font-size: 10px;
+    gap: 4px;
+  }
+  .chat-header-title > button > span {
+    display: none;
+  }
+  .chat-header-title > button {
+    max-width: calc(100vw - 180px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    text-align: left;
+  }
+  .chat-header-title > button > svg {
+    display: none;
+  }
+  .chat-header-actions {
+    gap: 0;
+  }
+  .chat-header-actions .icon-button {
+    width: 31px;
+    min-width: 31px;
+    height: 31px;
+  }
+  .chat-header-actions .highlight {
+    margin-left: 4px;
+  }
+  .chat-context {
+    margin: 11px 13px 0;
+    font-size: 9px;
+    padding: 8px;
+    gap: 6px;
+  }
+  .chat-context > span:nth-child(2) {
+    font-size: 9px;
+    line-height: 1.5;
+    max-width: 65%;
+  }
+  .chat-context > button {
+    font-size: 9px;
+    padding: 0;
+    gap: 3px;
+  }
+  .chat-context > button > svg {
+    width: 11px;
+  }
+  .chat-history {
+    padding: 16px 15px 9px;
+  }
+  .day-separator {
+    margin-bottom: 23px;
+  }
+  .message {
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .message > .avatar {
+    width: 23px;
+    height: 23px;
+    font-size: 9px;
+    border-radius: 8px;
+  }
+  .message-avatar-spacer {
+    width: 23px;
+  }
+  .message-body {
+    max-width: calc(100% - 70px);
+  }
+  .message-bubble {
+    font-size: 16px;
+    padding: 9px 12px;
+    line-height: 1.55;
+  }
+  .message.own .message-body {
+    max-width: 84%;
+  }
+  .message.own .message-avatar-spacer {
+    display: none;
+  }
+  .sender-name {
+    font-size: 10px;
+  }
+  .message-actions {
+    opacity: 1;
+    align-self: flex-start;
+    margin-top: 20px;
+    border: 0;
+    background: transparent;
+    flex-direction: column;
+  }
+  .message-actions .icon-button {
+    width: 23px;
+    height: 23px;
+    min-width: 23px;
+  }
+  .message-actions > .icon-button:nth-child(2) {
+    display: none;
+  }
+  .message.own .message-actions {
+    margin-top: 5px;
+  }
+  .event-message .message-body {
+    max-width: calc(100% - 25px);
+    width: 310px;
+  }
+  .event-message .message-actions {
+    display: none;
+  }
+  .event-card {
+    padding: 15px 14px 12px;
+  }
+  .event-title {
+    font-size: 17px;
+  }
+  .event-tag {
+    font-size: 8px;
+    padding: 4px 6px;
+  }
+  .event-meta {
+    font-size: 11px;
+  }
+  .event-card-bottom {
+    gap: 6px;
+  }
+  .attendees {
+    font-size: 8px;
+    gap: 5px;
+  }
+  .event-card .avatar-stack .avatar {
+    width: 22px;
+    height: 22px;
+    font-size: 7px;
+  }
+  .rsvp-button.button {
+    font-size: 10px;
+    min-height: 28px;
+    padding: 6px 8px;
+  }
+  .composer-wrapper {
+    padding: 8px 12px 10px;
+  }
+  .composer {
+    padding: 9px 8px 9px 12px;
+    gap: 5px;
+    border-radius: 11px;
+  }
+  .composer > textarea {
+    font-size: 16px;
+  }
+  .composer-calendar {
+    display: none;
+  }
+  .composer-hint {
+    font-size: 8px;
+    margin-top: 6px;
+  }
+  .composer-hint > span {
+    font-size: 9px;
+  }
+  .composer-actions > .send-button {
+    margin-left: 3px;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
+  .composer-actions .icon-button {
+    width: 29px;
+    min-width: 29px;
+  }
+  .emoji-menu {
+    left: auto;
+    right: -45px;
+    top: -44px;
+  }
+  .message.own .emoji-menu {
+    right: auto;
+    left: -10px;
+  }
+  .composer-emoji {
+    top: auto;
+    bottom: 44px;
+    right: 0;
+  }
+  .mobile-nav {
+    position: fixed;
+    z-index: 25;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    min-height: 65px;
+    padding: 8px 20px max(9px, env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 20px;
+  }
+  .mobile-nav > button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 75px;
+  }
+  .mobile-nav > button.active {
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .mobile-nav > button.active > svg {
+    fill: var(--primary-soft);
+  }
+  .calendar-page {
+    padding: 10px 15px 23px;
+  }
+  .calendar-hero {
+    margin-bottom: 23px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .calendar-hero > div {
+    width: 100%;
+  }
+  .calendar-hero h2 {
+    font-size: 25px;
+    max-width: 300px;
+    line-height: 1.35;
+  }
+  .calendar-hero p {
+    font-size: 12px;
+    line-height: 1.6;
+    max-width: 300px;
+    margin-top: 8px;
+  }
+  .calendar-hero > .button {
+    font-size: 12px;
+    min-height: 36px;
+  }
+  .calendar-layout {
+    min-height: 400px;
+    border-radius: 11px;
+  }
+  .calendar-toolbar {
+    padding: 14px 11px;
+    gap: 12px;
+  }
+  .month-label {
+    width: 100%;
+    gap: 2px;
+    justify-content: space-between;
+  }
+  .month-label h3 {
+    font-size: 15px;
+    margin-right: auto;
+  }
+  .month-label .button {
+    margin-left: 7px;
+    font-size: 11px;
+  }
+  .segmented {
+    width: 100%;
+  }
+  .segmented > button {
+    flex: 1;
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+  .month-weekday {
+    font-size: 9px;
+    padding: 10px 2px;
+  }
+  .month-cell {
+    height: 83px;
+    padding: 4px 2px;
+    position: relative;
+  }
+  .day-number {
+    font-size: 10px;
+    width: 23px;
+    height: 23px;
+    margin: 0 auto 4px;
+  }
+  .calendar-event {
+    padding: 2px 3px;
+    display: block;
+    height: 17px;
+    line-height: 13px;
+    font-size: 8px;
+    margin-bottom: 3px;
+    overflow: hidden;
+  }
+  .calendar-event > span {
+    display: none;
+  }
+  .calendar-event > strong {
+    font-size: 8px;
+    font-weight: 600;
+  }
+  .more-events {
+    font-size: 8px;
+    padding: 0;
+    width: 100%;
+    line-height: 10px;
+    display: block;
+  }
+  .week-grid {
+    overflow: auto;
+    grid-template-columns: repeat(7, minmax(110px, 1fr));
+    min-height: 400px;
+  }
+  .week-day {
+    padding-bottom: 15px;
+  }
+  .agenda-list {
+    padding: 3px 13px;
+  }
+  .agenda-row {
+    padding: 18px 0;
+    gap: 11px;
+  }
+  .agenda-date {
+    width: 43px;
+    min-width: 43px;
+    border-radius: 8px;
+  }
+  .agenda-date strong {
+    font-size: 22px;
+  }
+  .agenda-info > strong {
+    font-size: 13px;
+  }
+  .agenda-info > small {
+    font-size: 10px;
+  }
+  .agenda-row > svg {
+    margin-left: 0;
+    width: 13px;
+  }
+  .agenda-time {
+    font-size: 12px;
+  }
+  .modal {
+    padding: 23px 20px;
+    max-height: calc(100dvh - 30px);
+    max-width: 450px;
+    border-radius: 15px;
+  }
+  .modal-heading h2 {
+    font-size: 21px;
+  }
+  .modal-heading p {
+    font-size: 12px;
+  }
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 13px;
+  }
+  .form-row > label:first-child {
+    grid-column: span 2;
+  }
+  .form-row label > input {
+    font-size: 16px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 44px;
+  }
+  .form-row label > input[type="date"] {
+    appearance: none;
+    display: block;
+    min-width: 0;
+    -webkit-appearance: none;
+  }
+  .form input,
+  .form textarea,
+  .form select {
+    font-size: 16px !important;
+  }
+  .form-footer > .button {
+    font-size: 12px;
+    padding: 10px 12px;
+    gap: 5px;
+  }
+  .form-footer > .button > svg {
+    width: 14px;
+  }
+  .owner-actions {
+    flex-direction: column;
+  }
+  .owner-actions > .button {
+    font-size: 12px;
+  }
+  .toast {
+    bottom: 81px;
+    font-size: 12px;
+    padding: 10px 12px;
+    width: max-content;
+  }
+  .toast > .icon-button {
+    margin-left: 0;
+  }
+  .modal .dialog-tabs > button {
+    font-size: 12px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .empty-state h2 {
+    font-size: 22px;
+  }
+  .send-error {
+    font-size: 11px;
+    padding: 7px 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *:before,
+  *:after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
