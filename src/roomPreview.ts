@@ -1,6 +1,8 @@
 import {displayName} from "../shared/display-name.mjs";
+import {mapCoordinates} from "./mapCoordinates";
 import type {Message,Room,RoomPreview,ReactionNotice} from "./types";
 export function previewContent(text:string,mime:string|null|undefined,pt:boolean){
+  if((text||"").split(/\s+/).some(part=>mapCoordinates(part)))return pt?"Localização":"Location";
   const label=mime?(mime.startsWith("image/")?(pt?"Foto":"Photo"):mime.startsWith("video/")?(pt?"Vídeo":"Video"):mime.startsWith("audio/")?(pt?"Áudio":"Audio"):(pt?"Documento":"Document")):"";
   const clean=(text||"").replace(/\s+/g," ").trim();
   return [label,clean].filter(Boolean).join(" · ").slice(0,160);
@@ -11,7 +13,7 @@ export function reactionPreview(r:Pick<ReactionNotice,"actorName"|"emoji"|"text"
 }
 export function roomPreview(room:Room,userId:string,pt:boolean,fallback:string){
   const p=room.preview;
-  if(!p)return room.lastText||room.description||fallback;
+  if(!p)return previewContent(room.lastText||"",null,pt)||room.description||fallback;
   if(p.kind==="reaction")return reactionPreview(p,pt);
   const who=p.senderId===userId?(pt?"Você":"You"):displayName(p.senderName);
   const content=p.deleted?(pt?"Mensagem apagada":"Deleted message"):previewContent(p.text,p.mime,pt)||(p.eventId?(pt?"Compromisso":"Event"):fallback);
