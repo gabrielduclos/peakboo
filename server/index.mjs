@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { toNodeHandler } from "better-auth/node";
@@ -89,10 +90,30 @@ app.use((err, req, res, next) => {
       err.type === "entity.parse.failed" ? "INVALID_INPUT" : "SERVER_ERROR",
     );
 });
-const server = app.listen(Number(process.env.PORT || 3001), "0.0.0.0", () =>
-  console.log("Peakboo ready"),
-);
+// Only run the existing verified, non-destructive migration when legacy media remains.
+let legacyMigration;
+let shuttingDown = false;
+async function migrateLegacyMediaOnStartup() {
+  if (!r2) return;
+  try {
+    const pending = await pool.query("SELECT 1 FROM media WHERE r2_key IS NULL AND bytes IS NOT NULL LIMIT 1");
+    if (!pending.rowCount || shuttingDown) return;
+    legacyMigration = execFile(process.execPath, [fileURLToPath(new URL("./migrate-r2.mjs", import.meta.url)), "100"], {timeout: 600000, maxBuffer: 65536}, (error, stdout) => {
+      legacyMigration = undefined;
+      if (error) console.error("R2 legacy media migration incomplete; original bytes retained");
+      else console.log(stdout.trim());
+    });
+  } catch {
+    console.error("R2 legacy media migration could not start; original bytes retained");
+  }
+}
+const server = app.listen(Number(process.env.PORT || 3001), "0.0.0.0", () => {
+  console.log("Peakboo ready");
+  void migrateLegacyMediaOnStartup();
+});
 process.on("SIGTERM", () => {
+  shuttingDown = true;
+  legacyMigration?.kill();
   push.stop();
   realtime.close();
   server.close(() => pool.end().then(() => process.exit(0)));
