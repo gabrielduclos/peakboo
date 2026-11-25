@@ -223,6 +223,7 @@ app.post("/api/join", async (req, res) => {
     [room.id, req.user.id],
   );
   await publish(room.id);
+  push.reschedule();
   res.json({ id: room.id });
 });
 app.get("/api/rooms/:room/messages", member, async (req, res) => {
@@ -408,6 +409,7 @@ app.post("/api/rooms/:room/events/:event/rsvp", member, async (req, res) => {
     [e.id, req.user.id, data.data.status],
   );
   await publish(req.params.room);
+  push.reschedule();
   res.json({ ok: true });
 });
 app.delete("/api/rooms/:room/events/:event", member, async (req, res) => {

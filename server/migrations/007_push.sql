@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS push_subscriptions (
  id uuid PRIMARY KEY, user_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
- session_id text NOT NULL, endpoint text NOT NULL UNIQUE, p256dh text NOT NULL, auth_key text NOT NULL,
+ session_id text NOT NULL REFERENCES "session"(id) ON DELETE CASCADE, endpoint text NOT NULL UNIQUE, p256dh text NOT NULL, auth_key text NOT NULL,
  locale text NOT NULL DEFAULT 'pt' CHECK(locale IN ('pt','en')), preview boolean NOT NULL DEFAULT false,
  updated_at timestamptz NOT NULL DEFAULT now()
 );

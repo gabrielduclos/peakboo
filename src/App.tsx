@@ -1260,7 +1260,7 @@ export default function App() {
     return()=>{window.removeEventListener("hashchange",onHash);navigator.serviceWorker?.removeEventListener("message",onPush)};
   },[]);
   useEffect(()=>{
-    const id=pushTarget.get("pushRoom");if(!id||loading||!boot.user.id)return;
+    const id=pushTarget.get("pushRoom");if(!id||loading)return;if(!boot.user.id){setAuthMode("login");setModal("auth");return}
     const target=boot.rooms.find(r=>r.id===id);
     if(target){selectRoom(target);const event=boot.events.find(e=>e.id===pushTarget.get("pushEvent")&&e.roomId===id);if(event){setView("calendar");setMobileChat(false);openDetail(event)}}
     if(location.hash.includes("pushRoom="))history.replaceState(null,"",location.pathname+location.search);
