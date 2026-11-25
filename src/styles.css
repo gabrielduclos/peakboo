@@ -3871,3 +3871,5 @@ button.reply-reference-line:hover{text-decoration:underline}
 @media(prefers-reduced-motion:no-preference){.reactions>button{animation:reaction-pop 180ms ease-out;transition:background-color 140ms,transform 140ms}.reactions>button:active{transform:scale(.94)}@keyframes reaction-pop{from{transform:scale(.78);opacity:.5}to{transform:scale(1);opacity:1}}}
 
 @media(prefers-reduced-motion:no-preference){.reaction-emoji{display:inline-block;animation:reaction-pop 180ms ease-out}}
+
+.push-settings{display:flex;flex-direction:column;gap:12px}.push-settings h3{font-size:14px;font-weight:600;margin:4px 0 0}.push-settings .muted{font-size:13px}.push-option{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;min-height:44px}.push-option span{overflow-wrap:anywhere}.push-option input{width:19px;height:19px;accent-color:var(--primary);flex:none}.push-install-hint{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.dialog-tabs{overflow-x:auto}.dialog-tabs>button{flex-shrink:0;white-space:nowrap}

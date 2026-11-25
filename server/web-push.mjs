@@ -20,7 +20,7 @@ export function vapidKeys(env=process.env){
   for(let i=0;;i++){try{e.setPrivateKey(hk(Buffer.from(env.BETTER_AUTH_SECRET),Buffer.from("peakboo-vapid-v1"),Buffer.from("signing-key:"+i),32));break}catch{if(i>10)throw Error("Invalid VAPID key")}}
  }
  const pub=e.getPublicKey();
- return {publicKey:b64(pub),privateKey:createPrivateKey({key:{kty:"EC",crv:"P-256",x:b64(pub.subarray(1,33)),y:b64(pub.subarray(33)),d:b64(e.getPrivateKey())},format:"jwk"}),subject:env.PUSH_VAPID_SUBJECT||"https://main.peakboo.workers.dev"};
+ return {publicKey:b64(pub),privateKey:createPrivateKey({key:{kty:"EC",crv:"P-256",x:b64(pub.subarray(1,33)),y:b64(pub.subarray(33)),d:b64(Buffer.concat([Buffer.alloc(32-e.getPrivateKey().length),e.getPrivateKey()]))},format:"jwk"}),subject:env.PUSH_VAPID_SUBJECT||"https://main.peakboo.workers.dev"};
 }
 export function encryptPayload(subscription,payload,{salt=randomBytes(16),keyPair}={}){
  const receiver=bytes(subscription.keys.p256dh,65),auth=bytes(subscription.keys.auth,16);

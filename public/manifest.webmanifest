@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Peakboo",
+  "short_name": "Peakboo",
+  "description": "Grupos e agenda compartilhada.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7fafb",
+  "theme_color": "#087f75",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
