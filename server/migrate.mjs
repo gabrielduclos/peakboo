@@ -44,6 +44,11 @@ export async function migrate() {
       await c.query(await readFile(new URL("./migrations/010_attendance_activity.sql",import.meta.url),"utf8"));
       await c.query("INSERT INTO peakboo_migrations(version) VALUES('010_attendance_activity')");
     }
+    const lists=await c.query("SELECT 1 FROM peakboo_migrations WHERE version='011_shared_lists'");
+    if(!lists.rowCount){
+      await c.query(await readFile(new URL("./migrations/011_shared_lists.sql",import.meta.url),"utf8"));
+      await c.query("INSERT INTO peakboo_migrations(version) VALUES('011_shared_lists')");
+    }
     await c.query("COMMIT");
   } catch (e) {
     await c.query("ROLLBACK");
