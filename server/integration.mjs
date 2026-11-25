@@ -71,6 +71,8 @@ try {
     });
     return {
       status: res.status,
+      cache: res.headers.get("cache-control"),
+      csp: res.headers.get("content-security-policy"),
       token: res.headers.get("set-auth-token"),
       data: await res.json(),
     };
@@ -84,6 +86,8 @@ try {
   check("anonymous requests rejected", () =>
     assert.equal(anonymous.status, 401),
   );
+  check("anonymous API errors are not cacheable",()=>assert.match(anonymous.cache,/no-store/));
+  check("server blocks inline scripts and objects",()=>{assert.match(anonymous.csp,/script-src 'self'(?:;|$)/);assert.match(anonymous.csp,/object-src 'none'/)});
   const users = [];
   for (const name of ["Alice", "Bob", "Charlie"]) {
     const user = await call("/api/auth/sign-up/email", null, "POST", {
@@ -93,9 +97,12 @@ try {
     });
     assert.equal(user.status, 200, JSON.stringify(user.data));
     assert.ok(user.token);
+    assert.match(user.cache,/no-store/);
     users.push(user);
   }
   const [alice, bob, charlie] = users;
+  const boot=await call("/api/bootstrap",alice.token);
+  check("authenticated bootstrap is private and not cacheable",()=>{assert.equal(boot.status,200);assert.match(boot.cache,/private/);assert.match(boot.cache,/no-store/)});
   const pushConfig=await call("/api/push/config",alice.token);
   check("push config exposes only a valid public VAPID key",()=>{assert.equal(pushConfig.status,200);assert.equal(pushConfig.data.enabled,true);assert.equal(Buffer.from(pushConfig.data.publicKey,"base64url").length,65);assert.equal(pushConfig.data.privateKey,undefined)});
   const receiver=createECDH("prime256v1");receiver.generateKeys();
