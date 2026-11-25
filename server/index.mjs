@@ -18,6 +18,7 @@ import {registerBootstrap} from "./routes/bootstrap.mjs";
 import {registerGroups,registerGroupMembership} from "./routes/groups.mjs";
 import {registerMessageHistory,registerMessageActions} from "./routes/messages.mjs";
 import {registerEvents} from "./routes/events.mjs";
+import {registerLists} from "./routes/lists.mjs";
 import {registerMedia} from "./routes/media.mjs";
 
 await migrate();
@@ -72,6 +73,7 @@ registerGroupMembership(app,routes);
 registerMessageActions(app,routes);
 registerEvents(app,routes);
 registerMedia(app,routes);
+registerLists(app,routes);
 
 app.use("/api", (_, res) => jsonError(res, 404, "NOT_FOUND"));
 // The API stays available to Cloudflare; the Render HTML is a local-only portfolio.
