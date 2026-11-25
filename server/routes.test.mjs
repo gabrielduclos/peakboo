@@ -2,6 +2,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {createRealtime} from "./realtime.mjs";
 import {createMemberMiddleware,registerSession,jsonError} from "./middleware/access.mjs";
+import {registerNotifications} from "./routes/notifications.mjs";
 import {registerBootstrap} from "./routes/bootstrap.mjs";
 import {registerGroups,registerGroupMembership} from "./routes/groups.mjs";
 import {registerMessageHistory,registerMessageActions} from "./routes/messages.mjs";
@@ -19,6 +20,7 @@ test("domain registration preserves route order and room access middleware",()=>
  registerSession(app,{});
  realtime.register(app);
  registerBootstrap(app,deps);
+ registerNotifications(app,deps);
  registerGroups(app,deps);
  registerMessageHistory(app,deps);
  registerGroupMembership(app,deps);
@@ -27,7 +29,7 @@ test("domain registration preserves route order and room access middleware",()=>
  registerMedia(app,deps);
  registerLists(app,deps);
  assert.deepEqual(calls.map(c=>c.method+" "+c.path),[
- "use /api","get /api/live","get /api/bootstrap",
+ "use /api","get /api/live","get /api/bootstrap","post /api/notifications/state",
  "post /api/rooms","delete /api/rooms/:room","post /api/join",
  "get /api/rooms/:room/messages","post /api/rooms/:room/read","get /api/rooms/:room/members",
  "post /api/rooms/:room/messages","put /api/rooms/:room/messages/:message","delete /api/rooms/:room/messages/:message",
@@ -43,4 +45,14 @@ test("domain registration preserves route order and room access middleware",()=>
 test("realtime skips database queries when there are no connected clients",async()=>{
  const realtime=createRealtime({query(){throw Error("unexpected query")}});
  await realtime.publish("unused");realtime.close();
+});
+
+test("account notification changes reach only that account and all its connected sessions",()=>{
+ const realtime=createRealtime({query(){throw Error("unexpected query")}});
+ const received=[];
+ const response=label=>({write:message=>{received.push([label,JSON.parse(message.slice(6))]);return true}});
+ realtime.live.set("user-a",new Set([response("phone"),response("desktop")]));
+ realtime.live.set("user-b",new Set([response("other")]));
+ realtime.notifyAccount("user-a",{notificationStateChanged:true});
+ assert.deepEqual(received,[["phone",{notificationStateChanged:true}],["desktop",{notificationStateChanged:true}]]);
 });

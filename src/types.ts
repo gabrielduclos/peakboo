@@ -64,4 +64,5 @@ export type RoomPreview =
   | {kind:"message";senderId:string;senderName:string;text:string;mime?:string|null;deleted?:boolean;eventId?:string|null}
   | {kind:"reaction";actorName:string;emoji:string;text:string;mime?:string|null};
 export type ReactionNotice={id:string;messageId:string;roomId:string;roomName:string;actorName:string;emoji:string;text:string;mime?:string|null;createdAt:string};
-export type Boot = { user: User; rooms: Room[]; events: Plan[]; activity?: EventActivity[]; reactionNotices?: ReactionNotice[] };
+export type NotificationState = { read: string[]; dismissed: string[] };
+export type Boot = { notificationState?: NotificationState; user: User; rooms: Room[]; events: Plan[]; activity?: EventActivity[]; reactionNotices?: ReactionNotice[] };

@@ -207,7 +207,7 @@ export default function App() {
     .filter((e) => !e.cancelled)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const upcoming = events.filter((e) => new Date(e.endsAt) >= new Date());
-  const notificationCenter=useInternalNotifications(boot);
+  const notificationCenter=useInternalNotifications(boot,true);
   const optimistic=useOptimisticMessages(boot.user.id);
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
@@ -415,7 +415,8 @@ export default function App() {
     const sync=(event?:LiveChange)=>{
       if(stopped)return;
       if(event?.deletedRoomId)removeRoomLocally(event.deletedRoomId);
-      if(event?.listChange&&event.roomId){commitList(event.roomId,event.listChange.messageId,event.listChange.checklist,event.listChange.deleted);if(!event.listChange.previewChanged)return;previewDirty=true;}
+      if(event?.notificationStateChanged)previewDirty=true;
+      else if(event?.listChange&&event.roomId){commitList(event.roomId,event.listChange.messageId,event.listChange.checklist,event.listChange.deleted);if(!event.listChange.previewChanged)return;previewDirty=true;}
       else if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
       else if(event?.roomId)dirty.add(event.roomId);else full=true;
       if(event?.profileChanged)full=true;
