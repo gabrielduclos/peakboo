@@ -56,7 +56,7 @@ export function registerLists(app,{pool,member,jsonError,publish,push}){
  // Refresh only already-visible older lists after reconnect. No periodic queries.
  app.post(root+"/lists/refresh",member,async(req,res)=>{
    const parsed=z.object({ids:z.array(id).max(100)}).safeParse(req.body);if(!parsed.success)return jsonError(res,400,"INVALID_INPUT");
-   const r=await pool.query("SELECT id,checklist FROM messages WHERE room_id=$1 AND id=ANY($2::uuid[]) AND created_at >= $3::timestamptz AND NOT deleted AND checklist IS NOT NULL",[req.params.room,parsed.data.ids,req.room.member_joined_at]);
+   const r=await pool.query("SELECT id,CASE WHEN NOT deleted THEN checklist END AS checklist,deleted FROM messages WHERE room_id=$1 AND id=ANY($2::uuid[]) AND created_at >= $3::timestamptz AND (deleted OR checklist IS NOT NULL)",[req.params.room,parsed.data.ids,req.room.member_joined_at]);
    res.json({lists:r.rows});
  });
 }
