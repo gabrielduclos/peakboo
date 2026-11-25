@@ -59,8 +59,8 @@ app.put("/api/rooms/:room/messages/:message",member,async(req,res)=>{
  if(!r.rowCount)return jsonError(res,403,"FORBIDDEN");await publish(req.params.room);res.json({ok:true});
 });
 app.delete("/api/rooms/:room/messages/:message",member,async(req,res)=>{
- const r=await pool.query("UPDATE messages SET deleted=true,text='',attachment_id=NULL,pinned=false,checklist=NULL WHERE id=$1 AND room_id=$2 AND sender_id=$3 AND event_id IS NULL AND NOT deleted RETURNING id",[req.params.message,req.params.room,req.user.id]);
- if(!r.rowCount)return jsonError(res,403,"FORBIDDEN");await publish(req.params.room);res.json({ok:true});
+ const r=await pool.query("UPDATE messages m SET deleted=true,text='',attachment_id=NULL,pinned=false,checklist=NULL FROM (SELECT id,checklist IS NOT NULL AS was_list FROM messages WHERE id=$1 AND room_id=$2 AND sender_id=$3 AND event_id IS NULL AND NOT deleted FOR UPDATE) old WHERE m.id=old.id RETURNING m.id,old.was_list",[req.params.message,req.params.room,req.user.id]);
+ if(!r.rowCount)return jsonError(res,403,"FORBIDDEN");await publish(req.params.room,r.rows[0].was_list?{listChange:{messageId:req.params.message,checklist:null,deleted:true,previewChanged:true}}:{});res.json({ok:true});
 });
 app.post("/api/rooms/:room/messages/:message/pin",member,async(req,res)=>{
  const r=await pool.query("UPDATE messages SET pinned=NOT pinned WHERE id=$1 AND room_id=$2 AND NOT deleted RETURNING id",[req.params.message,req.params.room]);
