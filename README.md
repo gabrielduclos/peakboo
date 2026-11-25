@@ -125,3 +125,7 @@ Componentes visuais compartilhados ficam em `src/features/<domínio>/`. A lista 
 Os diálogos compartilhados de conta (`account/AccountDialogs.tsx`) recebem callbacks de autenticação e troca de senha e conteúdo de perfil e notificações da aplicação de origem. A interface não decide a validade da sessão nem acessa diretamente a API; a demonstração mantém suas restrições e dados isolados.
 
 Os estilos ficam em `src/styles/`, importados em ordem explícita por `src/styles.css`: fundação e tokens, layout, grupos, chat, agenda, diálogos, estados de carregamento e regras responsivas e específicas. A divisão inicial preserva integralmente o conteúdo e a cascata existentes; consolidação de sobrescritas exige validação visual separada. O build mantém o CSS incorporado no HTML das duas variantes.
+
+### Organização do backend
+
+O ponto de entrada `server/index.mjs` coordena a inicialização e a ordem de registro de middleware e rotas. Os módulos de `server/routes/` separam bootstrap, grupos, mensagens, eventos e mídia; `server/middleware/access.mjs` concentra sessão e autorização por grupo, e `server/realtime.mjs` concentra SSE. Os módulos recebem dependências explicitamente. A extração preserva contratos HTTP, consultas SQL, transações, regras de acesso e ordem de registro; não altera o schema. Os testes de registro e integração devem passar antes de integrar mudanças.

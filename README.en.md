@@ -125,3 +125,7 @@ Shared presentation components live in `src/features/<domain>/`. The group list 
 Shared account dialogs (`account/AccountDialogs.tsx`) receive authentication and password-change callbacks and profile and notification content from the owning app. Presentation does not decide session validity or directly access the API; the portfolio retains its restrictions and isolated data.
 
 Styles live in `src/styles/`, imported in explicit order from `src/styles.css`: foundation and tokens, layout, groups, chat, calendar, dialogs, loading states, responsive and feature-specific rules. The initial split preserves existing rules and cascade exactly; consolidating overrides requires separate visual validation. Both builds retain CSS embedded in HTML.
+
+### Backend organization
+
+The entry point `server/index.mjs` coordinates startup and middleware/route registration order. Modules in `server/routes/` separate bootstrap, groups, messages, events and media; `server/middleware/access.mjs` handles sessions and group authorization, and `server/realtime.mjs` handles SSE. Modules receive dependencies explicitly. The extraction preserves HTTP contracts, SQL, transactions, access rules and registration order without schema changes. Route registration and integration tests must pass before merging changes.
