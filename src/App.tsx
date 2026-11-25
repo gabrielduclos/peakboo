@@ -75,7 +75,7 @@ import {
 import { Button, Modal, Avatar, Logo, cn } from "./components";
 import type { Boot, Room, Message, Plan, Color } from "./types";
 import { strings } from "./i18n";
-import { request, getToken, watchChanges, API } from "./api";
+import { request, getToken, clearToken, SESSION_KEY, SESSION_EXPIRED, watchChanges, API } from "./api";
 const COLORS: Color[] = ["purple", "coral", "green", "blue", "yellow"];
 const EMOJIS = ["❤️", "👍", "😂", "🎉", "🔥"];
 const localDate = (d: Date) =>
@@ -131,6 +131,8 @@ export default function App() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(!!getToken());
+  const [restoreAttempt,setRestoreAttempt]=useState(0);
+  const [restoreFailed,setRestoreFailed]=useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [connected, setConnected] = useState(false);
   const [hasMore, setHasMore] = useState<Record<string, boolean>>({});
@@ -297,21 +299,42 @@ export default function App() {
     );
   }, []);
   useEffect(() => {
+    const expired=()=>{
+      signedOutRef.current=true;
+      setBoot(emptyBoot);
+      setMessages({});
+      setSelected(null);
+      setHiddenCalendars([]);
+      setView("chats");
+      setMobileChat(false);
+      setAuthMode("login");
+      setModal("auth");
+      setRestoreFailed(false);
+      setLoading(false);
+    };
+    const storageChanged=(event:StorageEvent)=>{
+      if(event.storageArea===localStorage&&(event.key===SESSION_KEY||event.key===null))window.location.reload();
+    };
+    window.addEventListener(SESSION_EXPIRED,expired);
+    window.addEventListener("storage",storageChanged);
+    return()=>{
+      window.removeEventListener(SESSION_EXPIRED,expired);
+      window.removeEventListener("storage",storageChanged);
+    };
+  },[]);
+  useEffect(() => {
     if (!getToken()) return;
     let alive = true;
     setLoading(true);
+    setRestoreFailed(false);
     refresh()
       .catch((e) => {
-        if (alive) {
+        if (!alive) return;
+        if (!getToken()) {
           setFormError(errorText(e));
-          if (e.message === "UNAUTHORIZED") {
-            sessionStorage.removeItem("peakboo-session");
-            setBoot(emptyBoot);
-            setMessages({});
-            setSelected(null);
-            setAuthMode("login");
-            setModal("auth");
-          }
+        } else {
+          // Keep the session through offline, cold starts and temporary API errors.
+          setRestoreFailed(true);
         }
       })
       .finally(() => {
@@ -320,7 +343,14 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [refresh]);
+  }, [refresh,restoreAttempt]);
+  useEffect(()=>{
+    if(!restoreFailed)return;
+    const retry=()=>{if(getToken()&&!document.hidden)setRestoreAttempt(v=>v+1)};
+    window.addEventListener("online",retry);
+    document.addEventListener("visibilitychange",retry);
+    return()=>{window.removeEventListener("online",retry);document.removeEventListener("visibilitychange",retry)};
+  },[restoreFailed]);
   useEffect(() => {
     if (!selected) return;
     let alive = true;
@@ -378,7 +408,7 @@ export default function App() {
     return()=>{stopped=true;controller?.abort();controller=null;if(reconnect)clearTimeout(reconnect);if(refreshTimer.current)clearTimeout(refreshTimer.current);refreshTimer.current=null;document.removeEventListener("visibilitychange",visibility)};
   },[boot.user.id,refresh,fetchMessages]);
   useEffect(() => {
-    if (!getToken()) return;
+    if (!getToken() || !boot.user.id) return;
     if (pendingInvite && !loading) {
       request("/api/join", "POST", { code: pendingInvite })
         .then(async (data) => {
@@ -427,7 +457,7 @@ export default function App() {
         {
           email: d.get("email"),
           password: d.get("password"),
-          ...(authMode === "signup" ? { name: d.get("name") } : {}),
+          ...(authMode === "signup" ? { name: d.get("name") } : { rememberMe: true }),
         },
       );
       if (!getToken()) throw new Error("SERVER_ERROR");
@@ -436,8 +466,9 @@ export default function App() {
       setSelected(null);
       setHiddenCalendars([]);
       signedOutRef.current = false;
-      await refresh();
       setModal(null);
+      setLoading(true);
+      setRestoreAttempt(v=>v+1);
       notify(t("authSuccess"));
     } catch (err) {
       setFormError(errorText(err));
@@ -450,7 +481,8 @@ export default function App() {
     try {
       await disablePush(boot.user.id).catch(()=>{});
       await request("/api/auth/sign-out", "POST", {});
-      sessionStorage.removeItem("peakboo-session");
+      clearToken();
+      signedOutRef.current=true;
       setBoot(emptyBoot);
       setMessages({});
       setSelected(null);
@@ -1263,7 +1295,7 @@ export default function App() {
     return()=>{window.removeEventListener("hashchange",onHash);navigator.serviceWorker?.removeEventListener("message",onPush)};
   },[]);
   useEffect(()=>{
-    const id=pushTarget.get("pushRoom");if(!id||loading)return;if(!boot.user.id){setAuthMode("login");setModal("auth");return}
+    const id=pushTarget.get("pushRoom");if(!id||loading)return;if(!boot.user.id){if(!getToken()){setAuthMode("login");setModal("auth")}return}
     const target=boot.rooms.find(r=>r.id===id);
     if(target){selectRoom(target);const event=boot.events.find(e=>e.id===pushTarget.get("pushEvent")&&e.roomId===id);if(event){setView("calendar");setMobileChat(false);openDetail(event)}}
     if(location.hash.includes("pushRoom="))history.replaceState(history.state,"",location.pathname+location.search);
@@ -1271,6 +1303,17 @@ export default function App() {
   },[pushTarget,loading,boot.user.id,boot.rooms,boot.events]);
   async function syncSocialProfile(){
     await refresh();
+  }
+  if(getToken()&&!boot.user.id){
+    return <main className="fixed inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <Logo />
+      {restoreFailed ? <>
+        <p role="alert">{lang==="pt"?"Não foi possível conectar. Sua sessão foi mantida.":"Could not connect. Your session was kept."}</p>
+        <Button onClick={()=>{setRestoreFailed(false);setLoading(true);setRestoreAttempt(v=>v+1)}}>{lang==="pt"?"Tentar novamente":"Try again"}</Button>
+        <Button variant="ghost" onClick={signOut} busy={busy==="signout"}>{t("signOut")}</Button>
+        {formError&&<p className="form-error" role="alert">{formError}</p>}
+      </> : <p role="status" className="flex items-center gap-2"><LoaderCircle className="spin" size={20}/>{lang==="pt"?"Restaurando sessão…":"Restoring session…"}</p>}
+    </main>;
   }
   return (
     <div className={cn("app-shell", view === "chats" && mobileChat && !!room && "chat-open")}>
@@ -2279,6 +2322,7 @@ export default function App() {
         description={pendingInvite ? t("joinAfterAuth") : t("authDesc")}
         closeLabel={t("close")}
         className={!getToken() ? "auth-modal auth-required" : "auth-modal"}
+        preventAutoFocus
       >
         <div className="auth-brand">
           <Logo />
