@@ -129,3 +129,7 @@ Styles live in `src/styles/`, imported in explicit order from `src/styles.css`: 
 ### Backend organization
 
 The entry point `server/index.mjs` coordinates startup and middleware/route registration order. Modules in `server/routes/` separate bootstrap, groups, messages, events and media; `server/middleware/access.mjs` handles sessions and group authorization, and `server/realtime.mjs` handles SSE. Modules receive dependencies explicitly. The extraction preserves HTTP contracts, SQL, transactions, access rules and registration order without schema changes. Route registration and integration tests must pass before merging changes.
+
+### HTTP and session security
+
+The API sets `Cache-Control: private, no-store` before authentication, including errors, session responses and SSE; the client requests data without HTTP caching. Cloudflare (`public/_headers`) and Render (Helmet) enforce CSP restricting scripts to the same origin, blocking objects and framing, and allowing required inline styles and local blob/data media. The standard frontend allows connections to the Peakboo Render API; deployments using another `VITE_API_URL` must also adjust the header's `connect-src`. The offline HTML uses a link without an inline handler. Bearer tokens remain in localStorage; CSP mitigates XSS risk but does not replace HttpOnly cookies or constitute a complete audit. Authentication migration and immediate revocation of existing SSE streams are separate tasks. Verify deployed headers and real-browser flows before considering these protections validated.
