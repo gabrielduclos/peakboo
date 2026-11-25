@@ -10,7 +10,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build && vite build --mode portfolio && node scripts/check-built-styles.mjs",
     "start": "node server/index.mjs",
-    "test": "node --test server/display-name.test.mjs scripts/security-headers.test.mjs server/routes.test.mjs server/validation.test.mjs server/r2.test.mjs server/web-push.test.mjs scripts/ui-modes.test.mjs",
+    "test": "node --test shared/checklists.test.mjs server/display-name.test.mjs scripts/security-headers.test.mjs server/routes.test.mjs server/validation.test.mjs server/r2.test.mjs server/web-push.test.mjs scripts/ui-modes.test.mjs",
     "test:integration": "node server/integration.mjs",
     "media:migrate-r2": "node server/migrate-r2.mjs",
     "build:app": "tsc --noEmit && vite build",

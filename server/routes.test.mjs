@@ -6,6 +6,7 @@ import {registerBootstrap} from "./routes/bootstrap.mjs";
 import {registerGroups,registerGroupMembership} from "./routes/groups.mjs";
 import {registerMessageHistory,registerMessageActions} from "./routes/messages.mjs";
 import {registerEvents} from "./routes/events.mjs";
+import {registerLists} from "./routes/lists.mjs";
 import {registerMedia} from "./routes/media.mjs";
 
 test("domain registration preserves route order and room access middleware",()=>{
@@ -24,6 +25,7 @@ test("domain registration preserves route order and room access middleware",()=>
  registerMessageActions(app,deps);
  registerEvents(app,deps);
  registerMedia(app,deps);
+ registerLists(app,deps);
  assert.deepEqual(calls.map(c=>c.method+" "+c.path),[
  "use /api","get /api/live","get /api/bootstrap",
  "post /api/rooms","delete /api/rooms/:room","post /api/join",
@@ -32,7 +34,8 @@ test("domain registration preserves route order and room access middleware",()=>
  "post /api/rooms/:room/messages/:message/pin","post /api/rooms/:room/messages/:message/report","post /api/rooms/:room/messages/:message/reaction",
  "post /api/rooms/:room/events","put /api/rooms/:room/events/:event","post /api/rooms/:room/events/:event/rsvp","delete /api/rooms/:room/events/:event",
  "post /api/profile/cover","delete /api/profile/cover","post /api/profile/photo",
- "post /api/rooms/:room/photo","post /api/rooms/:room/files","get /api/media/:id"]);
+ "post /api/rooms/:room/photo","post /api/rooms/:room/files","get /api/media/:id",
+ "post /api/rooms/:room/lists","post /api/rooms/:room/messages/:message/list","put /api/rooms/:room/messages/:message/list","post /api/rooms/:room/lists/refresh"]);
  for(const c of calls.filter(c=>c.path.includes("/:room")))assert.equal(c.handlers[0],member,c.path);
  assert.equal(calls.find(c=>c.path==="/api/rooms/:room/photo").handlers.length,4);
  assert.equal(calls.find(c=>c.path==="/api/rooms/:room/files").handlers.length,3);

@@ -1,6 +1,6 @@
 import {displayName} from "../../../shared/display-name.mjs";
-import {Fragment,type ReactNode,type RefObject} from "react";
-import {ArrowLeft,Users,Search,CalendarPlus,X,ChevronDown,LoaderCircle,Check,MessageCircle,ArrowDown,Plus} from "lucide-react";
+import {Fragment,useEffect,useState,type ReactNode,type RefObject} from "react";
+import {ArrowLeft,Users,Search,ListChecks,X,ChevronDown,LoaderCircle,Check,MessageCircle,ArrowDown,Plus} from "lucide-react";
 import {Avatar,Button,Logo,cn} from "../../components";
 import type {Room,Message,Plan,Color} from "../../types";
 import {ReplyReference} from "../../ReplyReference";
@@ -16,12 +16,16 @@ import type {useChatScroll} from "../../useChatScroll";
 import type {PendingMessage} from "../../useOptimisticMessages";
 import type {ReactionChange} from "../../realtime";
 
+import {ChecklistDialog,SharedChecklist,type ListDraft} from "./SharedChecklist";
+import {suggestChecklist,type ChecklistOperation} from "../../../shared/checklists.mjs";
+
 const colors:Color[]=["purple", "coral", "green", "blue", "yellow"];
 type FailedMessage={id:string;text:string;roomId:string};
 type ChatPanelProps={
  room:Room|undefined;rooms:Room[];events:Plan[];userId:string;lang:string;locale:string;
  t:(key:string)=>string;time:(date:string)=>string;onBack:()=>void;onRoomPhoto:()=>void;
  onProfile?:(user:{id:string;name:string;image?:string|null})=>void;
+ onSaveList:(roomId:string,draft:ListDraft)=>Promise<void>;onUpdateList:(roomId:string,messageId:string,op:ChecklistOperation)=>Promise<void>;
  showMembers:()=>void;invite:()=>void;onCreateEvent:()=>void;onCreateRoom:()=>void;
  showChatSearch:boolean;setShowChatSearch:(value:boolean)=>void;chatQuery:string;setChatQuery:(value:string)=>void;
  chatFilter:ChatFilter;setChatFilter:(value:ChatFilter)=>void;pinnedMessages:Message[];
@@ -36,7 +40,9 @@ type ChatPanelProps={
  selected:string|null;text:string;setText:(text:string)=>void;sendAttachment:(file:File,caption:string)=>Promise<void>;
  sendLocation:(lat:number,lon:number,caption:string)=>Promise<void>;composerRef:RefObject<HTMLTextAreaElement|null>;
 };
-export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,onRoomPhoto,onProfile,showMembers,invite,onCreateEvent,onCreateRoom,showChatSearch,setShowChatSearch,chatQuery,setChatQuery,chatFilter,setChatFilter,pinnedMessages,chatScroll,canLoadOlder,onLoadOlder,busy,filtering,historyLoading,loadingMessages,filterLoading,currentMessages,rawMessages,bottomRef,eventCard,openDetail,messageAction,jumpToReply,setGalleryId,galleryId,deliverPending,pendingReactions,react,failed,sendMessage,replying,editing,setReplying,setEditing,selected,text,setText,sendAttachment,sendLocation,composerRef}:ChatPanelProps){
+export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,onRoomPhoto,onProfile,showMembers,invite,onCreateEvent,onCreateRoom,showChatSearch,setShowChatSearch,chatQuery,setChatQuery,chatFilter,setChatFilter,pinnedMessages,chatScroll,canLoadOlder,onLoadOlder,busy,filtering,historyLoading,loadingMessages,filterLoading,currentMessages,rawMessages,bottomRef,eventCard,openDetail,messageAction,jumpToReply,setGalleryId,galleryId,deliverPending,pendingReactions,react,failed,sendMessage,replying,editing,setReplying,setEditing,selected,text,setText,sendAttachment,sendLocation,composerRef,onSaveList,onUpdateList}:ChatPanelProps){
+ const [listDraft,setListDraft]=useState<{roomId:string;title:string;items:string[];source?:Message}|null>(null);
+ useEffect(()=>setListDraft(null),[room?.id,userId]);
  return (
   <section className="chat-panel">
     {room ? (
@@ -78,13 +84,6 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
               onClick={invite}
             >
               <Users size={19} />
-            </button>
-            <button
-              className="icon-button highlight"
-              aria-label={t("createEvent")}
-              onClick={onCreateEvent}
-            >
-              <CalendarPlus size={20} />
             </button>
           </div>
         </div>
@@ -148,6 +147,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                     arr[i - 1].senderId === m.senderId &&
                     !arr[i - 1].eventId &&
                     !p;
+                const suggestion=own&&!m.deleted&&!m.pendingStatus&&!m.eventId&&!m.attachment&&!m.checklist?suggestChecklist(m.text):null;
                 return (
                   <Fragment key={m.id}>
                   {(i===0||localDayKey(new Date(arr[i-1].createdAt))!==localDayKey(new Date(m.createdAt)))&&<DaySeparator day={localDayKey(new Date(m.createdAt))} value={chatFilter} onChange={setChatFilter} lang={lang}/>}
@@ -187,7 +187,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                       ) : (
                         <>{m.pinned&&<small className="pinned-label">📌 {lang==="pt"?'Fixada':'Pinned'}</small>}
                         {m.replyTo&&!m.deleted&&<ReplyReference message={m} source={rawMessages.find(x=>x.id===m.replyTo)} ownId={userId} lang={lang} onJump={()=>{void jumpToReply(m.replyTo!)}}/>}
-                        <div className="message-bubble">{m.deleted?(lang==="pt"?'Mensagem removida':'Message removed'):<><MessageMedia attachment={m.attachment} lang={lang} onOpen={()=>setGalleryId(m.id)}/><MessageText text={m.text}/></>}</div>{m.editedAt&&<small>{lang==="pt"?"editada":"edited"}</small>}</>
+                        <div className="message-bubble">{m.deleted?(lang==="pt"?'Mensagem removida':'Message removed'):<><MessageMedia attachment={m.attachment} lang={lang} onOpen={()=>setGalleryId(m.id)}/>{m.checklist?<SharedChecklist list={m.checklist} pt={lang==="pt"} onChange={op=>onUpdateList(room.id,m.id,op)}/>:<MessageText text={m.text}/>} </>}</div>{suggestion&&<button className="shared-list-suggestion" type="button" onClick={()=>setListDraft({roomId:room.id,title:suggestion.title,items:suggestion.items,source:m})}><ListChecks size={16}/>{lang==="pt"?"Transformar em lista":"Turn into a list"}</button>}{m.editedAt&&<small>{lang==="pt"?"editada":"edited"}</small>}</>
                       )}
                       {m.pendingStatus&&<div className="pending-message" role="status">{m.pendingStatus==='sending'?<><LoaderCircle size={12} className="spin"/>{lang==='pt'?'Enviando…':'Sending…'}</>:<><span>{lang==='pt'?'Não enviada':'Not sent'}</span><button type="button" onClick={()=>void deliverPending(m as PendingMessage)}>{lang==='pt'?'Tentar novamente':'Retry'}</button></>}</div>}
                       <div className="message-footer">
@@ -267,7 +267,8 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
         <div className="composer-wrapper peakboo-composer">
           {replying&&!editing&&<ReplyReference message={replying} source={replying} ownId={userId} lang={lang} onCancel={()=>setReplying(null)}/>}
           {editing&&<div className="composer-context"><span>{editing?(lang==="pt"?'Editando mensagem':'Editing message'):(lang==="pt"?'Respondendo':'Replying')}: {(replying||editing)?.text||mediaLabel((replying||editing)?.attachment?.mime||'',lang==='pt')}</span><button type="button" aria-label={lang==="pt"?'Cancelar':'Cancel'} onClick={()=>{setReplying(null);if(editing)setText('');setEditing(null)}}>×</button></div>}
-          <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice />
+          <LiveMessageComposer editing={!!editing} key={selected} value={text} onChange={setText} onSubmit={()=>{void sendMessage()}} onAttach={sendAttachment} onShareLocation={sendLocation} sending={false} locale={locale} textareaRef={composerRef} allowOffice onCreateEvent={onCreateEvent} onCreateList={()=>setListDraft({roomId:room.id,title:"",items:[]})}/>
+          {listDraft?.roomId===room.id&&<ChecklistDialog key={room.id+":"+(listDraft.source?.id||"new")} pt={lang==="pt"} initial={listDraft} onClose={()=>setListDraft(null)} onSave={draft=>onSaveList(room.id,draft)}/>}
 
         </div>
       </>

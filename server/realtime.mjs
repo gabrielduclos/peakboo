@@ -7,7 +7,7 @@ async function notifyUsers(userId){
 }
 async function publish(roomId,change={}){
  if(!live.size)return;
- const {rows}=await pool.query("SELECT m.user_id FROM members m JOIN rooms r ON r.id=m.room_id WHERE r.id=$1 AND r.kind='group' AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM messages msg WHERE msg.id=$2 AND msg.room_id=r.id AND msg.created_at>=m.joined_at))",[roomId,change.reaction?.messageId||null]);
+ const {rows}=await pool.query("SELECT m.user_id FROM members m JOIN rooms r ON r.id=m.room_id WHERE r.id=$1 AND r.kind='group' AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM messages msg WHERE msg.id=$2 AND msg.room_id=r.id AND msg.created_at>=m.joined_at))",[roomId,change.reaction?.messageId||change.listChange?.messageId||null]);
  for(const row of rows)sendLive(row.user_id,{roomId,...change});
 }
 function register(app){

@@ -1,5 +1,7 @@
 import {displayName} from "../shared/display-name.mjs";
 import {AuthDialog,SettingsDialog} from "./features/account/AccountDialogs";
+import type {ListDraft} from "./features/chat/SharedChecklist";
+import {suggestChecklist,type Checklist,type ChecklistOperation} from "../shared/checklists.mjs";
 import {ChatPanel} from "./features/chat/ChatPanel";
 import {EventFormDialog} from "./features/calendar/EventFormDialog";
 import {CalendarPage,EventCard,MiniCalendar} from "./features/calendar/CalendarViews";
@@ -191,6 +193,7 @@ export default function App() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listHistoryRef=useRef(messages);listHistoryRef.current=messages;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const signedOutRef = useRef(!getToken());
@@ -274,7 +277,8 @@ export default function App() {
     const id = setTimeout(() => setToast(""), 4000);
     return () => clearTimeout(id);
   }, [toast]);
-  const fetchMessages = useCallback(async (id: string) => {
+  const fetchMessages = useCallback(async (id: string, refreshOlderLists=false) => {
+    const session=getToken();
     const data = await request("/api/rooms/" + id + "/messages");
     if (!signedOutRef.current)
       setMessages((m) => ({
@@ -284,12 +288,24 @@ export default function App() {
             (old) =>
               !data.messages.some((fresh: Message) => fresh.id === old.id),
           ),
-          ...data.messages,
+          ...data.messages.map((fresh:Message)=>{const old=(m[id]||[]).find(x=>x.id===fresh.id);return !fresh.deleted&&old?.checklist&&old.checklist.version>(fresh.checklist?.version||0)?{...fresh,checklist:old.checklist}:fresh}),
         ]
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
           .slice(-2000),
       }));
     setHasMore((m) => ({ ...m, [id]: data.hasMore }));
+    if(refreshOlderLists&&session===getToken()){
+      const freshIds=new Set(data.messages.map((m:Message)=>m.id));
+      const ids=(listHistoryRef.current[id]||[]).filter(m=>!freshIds.has(m.id)&&!m.deleted&&!m.pendingStatus&&(m.checklist||(!m.eventId&&!m.attachment&&suggestChecklist(m.text)))).map(m=>m.id);
+      for(let i=0;i<ids.length;i+=100){
+        const result=await request("/api/rooms/"+id+"/lists/refresh","POST",{ids:ids.slice(i,i+100)});
+        if(session!==getToken())return;
+        for(const entry of result.lists){if(entry.checklist)commitList(id,entry.id,entry.checklist);else if(entry.deleted){
+          const remove=(m:Message)=>m.id===entry.id?{...m,deleted:true,text:"",checklist:null,pinned:false}:m;
+          setMessages(old=>({...old,[id]:(old[id]||[]).map(remove)}));if(selectedRef.current===id)setFiltered(old=>old.map(remove));
+        }}
+      }
+    }
   }, []);
   const refresh = useCallback(async () => {
     const data: Boot = await request("/api/bootstrap");
@@ -363,7 +379,7 @@ export default function App() {
     if (!selected) return;
     let alive = true;
     setLoadingMessages(!messages[selected]);
-    fetchMessages(selected).then(async()=>{
+    fetchMessages(selected,true).then(async()=>{
       if(!alive||!chatVisibleRef.current||document.hidden)return;
       await request("/api/rooms/" + selected + "/read", "POST");
       if(alive)setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===selected?{...r,unread:0}:r)}));
@@ -384,7 +400,7 @@ export default function App() {
         await refresh();
         const id=selectedRef.current;
         if(id&&chatVisibleRef.current&&(all||changed.has(id))){
-          setPinnedRevision(v=>v+1);setFilterRevision(v=>v+1);await fetchMessages(id);
+          setPinnedRevision(v=>v+1);setFilterRevision(v=>v+1);await fetchMessages(id,all);
           if(!stopped&&!document.hidden&&chatVisibleRef.current&&selectedRef.current===id){
             await request("/api/rooms/"+id+"/read","POST");setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r)}));
           }
@@ -395,7 +411,8 @@ export default function App() {
     const sync=(event?:LiveChange)=>{
       if(stopped)return;
       if(event?.deletedRoomId)removeRoomLocally(event.deletedRoomId);
-      if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
+      if(event?.listChange&&event.roomId){commitList(event.roomId,event.listChange.messageId,event.listChange.checklist,event.listChange.deleted);if(!event.listChange.previewChanged)return;previewDirty=true;}
+      else if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
       else if(event?.roomId)dirty.add(event.roomId);else full=true;
       if(event?.profileChanged)full=true;
       if(!refreshTimer.current&&!running&&!document.hidden)refreshTimer.current=setTimeout(flush,180);
@@ -592,6 +609,24 @@ export default function App() {
       void refresh().catch(()=>{});
     } catch(error) {setDeleteError(errorText(error));}
     finally {deletingGroupRef.current=false;setBusy(null);}
+  }
+  function commitList(roomId:string,messageId:string,checklist:Checklist|null,deleted=false){
+    const merge=(m:Message)=>m.id!==messageId||m.deleted?m:deleted?{...m,deleted:true,text:"",attachment:undefined,pinned:false,checklist:null}:checklist&&(!m.checklist||m.checklist.version<=checklist.version)?{...m,checklist}:m;
+    setMessages(old=>({...old,[roomId]:(old[roomId]||[]).map(merge)}));
+    if(selectedRef.current===roomId)setFiltered(old=>old.map(merge));
+  }
+  async function saveSharedList(roomId:string,draft:ListDraft){
+    const session=getToken();
+    const base="/api/rooms/"+roomId;
+    const result=await request(draft.source?base+"/messages/"+draft.source.id+"/list":base+"/lists","POST",draft.source?{title:draft.title,items:draft.items,originalText:draft.source.text}:{id:draft.id,title:draft.title,items:draft.items});
+    if(session!==getToken())return;
+    if(draft.source){commitList(roomId,result.id,result.checklist);void refresh().catch(()=>{});}
+    else{if(selectedRef.current===roomId){setChatFilter(emptyFilter);setChatQuery("")}await fetchMessages(roomId);void refresh().catch(()=>{});}
+  }
+  async function updateSharedList(roomId:string,messageId:string,op:ChecklistOperation){
+    const session=getToken();
+    const result=await request("/api/rooms/"+roomId+"/messages/"+messageId+"/list","PUT",op);
+    if(session===getToken()){commitList(roomId,result.id,result.checklist);if(op.kind==="rename")void refresh().catch(()=>{});}
   }
   async function messageAction(action:MessageAction|'edit-save',m:Message,target?:string){
     if(!selected)return;
@@ -983,7 +1018,7 @@ export default function App() {
               onJoin={()=>{setNewTab("join");openModal("new")}}/>
             <ChatPanel room={room} rooms={boot.rooms} events={boot.events} userId={boot.user.id} lang={lang} locale={locale} t={t} time={time}
               onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite} onProfile={openProfile}
-              onCreateEvent={()=>openEvent()} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
+              onCreateEvent={()=>openEvent()} onSaveList={saveSharedList} onUpdateList={updateSharedList} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
               showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch} chatQuery={chatQuery} setChatQuery={setChatQuery}
               chatFilter={chatFilter} setChatFilter={setChatFilter} pinnedMessages={pinnedMessages} chatScroll={chatScroll}
               canLoadOlder={!!room&&(filtering?filterMore:!!hasMore[room.id])} onLoadOlder={filtering?loadFiltered:loadOlder} busy={busy}

@@ -41,6 +41,7 @@ export type Message = {
   id: string;
   text: string;
   eventId?: string;
+  checklist?: import("../shared/checklists.mjs").Checklist | null;
   replyTo?: string;
   replyText?: string;
   replySenderId?: string;

@@ -1,5 +1,7 @@
 import {displayName} from "../../shared/display-name.mjs";
 import {AuthDialog,SettingsDialog} from "../features/account/AccountDialogs";
+import type {ListDraft} from "../features/chat/SharedChecklist";
+import {applyChecklistOperation,type Checklist,type ChecklistOperation} from "../../shared/checklists.mjs";
 import {ChatPanel} from "../features/chat/ChatPanel";
 import {EventFormDialog} from "../features/calendar/EventFormDialog";
 import {CalendarPage,EventCard,MiniCalendar} from "../features/calendar/CalendarViews";
@@ -618,6 +620,19 @@ export default function App() {
     } catch(error) {setDeleteError(errorText(error));}
     finally {deletingGroupRef.current=false;setBusy(null);}
   }
+  async function saveSharedList(roomId:string,draft:ListDraft){
+    const checklist:Checklist={title:draft.title,version:1,items:draft.items.map(text=>({id:crypto.randomUUID(),text,done:false}))};
+    const source=draft.source;
+    const message:Message={id:draft.id,text:draft.title,checklist,senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[]};
+    setMessages(old=>({...old,[roomId]:source?(old[roomId]||[]).map(m=>m.id===source.id&&!m.checklist&&!m.deleted?{...m,checklist}:m):[...(old[roomId]||[]).filter(m=>m.id!==draft.id),message]}));
+    if(!source){setBoot(old=>({...old,rooms:old.rooms.map(r=>r.id===roomId?{...r,lastText:draft.title,lastAt:message.createdAt}:r)}));setChatFilter(emptyFilter);setChatQuery("");}
+  }
+  async function updateSharedList(roomId:string,messageId:string,op:ChecklistOperation){
+    const message=(messages[roomId]||[]).find(m=>m.id===messageId&&!m.deleted);
+    if(!message?.checklist)throw Error("NOT_FOUND");
+    const next=applyChecklistOperation(message.checklist,op);
+    setMessages(old=>({...old,[roomId]:(old[roomId]||[]).map(m=>m.id===messageId?{...m,checklist:next}:m)}));
+  }
   async function messageAction(action:MessageAction|'edit-save',m:Message,target?:string){
     if(!selected)return;
     if(action==='reply'){setReplying(m);setEditing(null);composerRef.current?.focus();return}
@@ -625,7 +640,7 @@ export default function App() {
     if(action==='event'){openEvent(m.text.slice(0,120));return}
     if(action==='forward'&&target){const copy={...m,id:crypto.randomUUID(),senderId:boot.user.id,senderName:boot.user.name,senderImage:boot.user.image,createdAt:new Date().toISOString(),reactions:[],pinned:false,replyTo:undefined,replyText:undefined};setMessages(old=>({...old,[target]:[...(old[target]||[]),copy]}));return;}
     if(action==='report'){notify(lang==='pt'?'Denúncia registrada nesta demonstração.':'Report recorded in this demo.');return;}
-    setMessages(old=>({...old,[selected]:(old[selected]||[]).map(x=>x.id!==m.id?x:action==='pin'?{...x,pinned:!x.pinned}:action==='delete'?{...x,deleted:true,text:'',attachment:undefined,pinned:false}:{...x,text:target||'',editedAt:new Date().toISOString()})}));
+    setMessages(old=>({...old,[selected]:(old[selected]||[]).map(x=>x.id!==m.id?x:action==='pin'?{...x,pinned:!x.pinned}:action==='delete'?{...x,deleted:true,text:'',attachment:undefined,pinned:false,checklist:null}:{...x,text:target||'',editedAt:new Date().toISOString()})}));
   }
   function commitReaction(roomId:string,change:ReactionChange){
     setMessages(old=>({...old,[roomId]:(old[roomId]||[]).map(m=>applyReaction(m,change))}));
@@ -1076,7 +1091,7 @@ export default function App() {
               onJoin={()=>{setNewTab("join");openModal("new")}} decorateWeekend={demo}/>
             <ChatPanel room={room} rooms={boot.rooms} events={boot.events} userId={boot.user.id} lang={lang} locale={locale} t={t} time={time}
               onBack={()=>setMobileChat(false)} onRoomPhoto={()=>openModal("invite")} showMembers={showMembers} invite={invite} onProfile={openProfile}
-              onCreateEvent={()=>openEvent()} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
+              onCreateEvent={()=>openEvent()} onSaveList={saveSharedList} onUpdateList={updateSharedList} onCreateRoom={()=>{setNewTab("create");openModal("new")}}
               showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch} chatQuery={chatQuery} setChatQuery={setChatQuery}
               chatFilter={chatFilter} setChatFilter={setChatFilter} pinnedMessages={pinnedMessages} chatScroll={chatScroll}
               canLoadOlder={!!room&&!!hasMore[room.id]} onLoadOlder={loadOlder} busy={busy}
