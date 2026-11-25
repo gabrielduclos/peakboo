@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, createECDH } from "node:crypto";
 import assert from "node:assert/strict";
 const dir = await mkdtemp(path.join(tmpdir(), "peakboo-test-"));
 const password = randomBytes(24).toString("hex");
@@ -36,6 +36,8 @@ try {
       BETTER_AUTH_URL: "http://localhost:3001",
       FRONTEND_ORIGINS: "http://127.0.0.1:4173,http://localhost:3001",
       PORT: "3001",
+      PUSH_ENABLED:"true",
+      PUSH_VAPID_PRIVATE_KEY:"",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -94,6 +96,23 @@ try {
     users.push(user);
   }
   const [alice, bob, charlie] = users;
+  const pushConfig=await call("/api/push/config",alice.token);
+  check("push config exposes only a valid public VAPID key",()=>{assert.equal(pushConfig.status,200);assert.equal(pushConfig.data.enabled,true);assert.equal(Buffer.from(pushConfig.data.publicKey,"base64url").length,65);assert.equal(pushConfig.data.privateKey,undefined)});
+  const receiver=createECDH("prime256v1");receiver.generateKeys();
+  const sub={endpoint:"https://fcm.googleapis.com/fcm/send/peakboo-test-"+randomUUID(),keys:{p256dh:receiver.getPublicKey().toString("base64url"),auth:randomBytes(16).toString("base64url")},locale:"pt",preview:false};
+  const invalidSub=await call("/api/push/subscriptions",alice.token,"POST",{...sub,endpoint:"https://127.0.0.1/test"});
+  check("push rejects non-provider endpoints",()=>assert.equal(invalidSub.status,400));
+  const validSub=await call("/api/push/subscriptions",alice.token,"POST",sub);
+  check("authenticated device can subscribe",()=>assert.equal(validSub.status,200));
+  const ownStatus=await call("/api/push/status",alice.token,"POST",{endpoint:sub.endpoint});
+  const otherStatus=await call("/api/push/status",bob.token,"POST",{endpoint:sub.endpoint});
+  check("subscription status is session-scoped",()=>{assert.equal(ownStatus.data.active,true);assert.equal(ownStatus.data.preview,false);assert.equal(otherStatus.data.active,false)});
+  await call("/api/push/subscriptions",bob.token,"DELETE",{endpoint:sub.endpoint});
+  const stillActive=await call("/api/push/status",alice.token,"POST",{endpoint:sub.endpoint});
+  check("other users cannot unsubscribe a device",()=>assert.equal(stillActive.data.active,true));
+  await call("/api/push/subscriptions",alice.token,"DELETE",{endpoint:sub.endpoint});
+  const removedStatus=await call("/api/push/status",alice.token,"POST",{endpoint:sub.endpoint});
+  check("owner can unsubscribe",()=>assert.equal(removedStatus.data.active,false));
   check("Better Auth registration returns signed bearer sessions", () =>
     assert.ok(alice.token && bob.token && charlie.token),
   );

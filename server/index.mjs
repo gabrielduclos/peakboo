@@ -10,6 +10,7 @@ import path from "node:path";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import { auth, pool, origins } from "./auth.mjs";
 import { migrate } from "./migrate.mjs";
+import {createPush} from "./push.mjs";
 import {r2,mediaKey,mediaBytes,drainR2Deletes} from "./r2.mjs";
 import {
   roomInput,
@@ -22,6 +23,8 @@ import {
 await migrate();
 if(r2)void drainR2Deletes(pool).catch(()=>console.error("R2 cleanup pending"));
 const app = express();
+const push=createPush(pool);
+await push.start();
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(
@@ -73,6 +76,7 @@ app.use("/api", async (req, res, next) => {
   }
 });
 privateSocial(app,pool,notifyUsers);
+push.register(app);
 async function member(req, res, next) {
   try {
     if (
@@ -219,6 +223,7 @@ app.post("/api/join", async (req, res) => {
     [room.id, req.user.id],
   );
   await publish(room.id);
+  push.reschedule();
   res.json({ id: room.id });
 });
 app.get("/api/rooms/:room/messages", member, async (req, res) => {
@@ -281,6 +286,7 @@ app.post("/api/rooms/:room/messages", member, async (req, res) => {
       return jsonError(res, 409, "CONFLICT");
   }
   await publish(req.params.room);
+  if(r.rowCount)push.notify({kind:"message",roomId:req.params.room,actorId:req.user.id,messageId:data.data.id,body:req.user.name+": "+(data.data.text||"📎")});
   res.status(201).json({ id: data.data.id });
 });
 app.put("/api/rooms/:room/messages/:message",member,async(req,res)=>{
@@ -306,19 +312,20 @@ app.post(
   async (req, res) => {
     const data = reactionInput.safeParse(req.body);
     if (!data.success) return jsonError(res, 400, "INVALID_INPUT");
-    const db=await pool.connect();let active;
+    const db=await pool.connect();let active,added=false;
     try{
       await db.query("BEGIN");
       const m=await db.query("SELECT id FROM messages WHERE id=$1 AND room_id=$2 AND NOT deleted AND created_at >= $3::timestamptz FOR UPDATE",[req.params.message,req.params.room,req.room.member_joined_at]);
       if(!m.rowCount){await db.query("ROLLBACK");return jsonError(res,404,"NOT_FOUND")}
       active=data.data.active;
       if(active===undefined){const existing=await db.query("SELECT 1 FROM reactions WHERE message_id=$1 AND user_id=$2 AND emoji=$3",[req.params.message,req.user.id,data.data.emoji]);active=!existing.rowCount;}
-      if(active)await db.query("INSERT INTO reactions(message_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[req.params.message,req.user.id,data.data.emoji]);
+      if(active)added=!!(await db.query("INSERT INTO reactions(message_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[req.params.message,req.user.id,data.data.emoji])).rowCount;
       else await db.query("DELETE FROM reactions WHERE message_id=$1 AND user_id=$2 AND emoji=$3",[req.params.message,req.user.id,data.data.emoji]);
       await db.query("COMMIT");
     }catch(e){await db.query("ROLLBACK");throw e}finally{db.release()}
     const reaction={messageId:req.params.message,userId:req.user.id,emoji:data.data.emoji,active};
     await publish(req.params.room,{reaction});
+    if(added)push.notify({kind:"reaction",roomId:req.params.room,actorId:req.user.id,messageId:req.params.message,body:req.user.name+" "+data.data.emoji});
     res.json({ok:true,reaction});
   },
 );
@@ -361,6 +368,7 @@ app.post("/api/rooms/:room/events", member, async (req, res) => {
     c.release();
   }
   await publish(req.params.room);
+  push.notify({kind:"created",roomId:req.params.room,actorId:req.user.id,eventId:id,body:e.title});
   res.status(201).json({ id });
 });
 app.put("/api/rooms/:room/events/:event", member, async (req, res) => {
@@ -383,6 +391,7 @@ app.put("/api/rooms/:room/events/:event", member, async (req, res) => {
   );
   if (!r.rowCount) return jsonError(res, 403, "FORBIDDEN");
   await publish(req.params.room);
+  push.notify({kind:"updated",roomId:req.params.room,actorId:req.user.id,eventId:req.params.event,body:e.title});
   res.json({ ok: true });
 });
 app.post("/api/rooms/:room/events/:event/rsvp", member, async (req, res) => {
@@ -400,6 +409,7 @@ app.post("/api/rooms/:room/events/:event/rsvp", member, async (req, res) => {
     [e.id, req.user.id, data.data.status],
   );
   await publish(req.params.room);
+  push.reschedule();
   res.json({ ok: true });
 });
 app.delete("/api/rooms/:room/events/:event", member, async (req, res) => {
@@ -409,6 +419,7 @@ app.delete("/api/rooms/:room/events/:event", member, async (req, res) => {
   );
   if (!r.rowCount) return jsonError(res, 403, "FORBIDDEN");
   await publish(req.params.room);
+  push.notify({kind:"cancelled",roomId:req.params.room,actorId:req.user.id,eventId:req.params.event});
   res.json({ ok: true });
 });
 
@@ -474,6 +485,7 @@ const server = app.listen(Number(process.env.PORT || 3001), "0.0.0.0", () =>
   console.log("Peakboo ready"),
 );
 process.on("SIGTERM", () => {
+  push.stop();
   for (const set of live.values()) for (const res of set) res.end();
   server.close(() => pool.end().then(() => process.exit(0)));
 });

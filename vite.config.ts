@@ -4,8 +4,10 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 // @ts-ignore Build-only JavaScript plugin.
 import { inlineStyles } from "./scripts/inline-styles.mjs";
+// @ts-ignore Build-only JavaScript plugin.
+import {pwaAssets} from "./scripts/pwa-assets.mjs";
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), inlineStyles()],
+  plugins: [react(), tailwindcss(), inlineStyles(),pwaAssets()],
   resolve: {
     alias:
       mode === "portfolio"

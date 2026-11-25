@@ -1,5 +1,7 @@
 import {ReplyReference,replySnapshot} from "./ReplyReference";
 import {ProfileEditor} from "./Social";
+import {PushSettings} from "./PushSettings";
+import {disablePush,syncPush} from "./pwa";
 import {InvitationTools} from "./InvitationTools";
 import {inviteLink} from "./links";
 import {useInternalNotifications,NotificationBadge,NotificationCenter} from "./InternalNotifications";
@@ -442,6 +444,7 @@ export default function App() {
   async function signOut() {
     setBusy("signout");
     try {
+      await disablePush(boot.user.id).catch(()=>{});
       await request("/api/auth/sign-out", "POST", {});
       sessionStorage.removeItem("peakboo-session");
       setBoot(emptyBoot);
@@ -1248,6 +1251,21 @@ export default function App() {
       </section>
     );
   }
+  useEffect(()=>{if(boot.user.id)void syncPush(boot.user.id,lang).catch(()=>{})},[boot.user.id,lang]);
+  const [pushTarget,setPushTarget]=useState(()=>new URLSearchParams(location.hash.slice(1)));
+  useEffect(()=>{
+    const onHash=()=>setPushTarget(new URLSearchParams(location.hash.slice(1)));
+    const onPush=(event:MessageEvent)=>{if(event.data?.type==="PEAKBOO_PUSH_OPEN"&&typeof event.data.hash==="string"){history.replaceState(null,"",location.pathname+location.search+event.data.hash);onHash()}};
+    window.addEventListener("hashchange",onHash);navigator.serviceWorker?.addEventListener("message",onPush);
+    return()=>{window.removeEventListener("hashchange",onHash);navigator.serviceWorker?.removeEventListener("message",onPush)};
+  },[]);
+  useEffect(()=>{
+    const id=pushTarget.get("pushRoom");if(!id||loading)return;if(!boot.user.id){setAuthMode("login");setModal("auth");return}
+    const target=boot.rooms.find(r=>r.id===id);
+    if(target){selectRoom(target);const event=boot.events.find(e=>e.id===pushTarget.get("pushEvent")&&e.roomId===id);if(event){setView("calendar");setMobileChat(false);openDetail(event)}}
+    if(location.hash.includes("pushRoom="))history.replaceState(null,"",location.pathname+location.search);
+    setPushTarget(new URLSearchParams());
+  },[pushTarget,loading,boot.user.id,boot.rooms,boot.events]);
   async function syncSocialProfile(){
     await refresh();
   }
@@ -2344,12 +2362,13 @@ export default function App() {
       >
         <Tabs.Root defaultValue="appearance">
           <Tabs.List className="dialog-tabs">
-            {["profile", "security", "appearance"].map((tab) => (
+            {["profile", "security", "appearance", "notifications"].map((tab) => (
               <Tabs.Trigger key={tab} value={tab}>
                 {t(tab)}
               </Tabs.Trigger>
             ))}
           </Tabs.List>
+          <Tabs.Content value="notifications" className="settings-tab">{boot.user.id&&<PushSettings userId={boot.user.id} lang={lang} rooms={boot.rooms}/>}</Tabs.Content>
           <Tabs.Content forceMount value="appearance" className="settings-tab">
             <label>{t("theme")}</label>
             <div className="theme-options">
