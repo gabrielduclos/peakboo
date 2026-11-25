@@ -1,3 +1,4 @@
+import {loadNotificationState} from "./notifications.mjs";
 export function registerBootstrap(app,{pool}){
 app.get("/api/bootstrap", async (req, res) => {
   const rooms = (
@@ -31,6 +32,7 @@ app.get("/api/bootstrap", async (req, res) => {
       LEFT JOIN push_muted_groups muted ON muted.room_id=r.id AND muted.user_id=$1
       WHERE r.kind='group' AND msg.sender_id=$1 AND rx.user_id<>$1 AND NOT msg.deleted AND muted.user_id IS NULL AND msg.created_at>=m.joined_at AND rx.changed_at>=m.joined_at AND rx.changed_at>now()-interval '30 days' AND rx.activity_id IS NOT NULL
       ORDER BY rx.changed_at DESC,rx.activity_id DESC LIMIT 100`,[req.user.id])).rows;
-  res.json({ user: req.user, rooms, events, activity, reactionNotices });
+  const notificationState=await loadNotificationState(pool,req.user.id,{rooms,events,activity,reactionNotices});
+  res.json({ user: req.user, rooms, events, activity, reactionNotices, notificationState });
 });
 }

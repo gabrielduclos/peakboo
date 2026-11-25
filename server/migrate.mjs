@@ -54,6 +54,11 @@ export async function migrate() {
       await c.query(await readFile(new URL("./migrations/012_no_self_reactions.sql",import.meta.url),"utf8"));
       await c.query("INSERT INTO peakboo_migrations(version) VALUES('012_no_self_reactions')");
     }
+    const notificationState=await c.query("SELECT 1 FROM peakboo_migrations WHERE version='013_notification_state'");
+    if(!notificationState.rowCount){
+      await c.query(await readFile(new URL("./migrations/013_notification_state.sql",import.meta.url),"utf8"));
+      await c.query("INSERT INTO peakboo_migrations(version) VALUES('013_notification_state')");
+    }
     await c.query("COMMIT");
   } catch (e) {
     await c.query("ROLLBACK");

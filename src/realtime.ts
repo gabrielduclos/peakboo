@@ -1,6 +1,6 @@
 import type {Message} from "./types";
 export type ReactionChange={messageId:string;userId:string;emoji:string;active:boolean};
-export type LiveChange={roomId?:string;deletedRoomId?:string;profileChanged?:boolean;reaction?:ReactionChange;listChange?:{messageId:string;checklist:import("../shared/checklists.mjs").Checklist|null;deleted?:boolean;previewChanged?:boolean}};
+export type LiveChange={notificationStateChanged?:boolean;roomId?:string;deletedRoomId?:string;profileChanged?:boolean;reaction?:ReactionChange;listChange?:{messageId:string;checklist:import("../shared/checklists.mjs").Checklist|null;deleted?:boolean;previewChanged?:boolean}};
 export function applyReaction(message:Message,change:ReactionChange):Message{
  if(message.id!==change.messageId||message.deleted)return message;
   if(change.active&&message.senderId===change.userId)return message;

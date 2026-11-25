@@ -79,12 +79,14 @@ app.post("/api/join", async (req, res) => {
 });
 }
 
-export function registerGroupMembership(app,{pool,member}){
+export function registerGroupMembership(app,{pool,member,notifyAccount}){
 app.post("/api/rooms/:room/read", member, async (req, res) => {
-  await pool.query(
-    "UPDATE members SET last_read_at=now() WHERE room_id=$1 AND user_id=$2",
+  const changed=await pool.query(
+    `UPDATE members m SET last_read_at=now() WHERE m.room_id=$1 AND m.user_id=$2
+      AND EXISTS(SELECT 1 FROM messages msg WHERE msg.room_id=m.room_id AND msg.sender_id<>m.user_id AND msg.created_at>m.last_read_at AND msg.created_at>=m.joined_at)`,
     [req.params.room, req.user.id],
   );
+  if(changed.rowCount)notifyAccount(req.user.id,{notificationStateChanged:true});
   res.json({ ok: true });
 });
 app.get("/api/rooms/:room/members", member, async (req, res) =>

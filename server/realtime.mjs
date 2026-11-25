@@ -40,5 +40,5 @@ app.get("/api/live", (req, res) => {
 });
 }
 function close(){for (const set of live.values()) for (const res of set) res.end();}
-return {live,publish,notifyUsers,register,close};
+return {live,publish,notifyUsers,notifyAccount:sendLive,register,close};
 }
