@@ -665,6 +665,13 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       onChange={e => { const file=e.target.files?.[0]; e.target.value=''; chosenFile(file); }} />
     <textarea ref={textareaRef} rows={1} value={value} disabled={recording!=='idle'||voiceProcessing}
       onPaste={e=>{const file=Array.from(e.clipboardData.items).find(item=>item.kind==='file' && item.type.startsWith('image/'))?.getAsFile();if(file){e.preventDefault();void prepareGalleryPhotos([file]);}}}
+      onKeyDown={event=>{
+        if(event.key!=='Enter'||event.shiftKey||event.nativeEvent.isComposing||event.keyCode===229)return;
+        const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+        if(mobile||window.matchMedia?.('(pointer: coarse)').matches)return;
+        event.preventDefault();
+        if(canSend&&!event.repeat)sendSelected();
+      }}
       onChange={event => onChange(event.target.value)}
       onSelect={event => onSelectionChange?.(event.currentTarget.value,
         event.currentTarget.selectionStart,event.currentTarget.selectionEnd)}
