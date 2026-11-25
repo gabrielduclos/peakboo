@@ -147,6 +147,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   const pt = locale === 'pt-BR';
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const emojiCaret=useRef<{text:string;position:number}|null>(null);
   const controls = useRef<HTMLFormElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -487,6 +488,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   }
   async function sendSelected(){
     if(!canSend)return;
+    setEmojiOpen(false);emojiCaret.current=null;
     try{
       if(pendingPhotos.length){await sendPhotos();}
       else if(pending){await onAttach(pending,(serializeValue?.(value)??value).trim());clearPending();onChange('');}
@@ -510,6 +512,11 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   }
   function chosenFile(file?:File){if(file && !editing && !sendingPhotosRef.current){if(file.type.startsWith('video/'))void stageVideo(file);else stageFile(file);}}
   
+
+  useLayoutEffect(()=>{
+    const caret=emojiCaret.current,node=textareaRef.current;
+    if(caret&&node&&caret.text===value)node.setSelectionRange(caret.position,caret.position);
+  },[value,textareaRef]);
 
   useLayoutEffect(() => {
     const node = textareaRef.current;
@@ -672,7 +679,13 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
         event.preventDefault();
         if(canSend&&!event.repeat)sendSelected();
       }}
-      onChange={event => onChange(event.target.value)}
+      onFocus={event=>{
+        const caret=emojiCaret.current;
+        if(!caret||caret.text!==event.currentTarget.value)return;
+        const node=event.currentTarget;node.setSelectionRange(caret.position,caret.position);
+        requestAnimationFrame(()=>{if(emojiCaret.current===caret&&document.activeElement===node&&node.value===caret.text){node.setSelectionRange(caret.position,caret.position);emojiCaret.current=null;}});
+      }}
+      onChange={event => {emojiCaret.current=null;onChange(event.target.value)}}
       onSelect={event => onSelectionChange?.(event.currentTarget.value,
         event.currentTarget.selectionStart,event.currentTarget.selectionEnd)}
       enterKeyHint="enter" maxLength={4000}
@@ -703,7 +716,10 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
           <div className="grid grid-cols-6 gap-1">
             {group.symbols.map(emoji => <button type="button" key={emoji}
               aria-label={emoji} onPointerDown={event => event.preventDefault()}
-              onClick={() => { onChange(value + emoji); }}
+              onClick={() => {
+                const next=value+emoji;if(next.length>4000)return;
+                emojiCaret.current={text:next,position:next.length};onChange(next);
+              }}
               className="grid size-8 place-items-center text-base leading-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">{emoji}</button>)}
           </div>
         </section>)}
