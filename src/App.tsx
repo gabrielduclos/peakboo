@@ -411,8 +411,8 @@ export default function App() {
     const sync=(event?:LiveChange)=>{
       if(stopped)return;
       if(event?.deletedRoomId)removeRoomLocally(event.deletedRoomId);
-      if(event?.listChange&&event.roomId){commitList(event.roomId,event.listChange.messageId,event.listChange.checklist);return;}
-      if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
+      if(event?.listChange&&event.roomId){commitList(event.roomId,event.listChange.messageId,event.listChange.checklist,event.listChange.deleted);if(!event.listChange.previewChanged)return;previewDirty=true;}
+      else if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
       else if(event?.roomId)dirty.add(event.roomId);else full=true;
       if(event?.profileChanged)full=true;
       if(!refreshTimer.current&&!running&&!document.hidden)refreshTimer.current=setTimeout(flush,180);
@@ -610,8 +610,8 @@ export default function App() {
     } catch(error) {setDeleteError(errorText(error));}
     finally {deletingGroupRef.current=false;setBusy(null);}
   }
-  function commitList(roomId:string,messageId:string,checklist:Checklist){
-    const merge=(m:Message)=>m.id===messageId&&!m.deleted&&(!m.checklist||m.checklist.version<=checklist.version)?{...m,checklist}:m;
+  function commitList(roomId:string,messageId:string,checklist:Checklist|null,deleted=false){
+    const merge=(m:Message)=>m.id!==messageId||m.deleted?m:deleted?{...m,deleted:true,text:"",attachment:undefined,pinned:false,checklist:null}:checklist&&(!m.checklist||m.checklist.version<=checklist.version)?{...m,checklist}:m;
     setMessages(old=>({...old,[roomId]:(old[roomId]||[]).map(merge)}));
     if(selectedRef.current===roomId)setFiltered(old=>old.map(merge));
   }
@@ -620,13 +620,13 @@ export default function App() {
     const base="/api/rooms/"+roomId;
     const result=await request(draft.source?base+"/messages/"+draft.source.id+"/list":base+"/lists","POST",draft.source?{title:draft.title,items:draft.items,originalText:draft.source.text}:{id:draft.id,title:draft.title,items:draft.items});
     if(session!==getToken())return;
-    if(draft.source)commitList(roomId,result.id,result.checklist);
+    if(draft.source){commitList(roomId,result.id,result.checklist);void refresh().catch(()=>{});}
     else{if(selectedRef.current===roomId){setChatFilter(emptyFilter);setChatQuery("")}await fetchMessages(roomId);void refresh().catch(()=>{});}
   }
   async function updateSharedList(roomId:string,messageId:string,op:ChecklistOperation){
     const session=getToken();
     const result=await request("/api/rooms/"+roomId+"/messages/"+messageId+"/list","PUT",op);
-    if(session===getToken())commitList(roomId,result.id,result.checklist);
+    if(session===getToken()){commitList(roomId,result.id,result.checklist);if(op.kind==="rename")void refresh().catch(()=>{});}
   }
   async function messageAction(action:MessageAction|'edit-save',m:Message,target?:string){
     if(!selected)return;
