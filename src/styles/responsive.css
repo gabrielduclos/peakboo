@@ -374,12 +374,13 @@
     height: 48px;
     min-height: 48px;
     border-radius: 12px;
-    background: var(--primary-soft);
-    color: var(--primary);
+    background: transparent;
+    color: #000;
     touch-action: manipulation;
   }
+  [data-theme="dark"] .chat-header > .mobile-back { color: #fff; }
   .chat-header > .mobile-back svg { width: 25px; height: 25px; stroke-width: 2.5; }
-  .chat-header > .mobile-back:active { background: var(--surface-2); }
+  .chat-header > .mobile-back:active { background: transparent; opacity: .65; }
   .chat-header {
     height: 73px;
     min-height: 73px;
