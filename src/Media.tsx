@@ -3,6 +3,7 @@ export {ChatAudioPlayer} from './ChatAudioPlayer';
 import {useEffect,useState} from 'react';
 import {MapPin,ExternalLink} from 'lucide-react';
 import {API,getToken} from './api';
+import {audioCacheKey,readAudioCache,writeAudioCache} from './audioCache';
 export async function uploadMedia(path:string,file:File){
  const dimensions=await mediaDimensions(file);
  const query=new URLSearchParams({name:file.name,...(dimensions?{width:String(dimensions.width),height:String(dimensions.height)}:{})});
@@ -25,21 +26,26 @@ const active=new Map<string,number>();
 let account='';let generation=0;
 export function setMediaAccount(next:string){if(next===account)return;account=next;generation++;for(const v of cache.values())URL.revokeObjectURL(v.url);cache.clear();pending.clear();active.clear();}
 function trimCache(){let total=[...cache.values()].reduce((sum,v)=>sum+v.size,0);for(const [key,v] of [...cache].sort((a,b)=>a[1].used-b[1].used)){if(total<=64*1048576&&cache.size<=160)break;if(active.get(key))continue;cache.delete(key);URL.revokeObjectURL(v.url);total-=v.size;}}
-export async function cachedMedia(src:string){
+export async function cachedMedia(src:string,preferAudio=false){
  if(src.startsWith('data:')||src.startsWith('blob:'))return src;
  const token=getToken()||'';const key=account+':'+token+':'+src;const entry=cache.get(key);
  if(entry&&Date.now()-entry.checked<300000){entry.used=Date.now();return entry.url;}
  const current=pending.get(key);if(current)return current;
- const g=generation;
+ const g=generation,owner=account;
  const task=(async()=>{
- const b=src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/(?:media|public-media)\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);try{const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');return await r.blob()}finally{clearTimeout(timer)}})();
+ const diskKey=preferAudio?await audioCacheKey(owner,token,src):null;
  if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
+ const stored=diskKey?await readAudioCache(diskKey):null;
+ if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
+ const b=stored??(src.startsWith('/demo-media/')?await readLocal(src):await (async()=>{if(!/^\/api\/(?:media|public-media)\/[a-f0-9-]{36}$/i.test(src))throw Error('INVALID_INPUT');const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);try{const r=await fetch(API+src,{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('MEDIA_UNAVAILABLE');return await r.blob()}finally{clearTimeout(timer)}})());
+ if(g!==generation||token!==(getToken()||''))throw Error('UNAUTHORIZED');
+ if(!stored&&diskKey&&b.type.startsWith('audio/'))void writeAudioCache(diskKey,b);
  const old=cache.get(key);if(old){old.checked=Date.now();old.used=Date.now();return old.url;}const url=URL.createObjectURL(b);cache.set(key,{url,size:b.size,checked:Date.now(),used:Date.now()});trimCache();return url;
  })().finally(()=>{if(pending.get(key)===task)pending.delete(key)});pending.set(key,task);return task;
 }
-export function useMedia(src?:string|null){
+export function useMedia(src?:string|null,preferAudio=false){
  const [state,setState]=useState<{src?:string|null;url:string;error:boolean}>({src,url:'',error:false});const [retry,setRetry]=useState(0);
- useEffect(()=>{let live=true;const key=account+':'+(getToken()||'')+':'+src;active.set(key,(active.get(key)||0)+1);setState({src,url:'',error:false});const timer=setTimeout(()=>{if(live){live=false;setState({src,url:'',error:true})}},25000);if(src)cachedMedia(src).then(url=>{if(live)setState({src,url,error:false})}).catch(()=>{if(live)setState({src,url:'',error:true})}).finally(()=>clearTimeout(timer));else clearTimeout(timer);return()=>{clearTimeout(timer);live=false;const count=(active.get(key)||1)-1;if(count>0)active.set(key,count);else active.delete(key);trimCache()}},[src,retry]);
+ useEffect(()=>{let live=true;const key=account+':'+(getToken()||'')+':'+src;active.set(key,(active.get(key)||0)+1);setState({src,url:'',error:false});const timer=setTimeout(()=>{if(live){live=false;setState({src,url:'',error:true})}},25000);if(src)cachedMedia(src,preferAudio).then(url=>{if(live)setState({src,url,error:false})}).catch(()=>{if(live)setState({src,url:'',error:true})}).finally(()=>clearTimeout(timer));else clearTimeout(timer);return()=>{clearTimeout(timer);live=false;const count=(active.get(key)||1)-1;if(count>0)active.set(key,count);else active.delete(key);trimCache()}},[src,retry,preferAudio]);
  return {...(state.src===src?state:{url:'',error:false}),retry:()=>setRetry(x=>x+1)};
 }
 // Track decode state by URL, not a resetting effect that can race a cached load.
@@ -57,7 +63,7 @@ export async function mediaDimensions(file:File):Promise<{width:number;height:nu
 
 export function mediaLabel(mime:string,pt=true){return mime.startsWith('image/')?(pt?'Foto':'Photo'):mime.startsWith('video/')?(pt?'Vídeo':'Video'):mime.startsWith('audio/')?(pt?'Áudio':'Audio'):mime==='application/pdf'?'PDF':(pt?'Documento':'Document');}
 export function MessageMedia({attachment,lang='pt',onOpen}:{attachment?:{id:string;name:string;mime:string;size:number;url?:string;width?:number;height?:number};lang?:string;onOpen?:()=>void}){
- const media=useMedia(attachment?.url|| (attachment?'/api/media/'+attachment.id:null));
+ const media=useMedia(attachment?.url|| (attachment?'/api/media/'+attachment.id:null),!!attachment?.mime.startsWith('audio/'));
  const [ready,setReady]=useState(false);useEffect(()=>setReady(false),[media.url]);
  if(!attachment)return null;
  const visual=/^(image|video)\//.test(attachment.mime),audio=attachment.mime.startsWith('audio/');
