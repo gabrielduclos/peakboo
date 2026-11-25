@@ -6,7 +6,7 @@ type Tool = 'pen' | 'rectangle' | 'ellipse' | 'arrow';
 type Point = { x: number; y: number };
 type Mark = { tool: Tool; color: string; size: number; points: Point[] };
 const COLORS = ['#ff4646', '#ffb32c', '#2ccf83', '#32a9ff', '#ffffff', '#111111'] as const;
-const MAX_DIMENSION = 1800;
+const MAX_DIMENSION = 1600;
 
 function drawMark(ctx: CanvasRenderingContext2D, mark: Mark, width: number) {
   const [first, last] = [mark.points[0], mark.points[mark.points.length - 1]];
@@ -90,7 +90,8 @@ export function ChatImageEditor({ src, onCancel, onSave }: {
     };
     img.onerror = () => { if (active) setError('Não foi possível abrir esta foto para edição.'); };
     img.src = src;
-    return () => { active = false; img.onload = null; img.onerror = null; sourceImage.current = null; };
+    const surface = canvas.current;
+    return () => { active = false; img.onload = null; img.onerror = null; sourceImage.current = null; img.removeAttribute('src'); if(surface){surface.width=0;surface.height=0;} };
   }, [src]);
 
   useEffect(() => { if (ready) render(marks, working); }, [marks, working, ready, render]);
@@ -144,7 +145,7 @@ export function ChatImageEditor({ src, onCancel, onSave }: {
     setError('');
     render(marks, null);
     canvas.current.toBlob(blob => {
-      if (!blob) { setSaving(false); setError('Não foi possível salvar a edição.'); return; }
+      if (!blob || !blob.size || blob.size > 10 * 1024 * 1024) { setSaving(false); setError('Não foi possível salvar a edição (limite de 10 MB).'); return; }
       onSave(blob);
       setSaving(false);
     }, 'image/png');
