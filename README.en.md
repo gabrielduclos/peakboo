@@ -117,3 +117,7 @@ When opening Peakboo in a browser, the installation invitation appears at most o
 ### Group previews and reactions
 
 The group list shows the sender, text or media type of the latest message. If someone reacts more recently to your message, the preview shows that reaction. Received reactions also appear in the in-app notification center (up to 100 active reactions from the last 30 days), with read state scoped to the account in this browser; removing or replacing a reaction updates the activity. Muted groups do not generate internal reaction notices or push, but retain their previews. Migration 009 preserves older reactions without generating historical notifications.
+
+### Modular UI organization
+
+Shared presentation components live in `src/features/<domain>/`. The group list (`groups/GroupsPanel.tsx`) and calendar views (`calendar/CalendarViews.tsx`) receive data and callbacks through props. Production and portfolio retain independent data sources and operations; shared components do not import the API or demo storage. New extractions should preserve behavior and include regression tests.
