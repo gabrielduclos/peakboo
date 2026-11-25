@@ -76,7 +76,7 @@ app.use("/api", (_, res) => jsonError(res, 404, "NOT_FOUND"));
 // The API stays available to Cloudflare; the Render HTML is a local-only portfolio.
 const dist = fileURLToPath(new URL("../dist-portfolio", import.meta.url));
 if (existsSync(dist)) {
-  app.use((_req,res,next)=>{res.set("Content-Security-Policy","script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'");next()});
+  app.use((_req,res,next)=>{res.set("Content-Security-Policy","script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'; default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; font-src 'self' data:; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; connect-src 'self'");next()});
   app.use(express.static(dist));
   app.get("/{*splat}", (_, res) => res.sendFile(path.join(dist, "index.html")));
 }

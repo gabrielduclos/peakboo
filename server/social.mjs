@@ -5,7 +5,7 @@ export function privateSocial(app,pool,notify){
  app.get("/api/me/profile",async(req,res)=>{
   await pool.query("INSERT INTO profiles(user_id) VALUES($1) ON CONFLICT DO NOTHING",[req.user.id]);
   const profile=(await pool.query(`SELECT ${fields} FROM profiles p JOIN "user" u ON u.id=p.user_id WHERE p.user_id=$1`,[req.user.id])).rows[0];
-  res.set("Cache-Control","no-store").json({profile});
+  res.set("Cache-Control","private, no-store").json({profile});
  });
  app.put("/api/me/profile",async(req,res)=>{
   const input=profileInput.safeParse(req.body);if(!input.success)return res.status(400).json({error:"INVALID_INPUT"});

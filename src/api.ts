@@ -46,6 +46,7 @@ async function performRequest(path: string, method: string, data?: unknown) {
   try {
     res = await fetch(API + path, {
       method,
+      cache: "no-store",
       headers: {
         ...(data ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: "Bearer " + token } : {}),
