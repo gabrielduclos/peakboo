@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import {reactionPreview} from "./roomPreview";
-import {Bell,CalendarDays,MessageCircle,Check,Smile,Trash2} from "lucide-react";
+import {Bell,CalendarDays,MessageCircle,Check,Smile,X} from "lucide-react";
 import type {ReactNode} from 'react';
 import {Button} from "./components";
 import type {Boot,Plan,Room} from "./types";
@@ -48,7 +48,7 @@ export function useInternalNotifications(boot:Boot){
 export function NotificationBadge({count}:{count:number}){return count>0?<b className="notification-count" aria-label={String(count)}>{count>99?"99+":count}</b>:null}
 export function NotificationCenter({boot,center,lang,onRoom,onEvent}:{boot:Boot;center:ReturnType<typeof useInternalNotifications>;lang:string;onRoom:(room:Room)=>void;onEvent:(event:Plan|undefined)=>void}){
  const pt=lang==="pt",rooms=center.visibleRooms;
- const row=(id:string,children:ReactNode)=><div className="notification-entry" key={id}>{children}<button type="button" className="notification-delete" aria-label={pt?"Apagar notificação":"Delete notification"} title={pt?"Apagar notificação":"Delete notification"} onClick={()=>center.dismiss(id)}><Trash2 size={17}/></button></div>;
+ const row=(id:string,children:ReactNode)=><div className="notification-entry" key={id}>{children}<button type="button" className="notification-delete" aria-label={pt?"Apagar notificação":"Delete notification"} title={pt?"Apagar notificação":"Delete notification"} onClick={()=>center.dismiss(id)}><X size={17}/></button></div>;
  const labels={created:pt?"Novo compromisso":"New event",updated:pt?"Compromisso atualizado":"Event updated",cancelled:pt?"Compromisso cancelado":"Event cancelled",confirmed:pt?"Presença confirmada":"Attendance confirmed",reminder:pt?"Lembrete de agenda":"Calendar reminder"};
  return <section className="notification-center" aria-label={pt?"Notificações internas":"In-app notifications"}>
   {center.agendaUnread>0&&<Button variant="ghost" className="full-width notification-mark-read" onClick={()=>center.mark(center.notices.map(n=>n.id))}><Check size={16}/>{pt?"Marcar avisos da agenda como lidos":"Mark calendar notices as read"}</Button>}
