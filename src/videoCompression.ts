@@ -5,14 +5,22 @@
  * to the original and normal attachment validation still applies.
  */
 export type VideoOptimizationResult={file:File;compressed:boolean};
+export const NATIVE_VIDEO_MAX_BYTES=60*1024*1024;
+export function nativeVideoDimensionsSafe(width:number,height:number,duration:number){
+ return Number.isFinite(duration)&&duration>0&&duration<=90&&width>0&&height>0&&Math.max(width,height)<=1920&&Math.min(width,height)<=1080&&width*height<=1920*1080;
+}
 
 export async function optimizeVideoAttachment(
-  source:File,signal?:AbortSignal,onProgress?:(percent:number)=>void
+  source:File,signal?:AbortSignal,onProgress?:(percent:number)=>void,native=false
 ):Promise<VideoOptimizationResult>{
   const unchanged={file:source,compressed:false};
-  if(!source.type.startsWith('video/')||!source.size||source.size<=8*1024*1024||source.size>300*1024*1024)return unchanged;
   if(signal?.aborted)throw Error('ABORTED');
-  if(typeof MediaRecorder==='undefined'||typeof AudioContext==='undefined')return unchanged;
+  if(!source.type.startsWith('video/')||!source.size||source.size>(native?NATIVE_VIDEO_MAX_BYTES:300*1024*1024)){
+    if(native)throw Error('NATIVE_VIDEO_LIMIT');return unchanged;
+  }
+  if(!native&&source.size<=8*1024*1024)return unchanged;
+  let safeOriginal=false;
+  const fallback=()=>{if(native&&!safeOriginal)throw Error('NATIVE_VIDEO_UNSAFE');return unchanged;};
   const withDeadline=async<T>(promise:Promise<T>,ms:number):Promise<T>=>{
     let timer=0;
     let onAbort:(()=>void)|null=null;
@@ -31,17 +39,15 @@ export async function optimizeVideoAttachment(
     }
   };
   const canvas=document.createElement('canvas');
-  if(typeof canvas.captureStream!=='function')return unchanged;
   const outputMime=[
     'video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4',
     'video/webm;codecs=vp8,opus','video/webm',
-  ].find(type=>MediaRecorder.isTypeSupported(type));
-  if(!outputMime)return unchanged;
+  ].find(type=>typeof MediaRecorder!=='undefined'&&MediaRecorder.isTypeSupported(type));
 
   const url=URL.createObjectURL(source);
   const video=document.createElement('video');
   video.playsInline=true;
-  video.preload='auto';
+  video.preload='metadata';
   video.src=url;
   let audioContext:AudioContext|null=null;
   let canvasStream:MediaStream|null=null;
@@ -63,13 +69,19 @@ export async function optimizeVideoAttachment(
     const duration=video.duration;
     // Real-time browser transcoding is too costly for very long clips.
     if(!loaded||!Number.isFinite(duration)||duration<=0||duration>180||
-       !video.videoWidth||!video.videoHeight)return unchanged;
+       !video.videoWidth||!video.videoHeight)return fallback();
+    if(native){
+      if(!nativeVideoDimensionsSafe(video.videoWidth,video.videoHeight,duration))throw Error('NATIVE_VIDEO_LIMIT');
+      safeOriginal=source.size<=8*1024*1024&&Math.max(video.videoWidth,video.videoHeight)<=1280&&Math.min(video.videoWidth,video.videoHeight)<=720;
+      if(safeOriginal)return unchanged;
+    }
+    if(typeof MediaRecorder==='undefined'||typeof AudioContext==='undefined'||typeof canvas.captureStream!=='function'||!outputMime)return fallback();
     // Keep source aspect ratio, cap landscape/portrait at a 720p-equivalent frame.
-    const scale=Math.min(1,1280/video.videoWidth,720/video.videoHeight);
+    const scale=Math.min(1,1280/Math.max(video.videoWidth,video.videoHeight),720/Math.min(video.videoWidth,video.videoHeight));
     canvas.width=Math.max(2,Math.round(video.videoWidth*scale/2)*2);
     canvas.height=Math.max(2,Math.round(video.videoHeight*scale/2)*2);
     const context=canvas.getContext('2d',{alpha:false});
-    if(!context)return unchanged;
+    if(!context)return fallback();
     audioContext=new AudioContext();
     const audioTarget=audioContext.createMediaStreamDestination();
     audioOutput=audioTarget.stream;
@@ -89,12 +101,12 @@ export async function optimizeVideoAttachment(
       recorder=new MediaRecorder(recordingStream,{
         mimeType:outputMime,videoBitsPerSecond:1_300_000,audioBitsPerSecond:96_000,
       });
-    }catch{return unchanged;}
+    }catch{return fallback();}
     const chunks:Blob[]=[];
-    let settled=false;
+    let settled=false,encodedBytes=0;
     const finished=new Promise<Blob>((resolve,reject)=>{
       rejectPending=reject;
-      recorder!.ondataavailable=event=>{if(event.data.size)chunks.push(event.data);};
+      recorder!.ondataavailable=event=>{if(settled||!event.data.size)return;encodedBytes+=event.data.size;if(encodedBytes>30*1024*1024){settled=true;chunks.length=0;reject(Error('VIDEO_OUTPUT_LIMIT'));return;}chunks.push(event.data);};
       recorder!.onerror=()=>{if(!settled){settled=true;reject(Error('VIDEO_ENCODER_FAILED'));}};
       recorder!.onstop=()=>{
         if(!settled){settled=true;resolve(new Blob(chunks,{type:recorder!.mimeType.split(';')[0]}));}
@@ -112,7 +124,7 @@ export async function optimizeVideoAttachment(
     // Ensure a play() failure does not cause a secondary unhandled rejection.
     void finished.catch(()=>{});
     await withDeadline(audioContext.resume(),5000);
-    if(audioContext.state!=='running')return unchanged;
+    if(audioContext.state!=='running')return fallback();
     if(signal?.aborted)throw Error('ABORTED');
     recorder.start(1000);
     await withDeadline(video.play(),5000);
@@ -128,14 +140,14 @@ export async function optimizeVideoAttachment(
     const result=await finished;
     if(signal?.aborted)throw Error('ABORTED');
     const mime=result.type==='video/mp4'?'video/mp4':result.type==='video/webm'?'video/webm':null;
-    if(!mime||!result.size||result.size>=source.size*0.96)return unchanged;
+    if(!mime||!result.size||result.size>30*1024*1024||(!native&&result.size>=source.size*0.96))return fallback();
     const extension=mime==='video/mp4'?'mp4':'webm';
     const base=source.name.replace(/\.[^.]+$/,'').slice(0,145);
     onProgress?.(100);
     return {file:new File([result],base+'-compactado.'+extension,{type:mime}),compressed:true};
   }catch(error){
     if(signal?.aborted||(error instanceof Error&&error.message==='ABORTED'))throw Error('ABORTED');
-    return unchanged;
+    return fallback();
   }finally{
     signal?.removeEventListener('abort',abort);
     window.cancelAnimationFrame(frame);
@@ -146,7 +158,7 @@ export async function optimizeVideoAttachment(
     audioOutput?.getTracks().forEach(track=>track.stop());
     if(audioContext)void audioContext.close().catch(()=>{});
     if(screenWakeLock)void screenWakeLock.release().catch(()=>{});
-    video.removeAttribute('src');video.load();
+    video.removeAttribute('src');video.load();canvas.width=0;canvas.height=0;
     URL.revokeObjectURL(url);
     rejectPending=null;
   }

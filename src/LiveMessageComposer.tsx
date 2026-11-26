@@ -1,14 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import { CalendarPlus, ListChecks, SwitchCamera, Zap, ZapOff, Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Video, X } from 'lucide-react';
+import { CalendarPlus, ListChecks, Camera, FileText, Images, MapPin, Mic, Pause, Pencil, Play, Plus, Send, Smile, Video, X } from 'lucide-react';
 import { attachmentLabel } from './chatAttachmentLabels';
 import { createPortal } from 'react-dom';
 import { ChatAudioPlayer,mediaLabel } from './Media';
 import { ChatImageEditor } from './ChatImageEditor';
 import { cn } from './components';
-import { optimizeVideoAttachment } from './videoCompression';
-import { optimizeImageAttachment, prepareCameraPhoto } from './imageCompression';
-import {cameraConstraints,canAttemptTorch,setCameraTorch,recordingMime,VIDEO_MAX_BYTES,VIDEO_STOP_BYTES,VIDEO_MAX_SECONDS,VIDEO_BITRATE,PHOTO_FLASH_SETTLE_MS} from './cameraCapture';
+import { optimizeVideoAttachment, NATIVE_VIDEO_MAX_BYTES } from './videoCompression';
+import { optimizeImageAttachment, prepareCameraPhoto, prepareNativeCameraPhoto } from './imageCompression';
 
 const EMOJI_GROUPS = [
   { pt: 'Expressões', en: 'Expressions', symbols: ['😀','😃','😁','😂','🤣','😊','😍','🥰','😘','😎','🥹','😢','😭','😡','🤔','😴','🤩','😮'] },
@@ -23,182 +21,6 @@ const ATTACHMENTS = [
   { icon: MapPin, pt: 'Localização', en: 'Location' },
 ] as const;
 
-
-/** A shared, bounded camera for photos and videos; no native camera picker. */
-function CameraModal({pt,mode,onClose,onAccept}:{pt:boolean;mode:'image'|'video';onClose:()=>void;onAccept:(file:File)=>void}){
-  const video=useRef<HTMLVideoElement>(null);
-  const stream=useRef<MediaStream|null>(null);
-  const active=useRef(true);
-  const captureBusy=useRef(false);
-  const recorder=useRef<MediaRecorder|null>(null);
-  const recordingTimer=useRef<number|undefined>(undefined);
-  const recordingStarted=useRef(0);
-  const [facing,setFacing]=useState<'user'|'environment'>('environment');
-  const [generation,restart]=useState(0);
-  const [ready,setReady]=useState(false);
-  const [busy,setBusy]=useState(false);
-  const [error,setError]=useState('');
-  const [notice,setNotice]=useState('');
-  const [hasTorch,setHasTorch]=useState(false);
-  const [flash,setFlash]=useState(false);
-  const [recording,setRecording]=useState(false);
-  const [seconds,setSeconds]=useState(0);
-  const [file,setFile]=useState<File|null>(null);
-  const [preview,setPreview]=useState('');
-  const isVideo=mode==='video';
-  const stop=()=>{
-    window.clearInterval(recordingTimer.current);
-    const rec=recorder.current;recorder.current=null;
-    if(rec){rec.ondataavailable=null;rec.onstop=null;rec.onerror=null;if(rec.state!=='inactive'){try{rec.stop()}catch{}}}
-    const current=stream.current;stream.current=null;
-    current?.getTracks().forEach(track=>track.stop());
-    if(video.current)video.current.srcObject=null;
-  };
-  useEffect(()=>{active.current=true;return()=>{active.current=false;stop();};},[]);
-  useEffect(()=>{
-    if(!file){setPreview('');return;}
-    const url=URL.createObjectURL(file);setPreview(url);
-    return()=>URL.revokeObjectURL(url);
-  },[file]);
-  useEffect(()=>{
-    if(file)return;
-    let cancelled=false;
-    setReady(false);setError('');setNotice('');setHasTorch(false);setFlash(false);setRecording(false);
-    const open=async()=>{
-      try{
-        if(!navigator.mediaDevices?.getUserMedia||(isVideo&&typeof MediaRecorder==='undefined'))throw Error('unsupported');
-        const next=await navigator.mediaDevices.getUserMedia({audio:isVideo,video:cameraConstraints(mode,facing)});
-        if(cancelled||!active.current){next.getTracks().forEach(t=>t.stop());return;}
-        stream.current=next;
-        const track=next.getVideoTracks()[0];
-        if(!track)throw Error('camera');
-        if(video.current){video.current.srcObject=next;await video.current.play();}
-        if(cancelled||!active.current)return;
-        if(isVideo&&video.current&&video.current.videoWidth*video.current.videoHeight>1280*720){
-          await track.applyConstraints({width:{max:960},height:{max:960},frameRate:{max:24}});
-          const settings=track.getSettings();
-          if((settings.width||0)*(settings.height||0)>1280*720)throw Error('resolution');
-        }
-        if(cancelled||!active.current)return;
-        setHasTorch(canAttemptTorch(track,facing));setReady(true);
-      }catch{
-        if(!cancelled&&active.current){stop();setError(pt?'Não foi possível abrir a câmera. Verifique as permissões de câmera e microfone e tente novamente.':'Could not open the camera. Check camera and microphone permissions and retry.');}
-      }
-    };
-    void open();
-    return()=>{cancelled=true;stop();};
-  },[facing,generation,file,pt,isVideo,mode]);
-  async function illuminate(track:MediaStreamTrack|undefined){
-    if(!flash||!track)return false;
-    if(await setCameraTorch(track,true))return true;
-    if(active.current){setFlash(false);setHasTorch(false);setNotice(pt?'Não foi possível confirmar o acionamento do flash nesta câmera.':'Could not confirm flash activation on this camera.');}
-    return false;
-  }
-  async function capture(){
-    const frame=video.current;
-    if(!ready||!frame?.videoWidth||!frame.videoHeight||captureBusy.current)return;
-    captureBusy.current=true;setBusy(true);setError('');
-    const track=stream.current?.getVideoTracks()[0];
-    const canvas=document.createElement('canvas');
-    try{
-      const lit=await illuminate(track);
-      if(lit)await new Promise(resolve=>window.setTimeout(resolve,PHOTO_FLASH_SETTLE_MS));
-      if(!active.current||stream.current?.getVideoTracks()[0]!==track)return;
-      const ratio=Math.min(1,1600/Math.max(frame.videoWidth,frame.videoHeight));
-      canvas.width=Math.max(1,Math.round(frame.videoWidth*ratio));
-      canvas.height=Math.max(1,Math.round(frame.videoHeight*ratio));
-      const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('canvas');
-      ctx.drawImage(frame,0,0,canvas.width,canvas.height);
-      stop();setReady(false);
-      const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',0.8));
-      if(!blob?.size||blob.type!=='image/jpeg'||blob.size>10*1024*1024)throw Error('encode');
-      if(active.current)setFile(new File([blob],'foto-'+Date.now()+'.jpg',{type:'image/jpeg'}));
-    }catch{if(active.current){setError(pt?'Não foi possível capturar a foto. Tente novamente.':'Could not capture the photo. Retry.');setReady(false);stop();}}
-    finally{if(track?.readyState==='live')void setCameraTorch(track,false);canvas.width=0;canvas.height=0;captureBusy.current=false;if(active.current)setBusy(false);}
-  }
-  function finishVideo(){
-    const rec=recorder.current;
-    if(!rec||rec.state==='inactive')return;
-    window.clearInterval(recordingTimer.current);
-    setBusy(true);setRecording(false);
-    try{rec.stop();}catch{stop();setReady(false);setBusy(false);setError(pt?'Não foi possível finalizar o vídeo.':'Could not finish the video.');}
-  }
-  async function startVideo(){
-    const current=stream.current;
-    if(!ready||!current||captureBusy.current||recorder.current)return;
-    captureBusy.current=true;setBusy(true);setError('');setSeconds(0);
-    const track=current.getVideoTracks()[0];
-    try{
-      const mime=recordingMime(MediaRecorder.isTypeSupported.bind(MediaRecorder));
-      if(!mime)throw Error('unsupported');
-      await illuminate(track);
-      if(!active.current||stream.current!==current)return;
-      const rec=new MediaRecorder(current,{mimeType:mime,videoBitsPerSecond:VIDEO_BITRATE,audioBitsPerSecond:96000});
-      recorder.current=rec;
-      let chunks:Blob[]=[],size=0,failed=false;
-      rec.ondataavailable=e=>{
-        if(!e.data.size||failed)return;
-        size+=e.data.size;
-        if(size>VIDEO_MAX_BYTES){failed=true;chunks=[];finishVideo();return;}
-        chunks.push(e.data);
-        if(size>=VIDEO_STOP_BYTES)finishVideo();
-      };
-      rec.onerror=()=>{
-        failed=true;chunks=[];stop();
-        if(active.current){setRecording(false);setReady(false);setBusy(false);setError(pt?'Falha na gravação. Tente novamente.':'Recording failed. Retry.');}
-      };
-      rec.onstop=()=>{
-        if(recorder.current!==rec)return;
-        const type=(rec.mimeType||mime).split(';')[0];
-        const result=!failed&&size>0&&size<=VIDEO_MAX_BYTES&&['video/mp4','video/webm'].includes(type)?new File(chunks,'video-'+Date.now()+'.'+(type==='video/mp4'?'mp4':'webm'),{type}):null;
-        chunks=[];stop();
-        if(!active.current)return;
-        setReady(false);setRecording(false);setBusy(false);
-        if(result)setFile(result);
-        else setError(pt?'Não foi possível salvar o vídeo dentro do limite de tamanho. Tente uma gravação mais curta.':'Could not save the video within the size limit. Try a shorter recording.');
-      };
-      rec.start(1000);recordingStarted.current=Date.now();setRecording(true);
-      recordingTimer.current=window.setInterval(()=>{
-        const elapsed=Math.floor((Date.now()-recordingStarted.current)/1000);setSeconds(Math.min(elapsed,VIDEO_MAX_SECONDS));
-        if(elapsed>=VIDEO_MAX_SECONDS)finishVideo();
-      },250);
-    }catch{if(active.current){stop();setReady(false);setRecording(false);setError(pt?'Não foi possível gravar vídeo neste navegador. Tente novamente.':'Could not record video in this browser. Retry.');}}
-    finally{captureBusy.current=false;if(active.current)setBusy(false);}
-  }
-  // A backgrounded camera must release hardware and recording buffers.
-  useEffect(()=>{
-    const hidden=()=>{if(document.visibilityState!=='hidden')return;const rec=recorder.current;if(rec?.state==='recording'){finishVideo();return;}if(stream.current){stop();setReady(false);setBusy(false);setError(pt?'Câmera pausada. Toque em tentar novamente.':'Camera paused. Tap retry.');}};
-    document.addEventListener('visibilitychange',hidden);
-    return()=>document.removeEventListener('visibilitychange',hidden);
-  },[pt]);
-  return <Dialog.Root open onOpenChange={open=>{if(!open)onClose();}}>
-    <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/80"/>
-      <Dialog.Content className="fixed inset-0 z-[101] m-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden bg-black text-white sm:h-[min(90dvh,800px)] sm:rounded-xl">
-        <div className="flex shrink-0 items-center justify-between p-4">
-          <Dialog.Title className="text-base font-semibold">{isVideo?(pt?'Gravar vídeo':'Record video'):(pt?'Câmera':'Camera')}</Dialog.Title>
-          <Dialog.Description className="sr-only">{isVideo?(pt?'Grave e confirme um vídeo':'Record and confirm a video'):(pt?'Capture e confirme uma foto':'Capture and confirm a photo')}</Dialog.Description>
-          <Dialog.Close asChild><button type="button" className="grid size-11 place-items-center rounded-full bg-white/10" aria-label={pt?'Fechar câmera':'Close camera'}><X className="size-6"/></button></Dialog.Close>
-        </div>
-        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-          {file?isVideo?<video src={preview||undefined} controls playsInline preload="metadata" className="max-h-full max-w-full object-contain"/>:<img src={preview||undefined} alt={pt?'Foto capturada':'Captured photo'} className="max-h-full max-w-full object-contain"/>:
-            <video ref={video} autoPlay muted playsInline className={cn('h-full w-full object-contain',facing==='user'&&'-scale-x-100')}/>}
-          {(!ready&&!file&&!error)&&<div role="status" className="absolute inset-0 grid place-items-center bg-black/30">{busy?(pt?'Preparando mídia…':'Preparing media…'):(pt?'Abrindo câmera…':'Opening camera…')}</div>}
-          {recording&&<div role="status" className="absolute top-4 rounded-full bg-black/70 px-3 py-1 text-white"><span className="mr-2 inline-block size-2 rounded-full bg-red-500"/>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,'0')} / 1:30</div>}
-          {error&&<div role="alert" className="absolute inset-x-4 top-4 rounded-lg bg-black/80 p-3 text-center">{error}<button type="button" className="mt-2 block w-full underline" onClick={()=>restart(v=>v+1)}>{pt?'Tentar novamente':'Retry'}</button></div>}
-          {notice&&!error&&<div role="status" className="absolute inset-x-4 bottom-4 rounded-lg bg-black/70 p-2 text-center text-xs">{notice}</div>}
-        </div>
-        <div className="flex shrink-0 items-center justify-around gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {file?<><button type="button" className="min-h-12 rounded-lg bg-white/10 px-4" onClick={()=>{setFile(null);restart(v=>v+1);}}>{pt?'Refazer':'Retake'}</button>
-            <button type="button" className="min-h-12 rounded-lg bg-white px-4 font-semibold text-black" onClick={()=>onAccept(file)}>{isVideo?(pt?'Usar vídeo':'Use video'):(pt?'Usar foto':'Use photo')}</button></>:
-            <><button type="button" disabled={!ready||busy||recording||!hasTorch} aria-pressed={flash} title={hasTorch?(isVideo?(pt?'Luz durante gravação':'Recording light'):(pt?'Flash na captura':'Capture flash')):(pt?'Flash indisponível':'Flash unavailable')} aria-label={flash?(pt?'Desligar flash':'Turn flash off'):(pt?'Ligar flash':'Turn flash on')} onClick={()=>setFlash(v=>!v)} className={cn('grid size-12 place-items-center rounded-full disabled:opacity-30',flash?'bg-white text-black':'bg-white/10')}>{flash?<Zap className="size-6"/>:<ZapOff className="size-6"/>}</button>
-            <button type="button" disabled={!ready||busy} aria-label={isVideo?(recording?(pt?'Parar gravação':'Stop recording'):(pt?'Iniciar gravação':'Start recording')):(pt?'Tirar foto':'Take photo')} onClick={()=>isVideo?(recording?finishVideo():void startVideo()):void capture()} className="grid size-[72px] place-items-center rounded-full border-4 border-white disabled:opacity-30"><span className={cn(isVideo?'bg-red-500':'bg-white',recording?'size-7 rounded-md':'size-[54px] rounded-full')}/></button>
-            <button type="button" disabled={busy||recording} aria-label={pt?'Alternar câmera':'Switch camera'} onClick={()=>setFacing(v=>v==='environment'?'user':'environment')} className="grid size-12 place-items-center rounded-full bg-white/10 disabled:opacity-30"><SwitchCamera className="size-6"/></button></>}
-        </div>
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>;
-}
 
 export function LiveMessageComposer({ value, onChange, onSelectionChange, serializeValue, onSubmit, onAttach, onShareLocation, sending, locale, textareaRef, editing = false, onGif, gifOpen = false, allowOffice = false, onCreateEvent, onCreateList }: {
   value: string; onChange: (text: string) => void;
@@ -219,7 +41,8 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
   const galleryRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [cameraOptions,setCameraOptions] = useState(false);
-  const [cameraMode,setCameraMode]=useState<'image'|'video'|null>(null);
+  const nativePhotoRef=useRef<HTMLInputElement>(null);
+  const nativeVideoRef=useRef<HTMLInputElement>(null);
   const sendingPhotosRef=useRef(false);
   const [sendingPhotos,setSendingPhotos]=useState(false);
   const [pending,setPending] = useState<File | null>(null);
@@ -363,11 +186,29 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     const url=URL.createObjectURL(file);
     localUrl.current=url;setPending(file);setPendingUrl(url);setError('');setAttachmentsOpen(false);
   }
-  async function stageVideo(file:File){
-    if(optimizingRef.current||editing)return;
-    if(!file.size||file.size>300*1024*1024||!['video/mp4','video/webm','video/quicktime'].includes(file.type)){
-      setError(pt?'Escolha um vídeo MP4, WebM ou MOV de até 300 MB para compactar.':
-        'Choose an MP4, WebM or MOV video up to 300 MB for compression.');return;
+  async function stageNativePhoto(file:File){
+    if(editing||optimizingRef.current||sendingPhotosRef.current)return;
+    const controller=new AbortController();
+    optimizationController.current=controller;optimizingRef.current=true;
+    setOptimizing(true);setOptimizationKind('image');setOptimizationProgress(0);
+    setOptimizingFile({name:file.name,size:file.size});setError('');
+    try{
+      const prepared=await prepareNativeCameraPhoto(file,controller.signal);
+      if(controller.signal.aborted||!mounted.current)return;
+      setOptimizationProgress(100);optimizingRef.current=false;stagePhotos([prepared]);
+    }catch{
+      if(mounted.current&&!controller.signal.aborted)setError(pt?'Não foi possível preparar a foto com segurança. Use JPEG, resolução de até 24 MP e arquivo de até 20 MB.':'Could not safely prepare the photo. Use JPEG, up to 24 MP and 20 MB.');
+    }finally{
+      if(optimizationController.current===controller)optimizationController.current=null;
+      optimizingRef.current=false;
+      if(mounted.current){setOptimizing(false);setOptimizingFile(null);}
+    }
+  }
+  async function stageVideo(file:File,native=false){
+    if(optimizingRef.current||editing||sendingPhotosRef.current)return;
+    if(!file.size||file.size>(native?NATIVE_VIDEO_MAX_BYTES:300*1024*1024)||!['video/mp4','video/webm','video/quicktime'].includes(file.type)){
+      setError(native?(pt?'Grave um vídeo de até 60 MB, em 1080p ou menos.':'Record a video up to 60 MB at 1080p or below.'):(pt?'Escolha um vídeo MP4, WebM ou MOV de até 300 MB para compactar.':
+        'Choose an MP4, WebM or MOV video up to 300 MB for compression.'));return;
     }
     const controller=new AbortController();
     optimizationController.current=controller;
@@ -377,7 +218,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
     try{
       const result=await optimizeVideoAttachment(file,controller.signal,percent=>{
         if(mounted.current)setOptimizationProgress(percent);
-      });
+      },native);
       if(controller.signal.aborted||!mounted.current)return;
       if(result.file.size>30*1024*1024){
         setError(pt?'Não foi possível reduzir o vídeo para até 30 MB neste navegador.':
@@ -392,7 +233,7 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       if(!mounted.current)return;
       if(error instanceof Error&&error.message==='ABORTED')
         setVideoNotice(pt?'Compactação cancelada. Nenhum vídeo foi enviado.':'Compression cancelled. No video was sent.');
-      else setError(pt?'Falha ao preparar o vídeo.':'Could not prepare the video.');
+      else setError(native?(pt?'Não foi possível preparar o vídeo com segurança. Grave em 720p ou 1080p, até 90 segundos, e tente novamente.':'Could not safely prepare the video. Record at 720p or 1080p, up to 90 seconds, and retry.'):(pt?'Falha ao preparar o vídeo.':'Could not prepare the video.'));
     }finally{
       if(optimizationController.current===controller)optimizationController.current=null;
       optimizingRef.current=false;
@@ -599,7 +440,6 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
 
   return <form ref={controls} onSubmit={submit}
     className="relative flex w-full min-w-0 flex-wrap items-end gap-1 sm:gap-2" data-live-message-composer>
-    {cameraMode&&<CameraModal pt={pt} mode={cameraMode} onClose={()=>setCameraMode(null)} onAccept={file=>{if(cameraMode==='image')stagePhotos([file]);else stageFile(file);setCameraMode(null);}}/>}
     {optimizing&&<div className="w-full min-w-0 space-y-2 rounded-lg border border-border bg-card p-3" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-xs">
         <span className="min-w-0 flex-1 truncate font-semibold" title={pt?'Preparando mídia':'Preparing media'}>
@@ -681,9 +521,9 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
       {attachmentsOpen&&<div role="dialog" aria-label={pt?'Adicionar à conversa':'Add to chat'} className="attachment-popover absolute bottom-full inset-x-0 z-40 mb-2 max-h-[min(50dvh,320px)] overflow-y-auto overscroll-contain border border-border bg-popover p-2 text-popover-foreground shadow-xl">
         <div className="flex items-center justify-between px-2 py-1"><span className="text-xs font-semibold">{pt?'Adicionar à conversa':'Add to chat'}</span><button type="button" onClick={()=>{setAttachmentsOpen(false);setCameraOptions(false)}} aria-label={pt?'Fechar anexos':'Close attachments'} className="grid size-7 place-items-center hover:bg-accent"><X className="size-4"/></button></div>
         {cameraOptions ? <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={()=>{setCameraMode('image');setCameraOptions(false);setAttachmentsOpen(false);}}
+          <button type="button" disabled={sending||sendingPhotos||editing||optimizing||recording!=='idle'} onClick={()=>{nativePhotoRef.current?.click();setCameraOptions(false);setAttachmentsOpen(false);}}
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Camera className="size-5"/>{pt?'Tirar foto':'Take photo'}</button>
-          <button type="button" onClick={()=>{setCameraMode('video');setCameraOptions(false);setAttachmentsOpen(false);}}
+          <button type="button" disabled={sending||sendingPhotos||editing||optimizing||recording!=='idle'} onClick={()=>{nativeVideoRef.current?.click();setCameraOptions(false);setAttachmentsOpen(false);}}
             className="flex min-h-16 flex-col items-center justify-center border border-border p-2 text-xs hover:bg-accent"><Video className="size-5"/>{pt?'Gravar vídeo':'Record video'}</button>
           <button type="button" onClick={()=>setCameraOptions(false)} className="col-span-2 text-xs hover:bg-accent">{pt?'Voltar':'Back'}</button>
         </div> : <div>
@@ -706,10 +546,14 @@ export function LiveMessageComposer({ value, onChange, onSelectionChange, serial
           </div>
         </div>}
         <p className="px-2 pt-2 text-[11px] text-muted-foreground">
-          {pt ? 'Anexos até 10 MB; vídeos até 30 MB após compactação (originais até 300 MB).' : 'Attachments up to 10 MB; videos up to 30 MB after compression (originals up to 300 MB).'}
+          {pt ? 'Anexos até 10 MB; vídeos até 30 MB após compactação. Pela câmera: fotos JPEG até 24 MP/20 MB; vídeos até 1080p/60 MB/90 s.' : 'Attachments up to 10 MB; videos up to 30 MB after compression. Camera: JPEG photos up to 24 MP/20 MB; videos up to 1080p/60 MB/90 s.'}
         </p>
       </div>}
     </div>
+    <input ref={nativePhotoRef} type="file" accept="image/jpeg" capture="environment" className="sr-only"
+      onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void stageNativePhoto(file);}}/>
+    <input ref={nativeVideoRef} type="file" accept="video/*" capture="environment" className="sr-only"
+      onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void stageVideo(file,true);}}/>
     <input ref={galleryRef} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" className="sr-only"
       onChange={e => { const files=Array.from(e.target.files??[]); e.target.value=''; selectGallery(files); }} />
     <input ref={fileRef} type="file" accept={'.pdf,.txt,.zip,.mp3,.m4a,.ogg,.webm,.wav,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,application/octet-stream'+(allowOffice?',.doc,.docx,.xls,.xlsx,.ppt,.pptx':'')} className="sr-only"

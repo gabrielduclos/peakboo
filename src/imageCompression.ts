@@ -120,3 +120,13 @@ export async function prepareCameraPhoto(file:File,signal?:AbortSignal):Promise<
   return new File([blob],(file.name.replace(/\.[^.]+$/,'')||'photo').slice(0,174)+'.jpg',{type:'image/jpeg',lastModified:file.lastModified});
  }finally{bitmap?.close();if(canvas){canvas.width=0;canvas.height=0}}
 }
+
+// Native capture has a stricter input budget than gallery imports. Reject before decoding.
+export async function prepareNativeCameraPhoto(file:File,signal?:AbortSignal):Promise<File>{
+ assertNotAborted(signal);
+ if(!file.size||file.size>20*1024*1024||file.type!=='image/jpeg')throw Error('NATIVE_CAMERA_PHOTO_LIMIT');
+ const dimensions=await jpegDimensions(file);
+ assertNotAborted(signal);
+ if(!dimensions||dimensions.width*dimensions.height>24_000_000)throw Error('NATIVE_CAMERA_PHOTO_LIMIT');
+ return prepareCameraPhoto(file,signal);
+}

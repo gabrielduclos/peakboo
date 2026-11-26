@@ -308,29 +308,27 @@ try{
  try{const sender=document.querySelector('button.sender-name');assert.ok(sender);const name=sender.textContent;await act(async()=>sender.click());const profile=document.querySelector('[role=dialog] .profile-editor');assert.ok(profile);assert.ok(profile.textContent.includes(name));assert.equal(profile.querySelector('form'),null);assert.equal(calls,0);await act(async()=>document.querySelector('[role=dialog] [aria-label=Fechar]').click());assert.equal(document.querySelector('[role=dialog]'),null)}finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1')}
  });
 
- await test('camera video capture is bounded and torch accepts Android and Safari capability shapes',async()=>{
- const out=dir+'/camera-capture.mjs';await build({entryPoints:['src/cameraCapture.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});
- const camera=await import(pathToFileURL(out));const limits=camera.cameraConstraints('video','environment');
- assert.equal(limits.width.max,1280);assert.equal(limits.height.max,720);assert.equal(limits.frameRate.max,24);
- assert.equal(camera.PHOTO_FLASH_SETTLE_MS,800);assert.equal(camera.VIDEO_MAX_SECONDS,90);assert.ok(camera.VIDEO_MAX_BYTES<30*1024*1024);assert.ok(camera.VIDEO_STOP_BYTES<camera.VIDEO_MAX_BYTES);
- assert.equal(camera.recordingMime(t=>t==='video/webm'),'video/webm');
- let light=false;let attempts=0;const track={readyState:'live',getCapabilities:()=>({torch:[false,true]}),getConstraints:()=>({width:{max:1280},height:{max:720},frameRate:{max:24}}),getSettings:()=>({torch:light}),applyConstraints:async c=>{attempts++;assert.equal(c.width.max,1280);assert.equal(c.height.max,720);assert.equal(c.frameRate.max,24);if(c.advanced?.some(x=>'torch' in x))return;light=c.torch;}};
- assert.equal(camera.canAttemptTorch(track,'environment'),true);assert.equal(camera.canAttemptTorch(track,'user'),false);
- assert.equal(await camera.setCameraTorch(track,true),true);assert.equal(light,true);assert.equal(attempts,3);assert.equal(await camera.setCameraTorch(track,false),true);assert.equal(light,false);
- const ignored={...track,getSettings:()=>({torch:false}),applyConstraints:async()=>{}};
- assert.equal(await camera.setCameraTorch(ignored,true),false);
- let unknownAttempts=0;const unknown={...track,getSettings:()=>({}),applyConstraints:async()=>{unknownAttempts++;}};
- assert.equal(await camera.setCameraTorch(unknown,true),true);assert.equal(unknownAttempts,3);
+ await test('native video safety rejects oversized recordings before preview',async()=>{
+ const out=dir+'/native-video.mjs';await build({entryPoints:['src/videoCompression.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});
+ const {nativeVideoDimensionsSafe,optimizeVideoAttachment,NATIVE_VIDEO_MAX_BYTES}=await import(pathToFileURL(out));
+ assert.equal(NATIVE_VIDEO_MAX_BYTES,60*1024*1024);
+ assert.equal(nativeVideoDimensionsSafe(1920,1080,90),true);assert.equal(nativeVideoDimensionsSafe(1080,1920,30),true);
+ assert.equal(nativeVideoDimensionsSafe(3840,2160,10),false);assert.equal(nativeVideoDimensionsSafe(1280,720,91),false);
+ assert.equal(nativeVideoDimensionsSafe(0,0,1),false);assert.equal(nativeVideoDimensionsSafe(1280,720,Infinity),false);
+ await assert.rejects(optimizeVideoAttachment(new File([],'empty.mp4',{type:'video/mp4'}),undefined,undefined,true),/NATIVE_VIDEO_LIMIT/);
  });
  await test('camera JPEG dimensions are parsed before a bounded resize and canvas is released',async()=>{
- const out=dir+'/camera-prepare.mjs';await build({entryPoints:['src/imageCompression.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {jpegDimensions,prepareCameraPhoto}=await import(pathToFileURL(out));
+ const out=dir+'/camera-prepare.mjs';await build({entryPoints:['src/imageCompression.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {jpegDimensions,prepareCameraPhoto,prepareNativeCameraPhoto}=await import(pathToFileURL(out));
  const jpeg=new File([new Uint8Array([255,216,255,192,0,11,8,15,160,23,112,1,1,17,0,255,217])],'camera.jpg',{type:'image/jpeg'});
  assert.deepEqual(await jpegDimensions(jpeg),{width:6000,height:4000});
+ const oversized=new File([new Uint8Array([255,216,255,192,0,11,8,23,112,31,64,1,1,17,0,255,217])],'48mp.jpg',{type:'image/jpeg'});
+ await assert.rejects(prepareNativeCameraPhoto(oversized),/NATIVE_CAMERA_PHOTO_LIMIT/);
+ await assert.rejects(prepareNativeCameraPhoto(new File(['heic'],'photo.heic',{type:'image/heic'})),/NATIVE_CAMERA_PHOTO_LIMIT/);
  const oldBitmap=globalThis.createImageBitmap,oldContext=window.HTMLCanvasElement.prototype.getContext,oldBlob=window.HTMLCanvasElement.prototype.toBlob;let options,closed=0,canvas;
  globalThis.createImageBitmap=async(_file,opts)=>{options=opts;return {width:1067,height:711,close(){closed++}}};
  window.HTMLCanvasElement.prototype.getContext=function(){canvas=this;return {drawImage(){}}};
  window.HTMLCanvasElement.prototype.toBlob=function(cb){assert.equal(closed,1);cb(new Blob(['photo'],{type:'image/jpeg'}))};
- try{const result=await prepareCameraPhoto(jpeg);assert.equal(options.resizeWidth,1067);assert.equal(result.type,'image/jpeg');assert.equal(closed,1);assert.equal(canvas.width,0);assert.equal(canvas.height,0);await assert.rejects(prepareCameraPhoto(new File(['bad'],'bad.jpg',{type:'image/jpeg'})),/CAMERA_PHOTO_UNSUPPORTED/)}
+ try{const result=await prepareNativeCameraPhoto(jpeg);assert.equal(options.resizeWidth,1067);assert.equal(result.type,'image/jpeg');assert.equal(closed,1);assert.equal(canvas.width,0);assert.equal(canvas.height,0);await assert.rejects(prepareCameraPhoto(new File(['bad'],'bad.jpg',{type:'image/jpeg'})),/CAMERA_PHOTO_UNSUPPORTED/)}
  finally{globalThis.createImageBitmap=oldBitmap;window.HTMLCanvasElement.prototype.getContext=oldContext;window.HTMLCanvasElement.prototype.toBlob=oldBlob}
  });
 
