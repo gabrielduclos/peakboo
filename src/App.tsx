@@ -10,7 +10,7 @@ import {useAppNavigation,useMobileViewport} from "./appNavigation";
 import {ReplyReference,replySnapshot} from "./ReplyReference";
 import {ProfileEditor,ProfileDialog,type ProfileTarget} from "./Social";
 import {PushSettings} from "./PushSettings";
-import {disablePush,closeReadRoomPush} from "./pwa";
+import {disablePush,closeReadRoomPush,syncAppBadge} from "./pwa";
 import {PwaInvites} from "./PwaInvites";
 import {InvitationTools} from "./InvitationTools";
 import {inviteLink} from "./links";
@@ -208,6 +208,12 @@ export default function App() {
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const upcoming = events.filter((e) => new Date(e.endsAt) >= new Date());
   const notificationCenter=useInternalNotifications(boot,true);
+  useEffect(()=>{
+    if(!boot.user.id)return;
+    const update=()=>{if(!document.hidden)void syncAppBadge(notificationCenter.total)};
+    update();document.addEventListener("visibilitychange",update);
+    return()=>document.removeEventListener("visibilitychange",update);
+  },[boot.user.id,notificationCenter.total]);
   const optimistic=useOptimisticMessages(boot.user.id);
   const rawMessages = mergeMessages(selected ? messages[selected] || [] : [],optimistic.pending.filter(m=>m.roomId===selected));
   const filtering=!!chatQuery.trim()||chatFilter.period!=='all'||chatFilter.kind!=='all';
@@ -318,7 +324,9 @@ export default function App() {
     pruneRoomPins(data.user.id,data.rooms.map(r=>r.id));
     setMessages(old=>Object.fromEntries(Object.entries(old).filter(([id])=>data.rooms.some(r=>r.id===id)).map(([id,list])=>{const joined=data.rooms.find(r=>r.id===id)?.joinedAt;return [id,joined?list.filter(m=>Date.parse(m.createdAt)>=Date.parse(joined)):list]})));
     setBoot(data);
-    void closeReadRoomPush(data.rooms.filter(r=>r.unread===0).map(r=>r.id)).catch(()=>{});
+    const readNotices=new Set([...(data.notificationState?.read||[]),...(data.notificationState?.dismissed||[])]);
+    const unreadReactionRooms=new Set((data.reactionNotices||[]).filter(n=>!readNotices.has("reaction:"+n.id)).map(n=>n.roomId));
+    void closeReadRoomPush(data.rooms.filter(r=>r.unread===0&&!unreadReactionRooms.has(r.id)).map(r=>r.id)).catch(()=>{});
     setSelected((id) =>
       data.rooms.some((r: Room) => r.id === id)
         ? id
@@ -328,6 +336,7 @@ export default function App() {
   useEffect(() => {
     const expired=()=>{
       signedOutRef.current=true;
+      void syncAppBadge(0);
       setBoot(emptyBoot);
       setMessages({});
       setSelected(null);
@@ -384,14 +393,18 @@ export default function App() {
     setLoadingMessages(!messages[selected]);
     fetchMessages(selected,true).then(async()=>{
       if(!alive||!chatVisibleRef.current||document.hidden)return;
-      await request("/api/rooms/" + selected + "/read", "POST");
-      if(alive&&!signedOutRef.current)void closeReadRoomPush([selected]).catch(()=>{});
-      if(alive)setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===selected?{...r,unread:0}:r)}));
+      const result=await request("/api/rooms/" + selected + "/read", "POST");
+      if(alive&&!signedOutRef.current){
+        const ids:string[]=result.reactionRead||[];
+        if(ids.length)notificationCenter.mark(ids);
+        void closeReadRoomPush([selected]).catch(()=>{});
+        setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===selected?{...r,unread:0}:r),notificationState:{read:[...new Set([...(b.notificationState?.read||[]),...ids])],dismissed:b.notificationState?.dismissed||[]}}));
+      }
     }).catch(e=>notify(errorText(e))).finally(()=>alive&&setLoadingMessages(false));
     return () => {
       alive = false;
     };
-  }, [selected, fetchMessages,view,mobileChat]);
+  }, [selected, fetchMessages,view,mobileChat,boot.user.id]);
   useEffect(() => {
     if(!getToken()||!boot.user.id)return;
     let stopped=false,controller:AbortController|null=null,reconnect:ReturnType<typeof setTimeout>|null=null;
@@ -406,7 +419,13 @@ export default function App() {
         if(id&&chatVisibleRef.current&&(all||changed.has(id))){
           setPinnedRevision(v=>v+1);setFilterRevision(v=>v+1);await fetchMessages(id,all);
           if(!stopped&&!document.hidden&&chatVisibleRef.current&&selectedRef.current===id){
-            await request("/api/rooms/"+id+"/read","POST");if(!stopped&&!signedOutRef.current)void closeReadRoomPush([id]).catch(()=>{});setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r)}));
+            const result=await request("/api/rooms/"+id+"/read","POST");
+            if(!stopped&&!signedOutRef.current){
+              const ids:string[]=result.reactionRead||[];
+              if(ids.length)notificationCenter.mark(ids);
+              void closeReadRoomPush([id]).catch(()=>{});
+              setBoot(b=>({...b,rooms:b.rooms.map(r=>r.id===id?{...r,unread:0}:r),notificationState:{read:[...new Set([...(b.notificationState?.read||[]),...ids])],dismissed:b.notificationState?.dismissed||[]}}));
+            }
           }
         }
       }catch{full=true}
@@ -417,7 +436,7 @@ export default function App() {
       if(event?.deletedRoomId)removeRoomLocally(event.deletedRoomId);
       if(event?.notificationStateChanged)previewDirty=true;
       else if(event?.listChange&&event.roomId){commitList(event.roomId,event.listChange.messageId,event.listChange.checklist,event.listChange.deleted);if(!event.listChange.previewChanged)return;previewDirty=true;}
-      else if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;}
+      else if(event?.reaction&&event.roomId){commitReaction(event.roomId,event.reaction);previewDirty=true;dirty.add(event.roomId);}
       else if(event?.roomId)dirty.add(event.roomId);else full=true;
       if(event?.profileChanged)full=true;
       if(!refreshTimer.current&&!running&&!document.hidden)refreshTimer.current=setTimeout(flush,180);
@@ -513,6 +532,7 @@ export default function App() {
       await request("/api/auth/sign-out", "POST", {});
       clearToken();
       signedOutRef.current=true;
+      void syncAppBadge(0);
       setBoot(emptyBoot);
       setMessages({});
       setSelected(null);

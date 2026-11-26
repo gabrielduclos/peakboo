@@ -7,9 +7,18 @@ self.addEventListener("push",event=>{
  const roomId=uuid.test(n.roomId||"")?n.roomId:null,eventId=uuid.test(n.eventId||"")?n.eventId:null;
  const target=new URL("/",self.location.origin);
  if(roomId)target.hash=new URLSearchParams({pushRoom:roomId,...(eventId?{pushEvent:eventId}:{})}).toString();
- event.waitUntil(self.registration.showNotification(String(n.title||"Peakboo").slice(0,100),{
-  body:String(n.body||"Peakboo").slice(0,240),icon:"/peakboo-192-v2.png",badge:"/peakboo-badge-v2.png",tag:roomId?"peakboo-"+(eventId||roomId):"peakboo",data:{url:target.href},renotify:true
- }));
+ event.waitUntil(Promise.all([
+  self.registration.showNotification(String(n.title||"Peakboo").slice(0,100),{
+   body:String(n.body||"Peakboo").slice(0,240),icon:"/peakboo-192-v2.png",badge:"/peakboo-badge-v2.png",tag:roomId?"peakboo-"+(eventId||roomId):"peakboo",data:{url:target.href},renotify:true
+  }),
+  (async()=>{try{
+   if(!Number.isSafeInteger(n.badgeCount)||n.badgeCount<0)return;
+   const clients=await self.clients.matchAll({type:"window",includeUncontrolled:true});
+   if(clients.some(client=>client.visibilityState==="visible"))return;
+   if(n.badgeCount>0)await self.navigator.setAppBadge?.(n.badgeCount);
+   else await self.navigator.clearAppBadge?.();
+  }catch{/* Badging is optional; never suppress the notification. */}})()
+ ]));
 });
 self.addEventListener("notificationclick",event=>{
  event.notification.close();

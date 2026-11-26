@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {createRealtime} from "./realtime.mjs";
 import {createMemberMiddleware,registerSession,jsonError} from "./middleware/access.mjs";
 import {registerNotifications} from "./routes/notifications.mjs";
-import {registerBootstrap} from "./routes/bootstrap.mjs";
+import {registerBootstrap,countUnreadNotifications} from "./routes/bootstrap.mjs";
 import {registerGroups,registerGroupMembership} from "./routes/groups.mjs";
 import {registerMessageHistory,registerMessageActions} from "./routes/messages.mjs";
 import {registerEvents} from "./routes/events.mjs";
@@ -55,4 +55,14 @@ test("account notification changes reach only that account and all its connected
  realtime.live.set("user-b",new Set([response("other")]));
  realtime.notifyAccount("user-a",{notificationStateChanged:true});
  assert.deepEqual(received,[["phone",{notificationStateChanged:true}],["desktop",{notificationStateChanged:true}]]);
+});
+
+
+test("push badge includes unread reactions and clears only acknowledged notices",()=>{
+ const snapshot={rooms:[{id:"a",unread:0},{id:"b",unread:2}],events:[],activity:[],reactionNotices:[{id:"one",roomId:"a"},{id:"two",roomId:"b"}],notificationState:{read:[],dismissed:[]}};
+ assert.equal(countUnreadNotifications(snapshot,"user"),4);
+ snapshot.notificationState.read.push("reaction:one");
+ assert.equal(countUnreadNotifications(snapshot,"user"),3);
+ snapshot.notificationState.dismissed.push("reaction:two");
+ assert.equal(countUnreadNotifications(snapshot,"user"),2);
 });

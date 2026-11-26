@@ -318,7 +318,8 @@ try {
   const secondDevice=await noticeCall("/api/auth/sign-in/email",null,"POST",{email:alice.data.user.email,password:alice.credential});
   check("same account can open an independent session",()=>{assert.equal(secondDevice.status,200);assert.ok(secondDevice.token);assert.notEqual(secondDevice.token,alice.token)});
   const noticeId="reaction:"+firstNotice.id;
-  const readNotice=await noticeCall("/api/notifications/state",alice.token,"POST",{read:[noticeId],dismissed:[]});
+  const readNotice=await noticeCall("/api/rooms/"+id+"/read",alice.token,"POST");
+  check("opening a group acknowledges its reaction notices",()=>assert.ok(readNotice.data.reactionRead.includes(noticeId)));
   check("notification reading is persisted per account",()=>assert.equal(readNotice.status,200));
   const otherDeviceState=(await noticeCall("/api/bootstrap",secondDevice.token)).data.notificationState;
   check("second session sees read state",()=>assert.ok(otherDeviceState.read.includes(noticeId)));

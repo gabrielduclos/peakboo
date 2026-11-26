@@ -61,3 +61,10 @@ export async function closeReadRoomPush(roomIds:readonly string[]){
  const tags=new Set(roomIds.map(id=>"peakboo-"+id));
  for(const notification of await reg.getNotifications())if(tags.has(notification.tag))notification.close();
 }
+
+// Update the installed app icon using the notification center total.
+export async function syncAppBadge(count:number){
+ if(!isPwaWindow()||!Number.isSafeInteger(count)||count<0)return;
+ const badge=navigator as Navigator&{setAppBadge?:(count:number)=>Promise<void>;clearAppBadge?:()=>Promise<void>};
+ try{if(count>0)await badge.setAppBadge?.(count);else if(badge.clearAppBadge)await badge.clearAppBadge();else await badge.setAppBadge?.(0)}catch{/* OS/browser may not implement numeric badges. */}
+}

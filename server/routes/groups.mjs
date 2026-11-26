@@ -86,8 +86,25 @@ app.post("/api/rooms/:room/read", member, async (req, res) => {
       AND EXISTS(SELECT 1 FROM messages msg WHERE msg.room_id=m.room_id AND msg.sender_id<>m.user_id AND msg.created_at>m.last_read_at AND msg.created_at>=m.joined_at)`,
     [req.params.room, req.user.id],
   );
-  if(changed.rowCount)notifyAccount(req.user.id,{notificationStateChanged:true});
-  res.json({ ok: true });
+  // Reading a room acknowledges reactions independently of message timestamps.
+  const reactionState=await pool.query(`WITH candidates AS (
+    SELECT 'reaction:'||rx.activity_id::text AS notice_id
+    FROM reactions rx JOIN messages msg ON msg.id=rx.message_id
+    JOIN members m ON m.room_id=msg.room_id AND m.user_id=$2
+    JOIN rooms r ON r.id=m.room_id
+    WHERE msg.room_id=$1 AND r.kind='group' AND msg.sender_id=$2 AND rx.user_id<>$2
+      AND NOT msg.deleted AND msg.created_at>=m.joined_at AND rx.changed_at>=m.joined_at
+      AND rx.changed_at>now()-interval '30 days' AND rx.activity_id IS NOT NULL
+  ), written AS (
+    INSERT INTO notification_state(user_id,notice_id,seen,dismissed)
+    SELECT $2,notice_id,true,false FROM candidates
+    ON CONFLICT(user_id,notice_id) DO UPDATE SET seen=true WHERE NOT notification_state.seen
+    RETURNING notice_id
+  )
+  SELECT ARRAY(SELECT notice_id FROM candidates) AS ids, (SELECT count(*)::int FROM written) AS changed`,[req.params.room,req.user.id]);
+  const reactionRead=reactionState.rows[0]?.ids||[];
+  if(changed.rowCount||reactionState.rows[0]?.changed)notifyAccount(req.user.id,{notificationStateChanged:true});
+  res.json({ ok: true,reactionRead });
 });
 app.get("/api/rooms/:room/members", member, async (req, res) =>
   res.json({
