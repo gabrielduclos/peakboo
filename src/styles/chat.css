@@ -504,3 +504,30 @@
   color: var(--muted);
   font-size: 13px;
 }
+
+/* Only the sender label changes color. The chat bubble palette stays unchanged. */
+.sender-name[data-sender-color],.sender-name[data-sender-color]:hover{color:var(--sender-color,var(--subtle))}
+.sender-name[data-sender-color="0"]{--sender-color:#3268a5}
+.sender-name[data-sender-color="1"]{--sender-color:#966015}
+.sender-name[data-sender-color="2"]{--sender-color:#8951b5}
+.sender-name[data-sender-color="3"]{--sender-color:#a23c50}
+.sender-name[data-sender-color="4"]{--sender-color:#176e73}
+.sender-name[data-sender-color="5"]{--sender-color:#8a542d}
+.sender-name[data-sender-color="6"]{--sender-color:#3c539d}
+.sender-name[data-sender-color="7"]{--sender-color:#78641b}
+.sender-name[data-sender-color="8"]{--sender-color:#a13d83}
+.sender-name[data-sender-color="9"]{--sender-color:#326b4b}
+.sender-name[data-sender-color="10"]{--sender-color:#52647c}
+.sender-name[data-sender-color="11"]{--sender-color:#a04728}
+[data-theme="dark"] .sender-name[data-sender-color="0"]{--sender-color:#90b8e7}
+[data-theme="dark"] .sender-name[data-sender-color="1"]{--sender-color:#e5c56f}
+[data-theme="dark"] .sender-name[data-sender-color="2"]{--sender-color:#d2a8f5}
+[data-theme="dark"] .sender-name[data-sender-color="3"]{--sender-color:#ffa3b7}
+[data-theme="dark"] .sender-name[data-sender-color="4"]{--sender-color:#7ad4d6}
+[data-theme="dark"] .sender-name[data-sender-color="5"]{--sender-color:#efb48c}
+[data-theme="dark"] .sender-name[data-sender-color="6"]{--sender-color:#aebaff}
+[data-theme="dark"] .sender-name[data-sender-color="7"]{--sender-color:#dcc782}
+[data-theme="dark"] .sender-name[data-sender-color="8"]{--sender-color:#f0a1db}
+[data-theme="dark"] .sender-name[data-sender-color="9"]{--sender-color:#94d7a4}
+[data-theme="dark"] .sender-name[data-sender-color="10"]{--sender-color:#b6c7de}
+[data-theme="dark"] .sender-name[data-sender-color="11"]{--sender-color:#ffa987}

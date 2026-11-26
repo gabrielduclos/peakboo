@@ -12,6 +12,7 @@ import {LiveMessageComposer} from "../../LiveMessageComposer";
 import {MessageMedia,MessageText,mediaLabel} from "../../Media";
 import UpcomingEventsBar from "../../UpcomingEventsBar";
 import {localDayKey} from "../../messageTimestamp";
+import {senderColorIndex} from "../../senderColors";
 import type {useChatScroll} from "../../useChatScroll";
 import type {PendingMessage} from "../../useOptimisticMessages";
 import type {ReactionChange} from "../../realtime";
@@ -195,7 +196,7 @@ export function ChatPanel({room,rooms,events,userId,lang,locale,t,time,onBack,on
                     )}
                     <div className="message-body">
                       {!own && !grouped && (
-                        <button type="button" className="sender-name profile-name-link" onClick={()=>onProfile?.({id:m.senderId,name:m.senderName,image:m.senderImage})} disabled={!onProfile}>{displayName(m.senderName)}</button>
+                        <button type="button" className="sender-name profile-name-link" data-sender-color={senderColorIndex(m.senderId)} onClick={()=>onProfile?.({id:m.senderId,name:m.senderName,image:m.senderImage})} disabled={!onProfile}>{displayName(m.senderName)}</button>
                       )}
                       {p ? (
                         eventCard(p)

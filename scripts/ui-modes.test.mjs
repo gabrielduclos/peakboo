@@ -12,6 +12,22 @@ try{
  const render=async()=>act(async()=>root.render(createElement(SharedChecklist,{list,pt:true,onChange:async change=>{op=change;list={...list,version:2,items:list.items.map(i=>i.id===change.id?{...i,done:change.done}:i)}}})));
  try{await render();assert.equal(document.querySelector('progress').value,0);await act(async()=>document.querySelector('.shared-list-item input').click());assert.deepEqual(op,{kind:'toggle',id:'rice',done:true});await render();assert.equal(document.querySelector('progress').value,1);assert.ok(document.querySelector('.shared-list-item label.done'));assert.ok(document.querySelector('[aria-label="Adicionar item"]'))}finally{await act(async()=>root.unmount())}
  });
+ await test('sender palette is stable and readable in both themes; audio does not recolor incoming bubbles',async()=>{
+ const out=dir+'/sender-colors.mjs';await build({entryPoints:['src/senderColors.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});
+ const {senderColorIndex,SENDER_COLOR_COUNT}=await import(pathToFileURL(out));
+ const ids=Array.from({length:48},(_,i)=>'participant-'+i),values=ids.map(senderColorIndex);
+ assert.deepEqual(ids.slice().reverse().map(senderColorIndex).reverse(),values);assert.ok(new Set(values).size>=8);assert.equal(SENDER_COLOR_COUNT,12);assert.ok(values.every(i=>i>=0&&i<12));
+ const {readFile}=await import('node:fs/promises');
+ const css=await readFile('src/styles/chat.css','utf8'),audio=await readFile('src/styles/chat-media.css','utf8');
+ const luminance=hex=>{const rgb=hex.slice(1).match(/../g).map(v=>parseInt(v,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]};
+ const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+ for(let i=0;i<SENDER_COLOR_COUNT;i++){
+  const suffix='.sender-name[data-sender-color="'+i+'"]{--sender-color:';
+  const palette=css.split(suffix).slice(1).map(s=>s.slice(0,7));assert.equal(palette.length,2);
+  assert.ok(contrast(palette[0],'#f7fafb')>=4.5);assert.ok(contrast(palette[1],'#101b21')>=4.5);
+ }
+ assert.ok(!audio.includes('.message-bubble:has(.message-audio)'));assert.ok(audio.includes('.message:not(.own) .voice-player'));assert.ok(audio.includes('[data-theme="dark"] .message.own .voice-player'));
+ });
  await test('shared chat panel preserves empty state and create-group callback',async()=>{
  const out=dir+'/chat-panel.mjs';await build({entryPoints:['src/features/chat/ChatPanel.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});
  const {ChatPanel}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));let created=0;
@@ -139,7 +155,8 @@ try{
  const src='/api/media/12345678-1234-1234-1234-123456789abc';media.setMediaAccount('a');
  const urls=await Promise.all([media.cachedMedia(src),media.cachedMedia(src)]);assert.equal(calls,1);assert.equal(urls[0],urls[1]);await media.cachedMedia(src);assert.equal(calls,1);
  media.setMediaAccount('b');localStorage.setItem('peakboo-session','test-b');await media.cachedMedia(src);assert.equal(calls,2);
- const {renderToStaticMarkup}=await import('react-dom/server');const html=renderToStaticMarkup(createElement(media.MessageMedia,{attachment:{id:'12345678-1234-1234-1234-123456789abc',mime:'image/png',name:'internal-uuid-technical.png',size:123,width:800,height:400}}));assert.ok(html.includes('aspect-ratio:2'));assert.ok(html.includes('media-skeleton'));assert.ok(!html.includes('internal-uuid'));
+ const {renderToStaticMarkup}=await import('react-dom/server');const html=renderToStaticMarkup(createElement(media.MessageMedia,{attachment:{id:'12345678-1234-1234-1234-123456789abc',mime:'image/png',name:'internal-uuid-technical.png',size:123,width:800,height:400}}));assert.ok(html.includes('aspect-ratio:2'));assert.ok(!html.includes('media-skeleton'),'cached image must not flash a skeleton');assert.ok(!html.includes('internal-uuid'));
+ const cold=renderToStaticMarkup(createElement(media.MessageMedia,{attachment:{id:'12345678-1234-1234-1234-123456789abe',mime:'image/png',name:'internal-uuid-technical.png',size:123,width:800,height:400}}));assert.ok(cold.includes('aspect-ratio:2'));assert.ok(cold.includes('media-skeleton'),'uncached image still reserves its loading state');assert.ok(!cold.includes('internal-uuid'));
  globalThis.fetch=async()=>{calls++;return {ok:true,blob:async()=>new Blob(['audio'],{type:'audio/mp4'})}};
  const audioSrc='/api/media/12345678-1234-1234-1234-123456789abd';
  const firstAudio=await media.cachedMedia(audioSrc,true);assert.equal(calls,3);
@@ -317,7 +334,7 @@ try{
  });
  await test('portfolio sender names open a local read-only profile without network',async()=>{
  localStorage.removeItem('peakboo-demo-v1');let calls=0;globalThis.fetch=async()=>{calls++;throw Error('Unexpected network')};const root=await mount('src/portfolio/PortfolioApp.tsx');
- try{const sender=document.querySelector('button.sender-name');assert.ok(sender);const name=sender.textContent;await act(async()=>sender.click());const profile=document.querySelector('[role=dialog] .profile-editor');assert.ok(profile);assert.ok(profile.textContent.includes(name));assert.equal(profile.querySelector('form'),null);assert.equal(calls,0);await act(async()=>document.querySelector('[role=dialog] [aria-label=Fechar]').click());assert.equal(document.querySelector('[role=dialog]'),null)}finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1')}
+ try{const sender=document.querySelector('button.sender-name');assert.ok(sender);const name=sender.textContent;assert.match(sender.getAttribute('data-sender-color'),/^(?:[0-9]|1[01])$/);await act(async()=>sender.click());const profile=document.querySelector('[role=dialog] .profile-editor');assert.ok(profile);assert.ok(profile.textContent.includes(name));assert.equal(profile.querySelector('form'),null);assert.equal(calls,0);await act(async()=>document.querySelector('[role=dialog] [aria-label=Fechar]').click());assert.equal(document.querySelector('[role=dialog]'),null)}finally{await act(async()=>root.unmount());localStorage.removeItem('peakboo-demo-v1')}
  });
 
  await test('native video safety rejects oversized recordings before preview',async()=>{
@@ -378,3 +395,4 @@ try{
  try{await act(async()=>root.render(createElement(Fixture)));assert.equal(center.total,3);assert.ok(document.querySelector('.notification-mark-read.ghost'));await act(async()=>document.querySelectorAll('.notification-delete')[1].click());assert.equal(center.total,2);assert.equal(center.notices.length,0);await act(async()=>document.querySelector('.notification-delete').click());assert.equal(center.total,0);assert.equal(center.messageUnread,2);await act(async()=>root.unmount());root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Fixture)));assert.equal(center.total,0);assert.ok(document.querySelector('.notification-empty'));}finally{await act(async()=>root.unmount());localStorage.removeItem(key)}
  });
 }finally{await rm(dir,{recursive:true,force:true});dom.window.close()}
+

@@ -108,9 +108,12 @@
 .message-media.message-audio{width:min(280px,65vw);min-width:0;max-width:100%}.message-audio .media-frame{width:100%;height:54px}.message-audio .voice-player{width:280px;max-width:100%}
 .location-card{display:block;width:min(280px,62vw);max-width:100%;overflow:hidden;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;white-space:normal;margin:4px 0}.location-preview{display:block;position:relative;aspect-ratio:16/9;background:var(--surface-2);overflow:hidden}.location-fallback{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)}.location-preview iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}.location-card-label{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:13px;font-weight:600}.location-card-label>span{flex:1}.location-card-label small{display:block;color:var(--muted);font-weight:400;font-size:11px}.location-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 
-/* Audio follows the existing outgoing-message palette in both themes. */
-.message-bubble:has(.message-audio){background:var(--primary);color:#fff;border-color:transparent}
+/* Audio inherits its surrounding bubble; only outgoing audio uses brand colors. */
+.message-bubble .voice-player{--voice-bg:transparent}
+.message:not(.own) .voice-player{--voice-bg:transparent;--voice-ink:var(--ink);--voice-inverse:var(--surface);--voice-idle:var(--muted);--voice-label:var(--muted);--voice-rate-bg:var(--surface-2)}
+.message:not(.own) .voice-play,.message:not(.own) .voice-rate{background:var(--surface-2);color:var(--ink)}
 [data-theme="dark"] .voice-player{--voice-bg:#315e94;--voice-ink:var(--primary);--voice-inverse:#101b21;--voice-idle:#59d8bc80;--voice-label:#fff}
-[data-theme="dark"] .message-bubble:has(.message-audio){background:#315e94;color:#fff;border-color:transparent}
+[data-theme="dark"] .message:not(.own) .voice-player{--voice-bg:transparent;--voice-ink:var(--ink);--voice-inverse:var(--surface);--voice-idle:var(--muted);--voice-label:var(--muted);--voice-rate-bg:var(--surface-2)}
+[data-theme="dark"] .message.own .voice-player{--voice-bg:transparent}
 .message-audio>button{color:inherit;text-decoration:underline}
 .voice-player:focus-within .voice-progress input:focus-visible{outline:2px solid var(--voice-ink);outline-offset:2px}
