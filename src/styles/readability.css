@@ -221,7 +221,6 @@
 .event-date,
 .calendar-event,
 .agenda-date,
-.upcoming-icon,
 .week-event {
   color: var(--accent-ink, var(--accent));
 }

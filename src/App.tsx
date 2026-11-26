@@ -1081,15 +1081,6 @@ export default function App() {
                     key={p.id}
                     onClick={() => openDetail(p)}
                   >
-                    <span className={cn("upcoming-icon", p.color)}>
-                      {p.color === "coral"
-                        ? "☕"
-                        : p.color === "green"
-                          ? "🌿"
-                          : p.color === "yellow"
-                            ? "☀"
-                            : "✦"}
-                    </span>
                     <span>
                       <strong>{p.title}</strong>
                       <small>

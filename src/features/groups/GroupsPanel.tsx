@@ -1,27 +1,7 @@
-import {useSyncExternalStore} from "react";
 import {Plus,Search,X,Inbox,Link,ChevronRight} from "lucide-react";
 import {Avatar,Button,cn} from "../../components";
 import type {Room} from "../../types";
 import {roomPreview} from "../../roomPreview";
-
-// A narrow desktop window must not mount mobile-only avatars.
-const mobileAvatarQuery = "(max-width: 700px) and (pointer: coarse)";
-const showMobileAvatars = () => typeof window.matchMedia === "function"
-  ? window.matchMedia(mobileAvatarQuery).matches
-  : window.innerWidth <= 700;
-function subscribeMobileAvatars(onChange: () => void) {
-  if (typeof window.matchMedia !== "function") {
-    window.addEventListener("resize", onChange);
-    return () => window.removeEventListener("resize", onChange);
-  }
-  const media = window.matchMedia(mobileAvatarQuery);
-  if (typeof media.addEventListener === "function") {
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }
-  media.addListener(onChange);
-  return () => media.removeListener(onChange);
-}
 
 type GroupsPanelProps = {
   rooms: Room[];
@@ -43,7 +23,6 @@ type GroupsPanelProps = {
 };
 
 export function GroupsPanel({rooms,messageUnread,userId,lang,selected,loading,query,filter,t,time,onQueryChange,onFilterChange,onSelect,onCreate,onJoin,decorateWeekend=false}: GroupsPanelProps) {
-  const mobileAvatars = useSyncExternalStore(subscribeMobileAvatars, showMobileAvatars, () => false);
   return (
     <section className="conversation-panel">
       <div className="conversation-title">
@@ -97,7 +76,7 @@ export function GroupsPanel({rooms,messageUnread,userId,lang,selected,loading,qu
         {loading
           ? Array.from({ length: 4 }, (_, i) => (
               <div className="room-skeleton" key={i}>
-                {mobileAvatars && <span className="skeleton skeleton-avatar" />}
+                <span className="skeleton skeleton-avatar" />
                 <div>
                   <span className="skeleton" />
                   <span className="skeleton" />
@@ -121,12 +100,12 @@ export function GroupsPanel({rooms,messageUnread,userId,lang,selected,loading,qu
                   key={r.id}
                   onClick={() => onSelect(r)}
                 >
-                  {mobileAvatars && <span className="room-avatar-wrap">
+                  <span className="room-avatar-wrap">
                     <Avatar image={r.image} name={r.name} color={r.color} />
                     {r.id === "weekend" && decorateWeekend && (
                       <span className="avatar-decoration">✦</span>
                     )}
-                  </span>}
+                  </span>
                   <span className="conversation-summary">
                     <span>
                       <strong>{r.name}</strong>

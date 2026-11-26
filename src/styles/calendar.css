@@ -138,18 +138,6 @@
 .upcoming-item:last-child {
   border: 0;
 }
-.upcoming-icon {
-  width: 35px;
-  height: 37px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--tint);
-  color: var(--accent);
-  font-size: 20px;
-  border-radius: 11px;
-  flex-shrink: 0;
-}
 .upcoming-item > span:last-child {
   min-width: 0;
 }

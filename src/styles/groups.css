@@ -176,7 +176,3 @@
   color: var(--primary);
 }
 
-/* Group list avatars are mobile-only; chat and profile avatars are unchanged. */
-@media (min-width: 701px) {
-  .conversation-item > .room-avatar-wrap { display: none; }
-}

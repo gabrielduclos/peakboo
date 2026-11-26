@@ -61,6 +61,3 @@
   }
 }
 
-@media (min-width: 701px) {
-  .room-skeleton .skeleton-avatar { display: none; }
-}
