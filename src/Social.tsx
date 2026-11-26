@@ -34,11 +34,11 @@ const words = {
 };
 export const socialWords = (lang: string) => words[lang === "pt" ? "pt" : "en"];
 function Cover({ src }: { src?: string | null }) {
-  const { url, error } = useMedia(src);
+  const { url, error, cached, slow, retry, attempt } = useMedia(src);
   return (
     <div className="profile-cover">
-      {src && !url && !error && <span className="media-skeleton" />}
-      {url && <MediaImage key={url} url={url}/>}
+      {src && !url && !error && slow && <span className="media-skeleton" />}
+      {url && <MediaImage key={url} url={url} cached={cached} onDecodeError={cached&&attempt===0?retry:undefined}/>}
     </div>
   );
 }

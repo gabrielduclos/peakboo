@@ -1,3 +1,4 @@
+import {clearMediaCache} from "./mediaCache";
 export const API =
   (import.meta as unknown as { env: { VITE_API_URL?: string } }).env
     .VITE_API_URL ||
@@ -22,6 +23,7 @@ export function getToken() {
 export function clearToken() {
   sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_KEY);
+  void clearMediaCache();
 }
 function expireToken(token: string | null) {
   if (!token || token !== getToken()) return;

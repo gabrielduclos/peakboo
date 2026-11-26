@@ -147,6 +147,18 @@ try{
  const freshAudio=await media.cachedMedia(audioSrc,true,true);assert.notEqual(freshAudio,firstAudio);assert.equal(calls,4);
  media.setMediaAccount('');localStorage.removeItem('peakboo-session');URL.createObjectURL=create;URL.revokeObjectURL=revoke;
  });
+ await test('persistent media policy covers avatars, photos, audio, video and documents',async()=>{
+ const out=dir+'/media-policy.mjs';await build({entryPoints:['src/mediaCache.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});
+ const {cacheableMedia,mediaCacheKey,MEDIA_CACHE_LIMIT,MEDIA_CACHE_MAX_FILE,MEDIA_CACHE_TTL}=await import(pathToFileURL(out));
+ for(const type of ['image/webp','image/jpeg','audio/mp4','video/mp4','application/pdf','text/plain'])assert.equal(cacheableMedia(new Blob(['data'],{type})),true);
+ assert.equal(cacheableMedia(new Blob([],{type:'image/jpeg'})),false);
+ assert.equal(cacheableMedia(new Blob(['x'],{type:''})),false);
+ assert.equal(MEDIA_CACHE_LIMIT,128*1024*1024);assert.equal(MEDIA_CACHE_MAX_FILE,30*1024*1024);assert.equal(MEDIA_CACHE_TTL,7*86400000);
+ const src='/api/media/12345678-1234-1234-1234-123456789abc';
+ assert.equal(await mediaCacheKey('','token',src),null);assert.equal(await mediaCacheKey('a','',src),null);
+ assert.notEqual(await mediaCacheKey('a','token',src),await mediaCacheKey('b','token',src));
+ assert.notEqual(await mediaCacheKey('a','token',src),await mediaCacheKey('a','other',src));
+ });
  await test('optimistic send is immediate, fails visibly and retries with one message ID',async()=>{
  localStorage.setItem('peakboo-session','optimistic-test');const roomId='12345678-1234-1234-1234-123456789abc';let rejectPost,posted=[],confirmed=[];
  const response=data=>({ok:true,headers:{get:()=>null},json:async()=>data});
