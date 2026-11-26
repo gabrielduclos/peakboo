@@ -1,9 +1,9 @@
 /* Readable navigation and calendar labels in both themes. */
 .conversation-summary strong {
-  font-size: 14px;
+  font-size: 16px;
 }
 .conversation-summary p {
-  font-size: 12px;
+  font-size: 14px;
 }
 .conversation-tabs > button {
   font-size: 14px;
@@ -21,7 +21,7 @@
   font-size: 12px;
 }
 .message-footer {
-  font-size: 11px;
+  font-size: 12px;
 }
 .event-tag {
   font-size: 10px;
@@ -124,16 +124,16 @@
 }
 @media (max-width: 700px) {
   .conversation-summary strong {
-    font-size: 15px;
+    font-size: 16px;
   }
   .conversation-summary p {
-    font-size: 13px;
+    font-size: 14px;
   }
   .search-field input {
     font-size: 16px;
   }
   .chat-header-title h2 {
-    font-size: 14px;
+    font-size: 16px;
   }
   .chat-header-title > button {
     font-size: 11px;
@@ -142,7 +142,7 @@
     font-size: 11px;
   }
   .message-footer {
-    font-size: 10px;
+    font-size: 12px;
   }
   .event-tag {
     font-size: 9px;

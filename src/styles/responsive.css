@@ -12,10 +12,10 @@
     padding: 17px 11px;
   }
   .conversation-summary strong {
-    font-size: 13px;
+    font-size: 16px;
   }
   .conversation-summary p {
-    font-size: 12px;
+    font-size: 14px;
   }
   .chat-history {
     padding-left: 40px;
@@ -327,13 +327,13 @@
     background: var(--primary-soft);
   }
   .conversation-summary strong {
-    font-size: 15px;
+    font-size: 16px;
   }
   .conversation-summary small {
-    font-size: 11px;
+    font-size: 12px;
   }
   .conversation-summary p {
-    font-size: 13px;
+    font-size: 14px;
     margin-top: 6px;
   }
   .room-avatar-wrap .avatar {
@@ -466,9 +466,9 @@
     max-width: calc(100% - 70px);
   }
   .message-bubble {
-    font-size: 16px;
+    font-size: 14px;
     padding: 9px 12px;
-    line-height: 1.55;
+    line-height: 1.45;
   }
   .message.own .message-body {
     max-width: 84%;

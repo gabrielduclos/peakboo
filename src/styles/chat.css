@@ -144,8 +144,8 @@
   display: block;
 }
 .message-bubble {
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.45;
   background: var(--surface);
   padding: 10px 14px;
   border: 1px solid var(--line);

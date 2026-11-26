@@ -57,7 +57,7 @@
 
 /* Use a native-alpha mascot asset to avoid background fringes in either theme. */
 .topbar .mobile-brand::before,
-.topbar .breadcrumb::before,
+.sidebar .brand-link .brand::before,
 .session-loading > .brand::before {
   content: "";
   display: block;
@@ -84,4 +84,18 @@
   width: 96px;
   height: 96px;
   flex: 0 0 96px;
+}
+
+/* Desktop logo uses the existing transparent mascot, alongside the wordmark. */
+@media (min-width: 701px) {
+  .sidebar .brand-link .brand { gap: 8px; }
+  .sidebar .brand-link .brand::before { width: 36px; height: 36px; flex-basis: 36px; }
+}
+@media (min-width: 951px) and (max-width: 1250px) {
+  .sidebar .brand-link .brand { font-size: 25px; gap: 6px; }
+  .sidebar .brand-link .brand::before { width: 30px; height: 30px; flex-basis: 30px; }
+}
+@media (min-width: 701px) and (max-width: 950px) {
+  .sidebar .brand-link .brand { flex-direction: column; gap: 6px; }
+  .sidebar .brand-link .brand::before { width: 36px; height: 36px; flex-basis: 36px; }
 }
