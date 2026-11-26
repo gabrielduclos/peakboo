@@ -312,11 +312,15 @@ try{
  const out=dir+'/camera-capture.mjs';await build({entryPoints:['src/cameraCapture.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});
  const camera=await import(pathToFileURL(out));const limits=camera.cameraConstraints('video','environment');
  assert.equal(limits.width.max,1280);assert.equal(limits.height.max,720);assert.equal(limits.frameRate.max,24);
- assert.equal(camera.VIDEO_MAX_SECONDS,90);assert.ok(camera.VIDEO_MAX_BYTES<30*1024*1024);assert.ok(camera.VIDEO_STOP_BYTES<camera.VIDEO_MAX_BYTES);
+ assert.equal(camera.PHOTO_FLASH_SETTLE_MS,800);assert.equal(camera.VIDEO_MAX_SECONDS,90);assert.ok(camera.VIDEO_MAX_BYTES<30*1024*1024);assert.ok(camera.VIDEO_STOP_BYTES<camera.VIDEO_MAX_BYTES);
  assert.equal(camera.recordingMime(t=>t==='video/webm'),'video/webm');
- let light=false;const track={readyState:'live',getCapabilities:()=>({torch:[false,true]}),getSettings:()=>({torch:light}),applyConstraints:async c=>{if(c.advanced)throw Error('unsupported syntax');light=c.torch;}};
+ let light=false;let attempts=0;const track={readyState:'live',getCapabilities:()=>({torch:[false,true]}),getConstraints:()=>({width:{max:1280},height:{max:720},frameRate:{max:24}}),getSettings:()=>({torch:light}),applyConstraints:async c=>{attempts++;assert.equal(c.width.max,1280);assert.equal(c.height.max,720);assert.equal(c.frameRate.max,24);if(c.advanced?.some(x=>'torch' in x))return;light=c.torch;}};
  assert.equal(camera.canAttemptTorch(track,'environment'),true);assert.equal(camera.canAttemptTorch(track,'user'),false);
- assert.equal(await camera.setCameraTorch(track,true),true);assert.equal(light,true);assert.equal(await camera.setCameraTorch(track,false),true);assert.equal(light,false);
+ assert.equal(await camera.setCameraTorch(track,true),true);assert.equal(light,true);assert.equal(attempts,3);assert.equal(await camera.setCameraTorch(track,false),true);assert.equal(light,false);
+ const ignored={...track,getSettings:()=>({torch:false}),applyConstraints:async()=>{}};
+ assert.equal(await camera.setCameraTorch(ignored,true),false);
+ let unknownAttempts=0;const unknown={...track,getSettings:()=>({}),applyConstraints:async()=>{unknownAttempts++;}};
+ assert.equal(await camera.setCameraTorch(unknown,true),true);assert.equal(unknownAttempts,3);
  });
  await test('camera JPEG dimensions are parsed before a bounded resize and canvas is released',async()=>{
  const out=dir+'/camera-prepare.mjs';await build({entryPoints:['src/imageCompression.ts'],outfile:out,bundle:true,platform:'browser',format:'esm'});const {jpegDimensions,prepareCameraPhoto}=await import(pathToFileURL(out));

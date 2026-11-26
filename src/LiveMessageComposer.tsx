@@ -8,7 +8,7 @@ import { ChatImageEditor } from './ChatImageEditor';
 import { cn } from './components';
 import { optimizeVideoAttachment } from './videoCompression';
 import { optimizeImageAttachment, prepareCameraPhoto } from './imageCompression';
-import {cameraConstraints,canAttemptTorch,setCameraTorch,recordingMime,VIDEO_MAX_BYTES,VIDEO_STOP_BYTES,VIDEO_MAX_SECONDS,VIDEO_BITRATE} from './cameraCapture';
+import {cameraConstraints,canAttemptTorch,setCameraTorch,recordingMime,VIDEO_MAX_BYTES,VIDEO_STOP_BYTES,VIDEO_MAX_SECONDS,VIDEO_BITRATE,PHOTO_FLASH_SETTLE_MS} from './cameraCapture';
 
 const EMOJI_GROUPS = [
   { pt: 'Expressões', en: 'Expressions', symbols: ['😀','😃','😁','😂','🤣','😊','😍','🥰','😘','😎','🥹','😢','😭','😡','🤔','😴','🤩','😮'] },
@@ -91,7 +91,7 @@ function CameraModal({pt,mode,onClose,onAccept}:{pt:boolean;mode:'image'|'video'
   async function illuminate(track:MediaStreamTrack|undefined){
     if(!flash||!track)return false;
     if(await setCameraTorch(track,true))return true;
-    if(active.current){setFlash(false);setHasTorch(false);setNotice(pt?'Flash indisponível nesta câmera.':'Flash unavailable on this camera.');}
+    if(active.current){setFlash(false);setHasTorch(false);setNotice(pt?'Não foi possível confirmar o acionamento do flash nesta câmera.':'Could not confirm flash activation on this camera.');}
     return false;
   }
   async function capture(){
@@ -102,7 +102,7 @@ function CameraModal({pt,mode,onClose,onAccept}:{pt:boolean;mode:'image'|'video'
     const canvas=document.createElement('canvas');
     try{
       const lit=await illuminate(track);
-      if(lit)await new Promise(resolve=>window.setTimeout(resolve,250));
+      if(lit)await new Promise(resolve=>window.setTimeout(resolve,PHOTO_FLASH_SETTLE_MS));
       if(!active.current||stream.current?.getVideoTracks()[0]!==track)return;
       const ratio=Math.min(1,1600/Math.max(frame.videoWidth,frame.videoHeight));
       canvas.width=Math.max(1,Math.round(frame.videoWidth*ratio));
@@ -186,7 +186,7 @@ function CameraModal({pt,mode,onClose,onAccept}:{pt:boolean;mode:'image'|'video'
           {(!ready&&!file&&!error)&&<div role="status" className="absolute inset-0 grid place-items-center bg-black/30">{busy?(pt?'Preparando mídia…':'Preparing media…'):(pt?'Abrindo câmera…':'Opening camera…')}</div>}
           {recording&&<div role="status" className="absolute top-4 rounded-full bg-black/70 px-3 py-1 text-white"><span className="mr-2 inline-block size-2 rounded-full bg-red-500"/>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,'0')} / 1:30</div>}
           {error&&<div role="alert" className="absolute inset-x-4 top-4 rounded-lg bg-black/80 p-3 text-center">{error}<button type="button" className="mt-2 block w-full underline" onClick={()=>restart(v=>v+1)}>{pt?'Tentar novamente':'Retry'}</button></div>}
-          {notice&&!error&&!file&&<div role="status" className="absolute inset-x-4 bottom-4 rounded-lg bg-black/70 p-2 text-center text-xs">{notice}</div>}
+          {notice&&!error&&<div role="status" className="absolute inset-x-4 bottom-4 rounded-lg bg-black/70 p-2 text-center text-xs">{notice}</div>}
         </div>
         <div className="flex shrink-0 items-center justify-around gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {file?<><button type="button" className="min-h-12 rounded-lg bg-white/10 px-4" onClick={()=>{setFile(null);restart(v=>v+1);}}>{pt?'Refazer':'Retake'}</button>
