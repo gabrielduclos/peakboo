@@ -21,7 +21,7 @@ export function PushSettings({userId,lang,rooms}:{userId:string;lang:string;room
   <h3>{pt?"Notificações push":"Push notifications"}</h3>
   <p className="muted">{pt?"Receba mensagens e avisos da agenda mesmo com o aplicativo fechado.":"Receive messages and calendar alerts even when the app is closed."}</p>
   {loading?<div className="social-skeleton" role="status" aria-label={pt?"Carregando":"Loading"}/>:<>
-   {!supported&&<p className="muted">{pt?"Instale o Peakboo e abra o aplicativo pela tela inicial para ativar as notificações push.":"Install Peakboo and open it from your home screen to enable push notifications."}</p>}
+   {!supported&&<p className="muted">{pt?"Instale o BabyChat e abra o aplicativo pela tela inicial para ativar as notificações push.":"Install BabyChat and open it from your home screen to enable push notifications."}</p>}
    {supported&&<Button type="button" variant={active?"outline":"default"} busy={busy==="device"} disabled={!!busy||(!active&&!publicKey)} onClick={()=>void run("device",async()=>{if(active){await disablePush(userId);setActive(false)}else{await enablePush(userId,lang,publicKey,preview);setActive(true)}})}>{active?<BellOff size={18}/>:<Bell size={18}/>} {active?(pt?"Desativar neste dispositivo":"Disable on this device"):(pt?"Ativar neste dispositivo":"Enable on this device")}</Button>}
    {supported&&!publicKey&&<p className="muted">{pt?"Push indisponível no servidor.":"Push is unavailable on the server."}</p>}
    <label className="push-option"><span>{pt?"Mostrar prévia do conteúdo":"Show content preview"}</span><input type="checkbox" checked={preview} disabled={!!busy} onChange={e=>{const value=e.target.checked;if(!active){setPreview(value);return}void run("preview",async()=>{await updatePreview(userId,lang,value);setPreview(value)})}}/></label>
@@ -30,6 +30,6 @@ export function PushSettings({userId,lang,rooms}:{userId:string;lang:string;room
    {rooms.map(room=><label className="push-option" key={room.id}><span>{room.name}</span><input type="checkbox" checked={muted.includes(room.id)} disabled={!!busy} onChange={e=>{const value=e.target.checked;void run(room.id,async()=>{await request("/api/push/muted/"+room.id,"PUT",{muted:value});setMuted(old=>value?[...old,room.id]:old.filter(id=>id!==room.id))})}}/></label>)}
   </>}
   {error&&<p role="alert" className="form-error">{error}</p>}
-  <div className="push-install-hint"><Download size={18}/><span>{pt?"Instale o Peakboo usando o menu do seu navegador.":"Install Peakboo using your browser menu."}</span></div>
+  <div className="push-install-hint"><Download size={18}/><span>{pt?"Instale o BabyChat usando o menu do seu navegador.":"Install BabyChat using your browser menu."}</span></div>
  </section>
 }

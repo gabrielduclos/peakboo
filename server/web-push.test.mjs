@@ -10,7 +10,7 @@ test("push subscription rejects private networks, redirects, invalid keys and no
  assert.deepEqual(validateSubscription(sub),sub);assert.throws(()=>validateSubscription({...sub,keys:{...sub.keys,auth:"bad"}}));
 });
 test("RFC8291 payload can be decrypted by subscription receiver",()=>{
- const payload={title:"Peakboo",body:"Mensagem privada"},encoded=encryptPayload(sub,payload),salt=encoded.subarray(0,16),pub=encoded.subarray(21,86),cipher=encoded.subarray(86);
+ const payload={title:"BabyChat",body:"Mensagem privada"},encoded=encryptPayload(sub,payload),salt=encoded.subarray(0,16),pub=encoded.subarray(21,86),cipher=encoded.subarray(86);
  const hk=(ikm,salt,info,len)=>Buffer.from(hkdfSync("sha256",ikm,salt,info,len));
  const ikm=hk(receiver.computeSecret(pub),Buffer.from(sub.keys.auth,"base64url"),Buffer.concat([Buffer.from("WebPush: info\0"),receiver.getPublicKey(),pub]),32);
  const dec=createDecipheriv("aes-128-gcm",hk(ikm,salt,"Content-Encoding: aes128gcm\0",16),hk(ikm,salt,"Content-Encoding: nonce\0",12));dec.setAuthTag(cipher.subarray(-16));
@@ -23,5 +23,5 @@ test("VAPID JWT is stable in key, valid in signature and scoped to push origin",
  assert.ok(verify("sha256",Buffer.from(parts.slice(0,2).join(".")),{key:createPublicKey(keys.privateKey),dsaEncoding:"ieee-p1363"},Buffer.from(parts[2],"base64url")));
 });
 test("push transport never follows redirects and sends encrypted data",async()=>{
- const status=await sendWebPush(keys,sub,{title:"Peakboo",body:"secret"},async(url,opts)=>{assert.equal(url,sub.endpoint);assert.equal(opts.redirect,"error");assert.equal(opts.headers["Content-Encoding"],"aes128gcm");assert.equal(opts.body.includes(Buffer.from("secret")),false);return new Response(null,{status:201})});assert.equal(status,201)
+ const status=await sendWebPush(keys,sub,{title:"BabyChat",body:"secret"},async(url,opts)=>{assert.equal(url,sub.endpoint);assert.equal(opts.redirect,"error");assert.equal(opts.headers["Content-Encoding"],"aes128gcm");assert.equal(opts.body.includes(Buffer.from("secret")),false);return new Response(null,{status:201})});assert.equal(status,201)
 });

@@ -115,11 +115,11 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <span
       className={cn("brand", compact && "brand-compact")}
-      aria-label="PeakBoo"
+      aria-label="BabyChat"
     >
       <span className="brand-wordmark">
-        <span className="brand-peak">Peak</span>
-        <span className="brand-boo">Boo</span>
+        <span className="brand-peak">Baby</span>
+        <span className="brand-boo">Chat</span>
       </span>
     </span>
   );

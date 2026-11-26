@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Peakboo",
-  "short_name": "Peakboo",
+  "name": "BabyChat",
+  "short_name": "BabyChat",
   "description": "Grupos e agenda compartilhada.",
   "start_url": "/",
   "scope": "/",

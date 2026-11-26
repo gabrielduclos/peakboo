@@ -6,7 +6,7 @@ export const strings: typeof base = {
     demo: "Demonstração de portfólio",
     demoShort: "Portfólio",
     demoDesc:
-      "Explore o PeakBoo. Dados fictícios; alterações salvas somente neste navegador.",
+      "Explore o BabyChat. Dados fictícios; alterações salvas somente neste navegador.",
     createAccount: "Sobre a demonstração",
     emptyInvite: "Os convites desta demonstração são fictícios.",
     demoOnly: "Esta apresentação usa somente dados fictícios.",
@@ -16,7 +16,7 @@ export const strings: typeof base = {
     demo: "Portfolio demo",
     demoShort: "Portfolio",
     demoDesc:
-      "Explore PeakBoo. Sample data; changes are saved only in this browser.",
+      "Explore BabyChat. Sample data; changes are saved only in this browser.",
     createAccount: "About this demo",
     emptyInvite: "Invitations in this demo are fictional.",
     demoOnly: "This presentation uses sample data only.",

@@ -1,8 +1,8 @@
-# PeakBoo
+# BabyChat
 
 [English](README.en.md)
 
-**Conversas que viram planos.** Mensageiro open source com agenda compartilhada por conversa, feito em React, Tailwind CSS e componentes Radix no padrão shadcn/ui. API Node/Express, Better Auth e PostgreSQL no Neon. Licença MIT.
+Mensageiro open source com agenda compartilhada por conversa, feito em React, Tailwind CSS e componentes Radix no padrão shadcn/ui. API Node/Express, Better Auth e PostgreSQL no Neon. Licença MIT.
 
 ## Primeira versão
 
@@ -43,7 +43,9 @@ O teste de integração inicia um PostgreSQL descartável e três contas fictíc
 
 ## Publicação
 
-Frontend no Cloudflare Workers (Worker `main`, build `npm run build`, deploy `npx wrangler deploy`): [Peakboo](https://main.peakboo.workers.dev). API no Render: `https://peakboo-api.onrender.com`. A origem `https://main.peakboo.workers.dev` deve constar em `FRONTEND_ORIGINS`. A URL da API é definida automaticamente para esse endereço e pode ser substituída por `VITE_API_URL` no build. A publicação privada de revisão em `peakboo-agenda.gabriel-axel.chatgpt.site` usa a mesma API; convites apontam para o aplicativo público, que exige a conta do participante para acessar conversas.
+BabyChat é o novo nome público do projeto. Os endereços e identificadores técnicos legados `peakboo` permanecem intencionalmente estáveis para preservar sessões, convites, notificações e armazenamento existentes.
+
+Frontend no Cloudflare Workers (Worker `main`, build `npm run build`, deploy `npx wrangler deploy`): [BabyChat](https://main.peakboo.workers.dev). API no Render: `https://peakboo-api.onrender.com`. A origem `https://main.peakboo.workers.dev` deve constar em `FRONTEND_ORIGINS`. A URL da API é definida automaticamente para esse endereço e pode ser substituída por `VITE_API_URL` no build. A publicação privada de revisão em `peakboo-agenda.gabriel-axel.chatgpt.site` usa a mesma API; convites apontam para o aplicativo público, que exige a conta do participante para acessar conversas.
 
 API: Render, plano Free, build `npm ci --include=dev && npm run build`, início `npm start`. O servidor também fornece a interface compilada, permitindo usar uma única origem. Defina `DATABASE_URL`, `BETTER_AUTH_SECRET` (aleatório, pelo menos 32 caracteres), `BETTER_AUTH_URL` (URL externa do serviço) e `FRONTEND_ORIGINS` (origens separadas por vírgula). As credenciais ficam exclusivamente no servidor.
 
@@ -61,7 +63,7 @@ Esta versão inclui texto, reações e compromissos de um único dia. Anexos, ch
 
 ## Identidade visual
 
-Verde-turquesa e azul definem a identidade visual. O logo é somente o texto PeakBoo, com Peak em turquesa e Boo em azul. Cores de apoio identificam planos e conversas. Fundos de leitura são neutros e o texto das mensagens tem 16 px. Os tokens dos dois temas estão centralizados em `src/styles.css`. Cores de preenchimento e cores de texto são separadas para manter o contraste.
+Verde-turquesa e azul definem a identidade visual. A marca BabyChat combina o mascote com a palavra Baby em turquesa e Chat em azul. Cores de apoio identificam planos e conversas. Fundos de leitura são neutros e o texto das mensagens tem 14 px, com Roboto Variable. Os tokens dos dois temas estão centralizados em `src/styles.css`. Cores de preenchimento e cores de texto são separadas para manter o contraste.
 
 O PWA usa o personagem espiando por trás de um balão de conversa: ícones coloridos, variante maskable e favicon, além de um badge branco transparente para notificações Android. O build versiona automaticamente os caminhos com hash do conteúdo, sem alterar o ID do manifesto. O navegador e o sistema operacional controlam quando o ícone instalado será atualizado; não é necessário solicitar uma reinstalação automaticamente.
 
@@ -88,11 +90,11 @@ O botão de áudio compartilha o círculo do envio. A busca abre no cabeçalho; 
 O build incorpora o CSS inicial no HTML nas duas versões. Isso evita que uma falha de carregamento ou uma divergência de cache do arquivo CSS deixe a página sem formatação. Os arquivos CSS também são mantidos para compatibilidade, e o HTML do Cloudflare exige revalidação. O build verifica automaticamente a presença dos estilos incorporados.
 
 
-No mobile, o cabeçalho mostra a marca PeakBoo e as configurações ficam na navegação inferior. Arraste uma mensagem para a direita para responder; rolagem vertical, pinça e controles de mídia continuam independentes. O criador pode abrir a foto do grupo e escolher **Excluir grupo**. A confirmação explica que a exclusão é definitiva para todos e remove mensagens, anexos e compromissos. `DELETE /api/rooms/:room` verifica a autoria no servidor, exclui em uma transação e avisa os participantes pelo SSE. Não há migração adicional; as relações existentes removem os dados dependentes.
+No mobile, o cabeçalho mostra a marca BabyChat e as configurações ficam na navegação inferior. Arraste uma mensagem para a direita para responder; rolagem vertical, pinça e controles de mídia continuam independentes. O criador pode abrir a foto do grupo e escolher **Excluir grupo**. A confirmação explica que a exclusão é definitiva para todos e remove mensagens, anexos e compromissos. `DELETE /api/rooms/:room` verifica a autoria no servidor, exclui em uma transação e avisa os participantes pelo SSE. Não há migração adicional; as relações existentes removem os dados dependentes.
 
 ### Grupos privados e perfis
 
-O Peakboo é focado em grupos privados, inclusive grupos de duas pessoas. Crie um grupo ou entre com um link/código de convite. O menu não tem contatos, conversas individuais ou exploração de grupos públicos. Os convites podem ser copiados ou exibidos como QR Code gerado localmente; `VITE_APP_URL` define a origem canônica do aplicativo (por padrão, https://main.peakboo.workers.dev).
+O BabyChat é focado em grupos privados, inclusive grupos de duas pessoas. Crie um grupo ou entre com um link/código de convite. O menu não tem contatos, conversas individuais ou exploração de grupos públicos. Os convites podem ser copiados ou exibidos como QR Code gerado localmente; `VITE_APP_URL` define a origem canônica do aplicativo (por padrão, https://main.peakboo.workers.dev).
 
 Em Configurações → Perfil, é possível editar nome, biografia, foto e capa. Não há username nem perfis públicos; links antigos não expõem dados. A API verifica a participação nos grupos antes de entregar mensagens e anexos. A demo continua isolada da API real.
 
@@ -112,9 +114,9 @@ Crie um bucket privado exclusivo (ex.: `peakboo-media`) e um token S3 Object Rea
 
 ### PWA e Web Push
 
-Instale o Peakboo no navegador (no iOS, Safari → Adicionar à Tela de Início), abra Configurações → Notificações e habilite o dispositivo. A API envia Web Push com VAPID e criptografia RFC 8291; SSE continua ativo para o conteúdo aberto. Prévia desativada por padrão, silêncio por grupo e inscrições vinculadas à sessão autenticada. Ative `PUSH_ENABLED=true` no Render. O par VAPID permanece estável enquanto a chave `PUSH_VAPID_PRIVATE_KEY` (ou o segredo Better Auth usado na derivação HKDF) não mudar. Após rotacionar, reinscreva os dispositivos. O Cron do Cloudflare a cada 5 minutos mantém a API gratuita disponível; a API agenda o próximo lembrete pendente e recalcula após alterações, sem consultas periódicas quando não há lembretes. O envio externo depende da disponibilidade do Render e dos provedores de push, sem garantia de entrega imediata. A aplicação não armazena respostas privadas da API no cache do service worker.
+Instale o BabyChat no navegador (no iOS, Safari → Adicionar à Tela de Início), abra Configurações → Notificações e habilite o dispositivo. A API envia Web Push com VAPID e criptografia RFC 8291; SSE continua ativo para o conteúdo aberto. Prévia desativada por padrão, silêncio por grupo e inscrições vinculadas à sessão autenticada. Ative `PUSH_ENABLED=true` no Render. O par VAPID permanece estável enquanto a chave `PUSH_VAPID_PRIVATE_KEY` (ou o segredo Better Auth usado na derivação HKDF) não mudar. Após rotacionar, reinscreva os dispositivos. O Cron do Cloudflare a cada 5 minutos mantém a API gratuita disponível; a API agenda o próximo lembrete pendente e recalcula após alterações, sem consultas periódicas quando não há lembretes. O envio externo depende da disponibilidade do Render e dos provedores de push, sem garantia de entrega imediata. A aplicação não armazena respostas privadas da API no cache do service worker.
 
-Ao abrir o Peakboo no navegador, o convite de instalação aparece no máximo uma vez por dia local, se a instalação não for detectada. Android e desktop usam o diálogo nativo quando disponível; caso contrário, dispositivos móveis recebem instruções. O convite de push aparece após o login e sem sobrepor o de instalação, se o dispositivo for compatível e ainda não estiver inscrito. Permissões bloqueadas podem ser alteradas nas configurações do navegador.
+Ao abrir o BabyChat no navegador, o convite de instalação aparece no máximo uma vez por dia local, se a instalação não for detectada. Android e desktop usam o diálogo nativo quando disponível; caso contrário, dispositivos móveis recebem instruções. O convite de push aparece após o login e sem sobrepor o de instalação, se o dispositivo for compatível e ainda não estiver inscrito. Permissões bloqueadas podem ser alteradas nas configurações do navegador.
 
 ### Prévias e reações nos grupos
 
@@ -134,7 +136,7 @@ O ponto de entrada `server/index.mjs` coordena a inicialização e a ordem de re
 
 ### Proteção de scripts e cache privado
 
-As respostas da API usam `Cache-Control: private, no-store`, inclusive autenticação e SSE. O frontend aplica CSP que restringe scripts à própria origem, bloqueia manipuladores JavaScript inline, objetos e enquadramento externo, restringe conexões à própria origem e à API Peakboo no Render e permite estilos inline e mídias blob/data. A demo permite conexões apenas à própria origem. Se mudar `VITE_API_URL`, ajuste `connect-src` no Worker e em `_headers`. O cliente solicita respostas da API sem cache HTTP. O HTML offline usa link sem manipulador inline. A revogação imediata de streams SSE abertos exige avaliação separada. O Worker e `_headers` protegem os assets, e o Render aplica a política à demonstração. O bearer persistente ainda fica no armazenamento local: a CSP reduz a superfície de injeção, mas não elimina o risco de XSS. Uma eventual migração para cookies HttpOnly exige projeto separado com CSRF, CORS, sessões PWA e testes reais. Validar cabeçalhos publicados e fluxos de mídia e login em navegadores antes de declarar a proteção em produção.
+As respostas da API usam `Cache-Control: private, no-store`, inclusive autenticação e SSE. O frontend aplica CSP que restringe scripts à própria origem, bloqueia manipuladores JavaScript inline, objetos e enquadramento externo, restringe conexões à própria origem e à API BabyChat no Render e permite estilos inline e mídias blob/data. A demo permite conexões apenas à própria origem. Se mudar `VITE_API_URL`, ajuste `connect-src` no Worker e em `_headers`. O cliente solicita respostas da API sem cache HTTP. O HTML offline usa link sem manipulador inline. A revogação imediata de streams SSE abertos exige avaliação separada. O Worker e `_headers` protegem os assets, e o Render aplica a política à demonstração. O bearer persistente ainda fica no armazenamento local: a CSP reduz a superfície de injeção, mas não elimina o risco de XSS. Uma eventual migração para cookies HttpOnly exige projeto separado com CSRF, CORS, sessões PWA e testes reais. Validar cabeçalhos publicados e fluxos de mídia e login em navegadores antes de declarar a proteção em produção.
 
 ### Visualização de perfis e recuperação de mídias
 

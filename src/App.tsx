@@ -274,10 +274,7 @@ export default function App() {
   useEffect(() => {
     document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
     localStorage.setItem("peakboo-language", lang);
-    document.title =
-      lang === "pt"
-        ? "PeakBoo · Conversas que viram planos"
-        : "PeakBoo · Conversations become plans";
+    document.title = "BabyChat";
   }, [lang]);
 
   useEffect(() => {
@@ -788,7 +785,7 @@ export default function App() {
     const content = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//PeakBoo//Calendar//EN",
+      "PRODID:-//BabyChat//Calendar//EN",
       "BEGIN:VEVENT",
       `UID:${plan.id}@peakboo`,
       `DTSTAMP:${stamp(new Date().toISOString())}`,
@@ -805,7 +802,7 @@ export default function App() {
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "peakboo-event.ics";
+    a.download = "babychat-event.ics";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -957,7 +954,7 @@ export default function App() {
             setView("chats");
             setMobileChat(false);
           }}
-          aria-label="PeakBoo"
+          aria-label="BabyChat"
         >
           <Logo />
         </a>
@@ -995,7 +992,7 @@ export default function App() {
           <div className="user-profile">
             <Avatar image={boot.user.image} name={displayName(boot.user.name) || "P"} color="purple" />
         <button onClick={() => openModal("settings")}>
-              <strong>{displayName(boot.user.name) || "PeakBoo"}</strong>
+              <strong>{displayName(boot.user.name) || "BabyChat"}</strong>
               <span>{boot.user.email}</span>
             </button>
             <button
@@ -1010,9 +1007,9 @@ export default function App() {
       </aside>
       <main className="main-area">
         <header className="topbar">
-          <a href="#" className="mobile-brand" aria-label="PeakBoo" onClick={e=>{e.preventDefault();setView("chats");setMobileChat(false)}}><Logo /></a>
+          <a href="#" className="mobile-brand" aria-label="BabyChat" onClick={e=>{e.preventDefault();setView("chats");setMobileChat(false)}}><Logo /></a>
           <span className="breadcrumb">
-            PeakBoo <span>/</span>{" "}
+            BabyChat <span>/</span>{" "}
             <strong>
               {t(view === "chats" ? "conversations" : "calendar")}
             </strong>
