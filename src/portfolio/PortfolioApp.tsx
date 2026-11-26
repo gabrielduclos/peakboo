@@ -1007,18 +1007,12 @@ export default function App() {
           </button>
           <div className="user-profile">
             <Avatar image={boot.user.image} name={displayName(boot.user.name) || "P"} color="purple" />
-            <button
-              onClick={() =>
-                demo
-                  ? (setAuthMode("signup"), openModal("auth"))
-                  : openModal("settings")
-              }
-            >
+            <div className="user-profile-details">
               <strong>
                 {displayName(boot.user.name) || "BabyChat"}
               </strong>
               <span>{demo ? t("demoShort") : boot.user.email}</span>
-            </button>
+            </div>
             <button
               className="icon-button"
               aria-label={t("theme")}

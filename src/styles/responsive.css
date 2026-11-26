@@ -146,7 +146,8 @@
   .sidebar-note,
   .sidebar .nav-item > span,
   .sidebar .nav-item > b,
-  .sidebar .user-profile > button {
+  .sidebar .user-profile > button,
+  .sidebar .user-profile > .user-profile-details {
     display: none;
   }
   .sidebar nav {

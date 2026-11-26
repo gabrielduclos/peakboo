@@ -88,7 +88,7 @@ export function AuthDialog({open,required=false,preventAutoFocus=false,onClose,a
 type SettingsDialogProps=PasswordProps&{open:boolean;onClose:()=>void;lang:string;setLang:(value:string)=>void;theme:string;setTheme:(value:string)=>void;profile:ReactNode;notifications?:ReactNode;demo?:boolean;signOut:()=>void;onChangePassword:FormEventHandler<HTMLFormElement>};
 export function SettingsDialog({open,onClose,lang,setLang,theme,setTheme,profile,notifications,demo=false,signOut,onChangePassword,t,showPassword,setShowPassword,busy,formError}:SettingsDialogProps){
  return <Modal open={open} onOpenChange={v=>!v&&onClose()} title={t("settings")} closeLabel={t("close")}>
-        <Tabs.Root defaultValue="appearance">
+        <Tabs.Root key={open ? "settings-open" : "settings-closed"} defaultValue="profile">
           <Tabs.List className="dialog-tabs">
             {["profile","security","appearance",...(notifications===undefined?[]:["notifications"])].map(tab=><Tabs.Trigger key={tab} value={tab}>{t(tab)}</Tabs.Trigger>)}
           </Tabs.List>

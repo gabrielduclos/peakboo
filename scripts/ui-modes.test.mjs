@@ -361,6 +361,16 @@ try{
  finally{globalThis.createImageBitmap=oldBitmap;window.HTMLCanvasElement.prototype.getContext=oldContext;window.HTMLCanvasElement.prototype.toBlob=oldBlob}
  });
 
+ await test('settings open on profile and reset to profile on reopening',async()=>{
+ const out=dir+'/settings-dialog.mjs';await build({entryPoints:['src/features/account/AccountDialogs.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});
+ const {SettingsDialog}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));
+ const render=open=>act(async()=>root.render(createElement(SettingsDialog,{open,onClose:()=>{},lang:'pt',setLang:()=>{},theme:'light',setTheme:()=>{},profile:createElement('span',null,'Profile content'),signOut:()=>{},onChangePassword:()=>{},t:k=>k,showPassword:false,setShowPassword:()=>{},busy:null,formError:''})));
+ const active=()=>document.querySelector('[role=tab][aria-selected=true]').textContent;
+ try{await render(true);assert.equal(active(),'profile');const appearance=[...document.querySelectorAll('[role=tab]')].find(tab=>tab.textContent==='appearance');await act(async()=>appearance.dispatchEvent(new window.MouseEvent('mousedown',{bubbles:true,button:0})));assert.equal(active(),'appearance');await render(false);await render(true);assert.equal(active(),'profile')}finally{await act(async()=>root.unmount())}
+ });
+ await test('sidebar account name is noninteractive in both app variants',async()=>{
+ for(const file of ['src/App.tsx','src/portfolio/PortfolioApp.tsx']){const source=await readFile(file,'utf8');assert.ok(source.includes('<div className="user-profile-details">'));assert.ok(source.includes('<button className="nav-item" onClick={() => openModal("settings")}>'))}
+ });
  await test('shared event form preserves room choice, local date and submit callback',async()=>{
  const out=dir+'/event-form.mjs';await build({entryPoints:['src/features/calendar/EventFormDialog.tsx'],outfile:out,bundle:true,platform:'browser',format:'esm',packages:'external',jsx:'automatic',define:{'import.meta.env':'{}'}});const {EventFormDialog}=await import(pathToFileURL(out));const root=createRoot(document.getElementById('root'));let saved,closed=0;
  const room={id:'r',name:'Group',description:'',color:'blue',ownerId:'me',memberCount:1,unread:0};
