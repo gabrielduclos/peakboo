@@ -45,7 +45,7 @@ Integration tests start disposable PostgreSQL and three fictional accounts. They
 
 BabyChat is the new public project name. Existing `peakboo` URLs and technical identifiers remain stable intentionally to preserve sessions, invitations, notifications and storage.
 
-Cloudflare Workers frontend (Worker `main`, build `npm run build`, deploy `npx wrangler deploy`): [BabyChat](https://main.peakboo.workers.dev). Render API: `https://peakboo-api.onrender.com`. Include `https://main.peakboo.workers.dev` in `FRONTEND_ORIGINS`. The API URL is selected automatically for that hostname and can be overridden with `VITE_API_URL` at build time. The private review deployment at `peakboo-agenda.gabriel-axel.chatgpt.site` uses the same API. Invitations point to the public application; participants must sign in to access conversations.
+Cloudflare Workers frontend (Worker `main`, build `npm run build`, deploy `npx wrangler deploy`): [BabyChat](https://main.peakboo.workers.dev). Render API: `https://pedrochat-api.onrender.com`. Include `https://main.peakboo.workers.dev` in `FRONTEND_ORIGINS`. The API URL is selected automatically for that hostname and can be overridden with `VITE_API_URL` at build time. The private review deployment at `peakboo-agenda.gabriel-axel.chatgpt.site` uses the same API. Invitations point to the public application; participants must sign in to access conversations.
 
 API: Render Free, build `npm ci --include=dev && npm run build`, start `npm start`. The API also serves the compiled frontend for same-origin hosting. Configure `DATABASE_URL`, `BETTER_AUTH_SECRET` (random, at least 32 characters), `BETTER_AUTH_URL` (external service URL), and `FRONTEND_ORIGINS` (comma-separated). Credentials stay on the server.
 

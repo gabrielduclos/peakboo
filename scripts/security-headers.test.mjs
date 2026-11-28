@@ -2,7 +2,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import worker from "../worker.mjs";
 import {readFile} from "node:fs/promises";
-const policy="script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'; default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; font-src 'self' data:; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none'; frame-src https://www.google.com; manifest-src 'self'; connect-src 'self' https://peakboo-api.onrender.com";
+const policy="script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'; default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; font-src 'self' data:; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none'; frame-src https://www.google.com; manifest-src 'self'; connect-src 'self' https://pedrochat-api.onrender.com";
 test("static assets and Worker fallback share a strict script policy",async()=>{
  const config=await readFile(new URL("../public/_headers",import.meta.url),"utf8");
  assert.ok(config.includes("Content-Security-Policy: "+policy));

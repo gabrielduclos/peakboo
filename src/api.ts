@@ -3,7 +3,7 @@ export const API =
   (import.meta as unknown as { env: { VITE_API_URL?: string } }).env
     .VITE_API_URL ||
   (["peakboo-agenda.gabriel-axel.chatgpt.site", "main.peakboo.workers.dev"].includes(location.hostname)
-    ? "https://peakboo-api.onrender.com"
+    ? "https://pedrochat-api.onrender.com"
     : "");
 export const PREVIEW_ONLY =
   (import.meta as unknown as { env: { VITE_PREVIEW_ONLY?: string } }).env
