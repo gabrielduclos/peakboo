@@ -8,8 +8,8 @@ self.addEventListener("push",event=>{
  const target=new URL("/",self.location.origin);
  if(roomId)target.hash=new URLSearchParams({pushRoom:roomId,...(eventId?{pushEvent:eventId}:{})}).toString();
  event.waitUntil(Promise.all([
-  self.registration.showNotification(String(n.title||"BabyChat").slice(0,100),{
-   body:String(n.body||"BabyChat").slice(0,240),icon:"/peakboo-192-v2.png",badge:"/peakboo-badge-v2.png",tag:roomId?"peakboo-"+(eventId||roomId):"peakboo",data:{url:target.href},renotify:true
+  self.registration.showNotification(String(n.title||"PedroChat").slice(0,100),{
+   body:String(n.body||"PedroChat").slice(0,240),icon:"/peakboo-192-v2.png",badge:"/peakboo-badge-v2.png",tag:roomId?"peakboo-"+(eventId||roomId):"peakboo",data:{url:target.href},renotify:true
   }),
   (async()=>{try{
    if(!Number.isSafeInteger(n.badgeCount)||n.badgeCount<0)return;
@@ -33,5 +33,5 @@ self.addEventListener("notificationclick",event=>{
 });
 self.addEventListener("fetch",event=>{
  if(event.request.mode!=="navigate"||new URL(event.request.url).origin!==self.location.origin)return;
- event.respondWith(fetch(event.request).catch(()=>new Response('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BabyChat</title><body style="font-family:system-ui;text-align:center;padding:40px"><h1>BabyChat</h1><p>Sem conexão / Offline</p><a href="/">Tentar novamente / Retry</a></body></html>',{headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"}})));
+ event.respondWith(fetch(event.request).catch(()=>new Response('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PedroChat</title><body style="font-family:system-ui;text-align:center;padding:40px"><h1>PedroChat</h1><p>Sem conexão / Offline</p><a href="/">Tentar novamente / Retry</a></body></html>',{headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"}})));
 });

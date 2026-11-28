@@ -14,7 +14,7 @@ export const origins = (process.env.FRONTEND_ORIGINS || "http://localhost:5173")
 if (!process.env.DATABASE_URL || !process.env.BETTER_AUTH_SECRET)
   throw new Error("DATABASE_URL and BETTER_AUTH_SECRET are required");
 export const auth = betterAuth({
-  appName: "BabyChat",
+  appName: "PedroChat",
   database: pool,
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL:

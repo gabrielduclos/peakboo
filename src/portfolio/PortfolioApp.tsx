@@ -275,7 +275,7 @@ export default function App() {
   useEffect(() => {
     document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
     localStorage.setItem("peakboo-language", lang);
-    document.title = "BabyChat";
+    document.title = "PedroChat";
   }, [lang]);
   useEffect(() => {
     if (demo)
@@ -816,7 +816,7 @@ export default function App() {
     const content = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//BabyChat//Calendar//EN",
+      "PRODID:-//PedroChat//Calendar//EN",
       "BEGIN:VEVENT",
       `UID:${plan.id}@peakboo`,
       `DTSTAMP:${stamp(new Date().toISOString())}`,
@@ -833,7 +833,7 @@ export default function App() {
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "babychat-event.ics";
+    a.download = "pedrochat-event.ics";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -970,7 +970,7 @@ export default function App() {
             setView("chats");
             setMobileChat(false);
           }}
-          aria-label="BabyChat"
+          aria-label="PedroChat"
         >
           <Logo />
         </a>
@@ -1009,7 +1009,7 @@ export default function App() {
             <Avatar image={boot.user.image} name={displayName(boot.user.name) || "P"} color="purple" />
             <div className="user-profile-details">
               <strong>
-                {displayName(boot.user.name) || "BabyChat"}
+                {displayName(boot.user.name) || "PedroChat"}
               </strong>
               <span>{demo ? t("demoShort") : boot.user.email}</span>
             </div>
@@ -1025,9 +1025,9 @@ export default function App() {
       </aside>
       <main className="main-area">
         <header className="topbar">
-          <a href="#" className="mobile-brand" aria-label="BabyChat" onClick={e=>{e.preventDefault();setView("chats");setMobileChat(false)}}><Logo /></a>
+          <a href="#" className="mobile-brand" aria-label="PedroChat" onClick={e=>{e.preventDefault();setView("chats");setMobileChat(false)}}><Logo /></a>
           <span className="breadcrumb">
-            BabyChat <span>/</span>{" "}
+            PedroChat <span>/</span>{" "}
             <strong>
               {t(view === "chats" ? "conversations" : "calendar")}
             </strong>

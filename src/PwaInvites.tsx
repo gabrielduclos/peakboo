@@ -65,7 +65,7 @@ export function PwaInvites({userId,lang,blocked}:{userId:string;lang:string;bloc
  }
  const later=pt?"Agora não":"Not now";
  return <>
-  <Modal open={!!userId&&installOpen&&!blocked&&!pushOpen&&!installation.installed} onOpenChange={v=>{if(!v)dismissInstall()}} title={pt?"Instale o BabyChat":"Install BabyChat"} description={pt?"Acesse seus grupos e compromissos direto da tela inicial.":"Access your groups and events directly from your home screen."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
+  <Modal open={!!userId&&installOpen&&!blocked&&!pushOpen&&!installation.installed} onOpenChange={v=>{if(!v)dismissInstall()}} title={pt?"Instale o PedroChat":"Install PedroChat"} description={pt?"Acesse seus grupos e compromissos direto da tela inicial.":"Access your groups and events directly from your home screen."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
    <div className="pwa-invite-body">
     <img src="/icon-192.png" width="64" height="64" alt="" className="pwa-invite-icon"/>
     {installation.native?<Button type="button" busy={busy} onClick={()=>void install()}><Download size={18}/>{pt?"Instalar aplicativo":"Install app"}</Button>:<p className="pwa-invite-instructions">{device==="ios"?(pt?"No Safari, toque em Compartilhar → Adicionar à Tela de Início.":"In Safari, tap Share → Add to Home Screen."):(pt?"Abra o menu do navegador (⋮) e escolha Instalar aplicativo ou Adicionar à tela inicial.":"Open the browser menu (⋮) and choose Install app or Add to Home screen.")}</p>}
@@ -73,7 +73,7 @@ export function PwaInvites({userId,lang,blocked}:{userId:string;lang:string;bloc
     <Button type="button" variant="ghost" disabled={busy} onClick={dismissInstall}>{later}</Button>
    </div>
   </Modal>
-  <Modal open={pushOpen&&!blocked&&!installOpen&&!!userId&&canPush()} onOpenChange={v=>{if(!v)dismissPush()}} title={pt?"Ative as notificações":"Enable notifications"} description={pt?"Receba mensagens e lembretes mesmo quando estiver fora do BabyChat.":"Receive messages and reminders even when you're away from BabyChat."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
+  <Modal open={pushOpen&&!blocked&&!installOpen&&!!userId&&canPush()} onOpenChange={v=>{if(!v)dismissPush()}} title={pt?"Ative as notificações":"Enable notifications"} description={pt?"Receba mensagens e lembretes mesmo quando estiver fora do PedroChat.":"Receive messages and reminders even when you're away from PedroChat."} closeLabel={pt?"Fechar":"Close"} className="pwa-invite-modal">
    <div className="pwa-invite-body"><div className="pwa-invite-bell"><BellRing size={28}/></div>
     <Button type="button" busy={busy} onClick={()=>void activate()}><BellRing size={18}/>{pt?"Ativar notificações":"Enable notifications"}</Button>
     {error&&<p role="alert" className="form-error">{error}</p>}

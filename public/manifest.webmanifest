@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "BabyChat",
-  "short_name": "BabyChat",
+  "name": "PedroChat",
+  "short_name": "PedroChat",
   "description": "Grupos e agenda compartilhada.",
   "start_url": "/",
   "scope": "/",
